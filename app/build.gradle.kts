@@ -12,7 +12,7 @@ android {
         applicationId = "com.jack.friend"
         minSdk = 24
         targetSdk = 35
-        versionCode = 19
+        versionCode = 23
         versionName = "1.7"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -62,8 +62,11 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
-
+    implementation("io.coil-kt:coil-gif:2.5.0")
     implementation(libs.androidx.biometric)
+
+    // AdMob
+    implementation("com.google.android.gms:play-services-ads:23.6.0")
 
     // Google Auth
     implementation(libs.play.services.auth)

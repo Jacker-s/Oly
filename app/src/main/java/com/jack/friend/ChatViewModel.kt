@@ -202,6 +202,8 @@ class ChatViewModel : ViewModel() {
     private val _pendingSharedText = MutableStateFlow<String?>(null)
     val pendingSharedText: StateFlow<String?> = _pendingSharedText
 
+    private var pendingTargetId: String? = null
+
     // ---------------------------
     // Listeners / Jobs / Timers
     // ---------------------------
@@ -307,6 +309,13 @@ class ChatViewModel : ViewModel() {
                 val username = snapshot.getValue(String::class.java).orEmpty()
                 if (username.isNotEmpty()) {
                     _myUsername.value = username
+
+                    // Habilitar keepSynced para carregamento instantâneo (Cache)
+                    db.child("users").child(username).keepSynced(true)
+                    db.child("chats").child(username).keepSynced(true)
+                    db.child("contacts").child(username).keepSynced(true)
+                    db.child("blocks").child(username).keepSynced(true)
+
                     loadMyProfile(username)
                     listenToBlockedUsers(username)
                     listenToChats(username)
@@ -315,6 +324,12 @@ class ChatViewModel : ViewModel() {
                     listenToStatuses(username)
                     setupPresence(username)
                     updateFcmToken(username)
+
+                    // Aplicar target pendente se existir (vindo de notificação)
+                    pendingTargetId?.let {
+                        setTargetId(it)
+                        pendingTargetId = null
+                    }
 
                 } else {
                     logE("Username não encontrado para o UID: $uid")
@@ -386,6 +401,11 @@ class ChatViewModel : ViewModel() {
             // Remove FCM token apenas se o usuário está realmente fazendo logout e não sendo excluído
             // A exclusão do token para o cenário de exclusão de conta será tratada em deleteAccount
             db.child("fcmTokens").child(username).removeValue()
+
+            db.child("users").child(username).keepSynced(false)
+            db.child("chats").child(username).keepSynced(false)
+            db.child("contacts").child(username).keepSynced(false)
+            db.child("blocks").child(username).keepSynced(false)
         }
 
         removeListeners()
@@ -434,6 +454,7 @@ class ChatViewModel : ViewModel() {
         }
 
         currentChatPath?.let { path ->
+            db.child(path).keepSynced(false)
             messagesListener?.let { db.child(path).removeEventListener(it) }
         }
 
@@ -474,6 +495,11 @@ class ChatViewModel : ViewModel() {
     // ---------------------------\
     fun setTargetId(id: String) {
         val me = safeMe()
+        if (me.isEmpty() && id.isNotEmpty()) {
+            pendingTargetId = id
+            return
+        }
+
         if (_targetId.value == id && id.isNotEmpty()) return
 
         // limpar alvo anterior
@@ -481,6 +507,7 @@ class ChatViewModel : ViewModel() {
         if (oldTarget.isNotEmpty() && me.isNotEmpty()) {
             val oldKey = chatKey(me, oldTarget)
             db.child("typing").child(oldKey).child(me).setValue(false)
+            db.child(messagePath(me, oldTarget)).keepSynced(false)
         }
 
         targetProfileListener?.let { l ->
@@ -528,7 +555,8 @@ class ChatViewModel : ViewModel() {
         // perfil
         targetProfileListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
-                _targetProfile.value = snapshot.getValue(UserProfile::class.java)
+                val profile = snapshot.getValue(UserProfile::class.java)
+                if (profile != null) _targetProfile.value = profile
             }
             override fun onCancelled(error: DatabaseError) {}
         }
@@ -655,7 +683,7 @@ class ChatViewModel : ViewModel() {
         } else {
             sendMessageObject(msg)
         }
-        
+
         setTyping(false)
     }
 
@@ -672,7 +700,7 @@ class ChatViewModel : ViewModel() {
             val description = response.select("meta[property=og:description]").attr("content").takeIf { it.isNotEmpty() }
                 ?: response.select("meta[name=description]").attr("content")
             val image = response.select("meta[property=og:image]").attr("content").takeIf { it.isNotEmpty() }
-            
+
             LinkPreview(url = url, title = title, description = description, imageUrl = image)
         } catch (e: Exception) {
             null
@@ -714,7 +742,7 @@ class ChatViewModel : ViewModel() {
         val path = "messages/${chatKey(message.senderId, message.receiverId)}"
 
         val updates = mutableMapOf<String, Any?>("text" to newText, "isEdited" to true)
-        
+
         // Se o novo texto tiver link, atualizar o preview
         val url = extractUrl(newText)
         if (url != null) {
@@ -765,14 +793,14 @@ class ChatViewModel : ViewModel() {
                     val isRead = it.child("isRead").getValue(Boolean::class.java) ?: false
                     if (!isRead) {
                         val updates = mutableMapOf<String, Any?>("isRead" to true)
-                        
+
                         val tempDuration = it.child("tempDurationMillis").getValue(Long::class.java)
                         val expiryTime = it.child("expiryTime").getValue(Long::class.java)
-                        
+
                         if (tempDuration != null && tempDuration > 0 && expiryTime == null) {
                             updates["expiryTime"] = System.currentTimeMillis() + tempDuration
                         }
-                        
+
                         it.ref.updateChildren(updates)
                     }
                 }
@@ -992,12 +1020,15 @@ class ChatViewModel : ViewModel() {
     }
 
     private fun updateChatSummary(msg: Message) {
+        if (msg.senderId == "SYSTEM_AD" || msg.isAd) return // Não criar chat para o sistema de anúncios
+
         viewModelScope.launch(errorHandler) {
             try {
                 val me = msg.senderId
                 val friend = msg.receiverId
 
                 val lastMsgText = when {
+                    msg.isAd -> "📢 Anúncio"
                     msg.audioUrl != null -> "🎤 Áudio"
                     msg.imageUrl != null -> "📷 Imagem"
                     msg.videoUrl != null -> "📹 Vídeo"
@@ -1030,7 +1061,7 @@ class ChatViewModel : ViewModel() {
                 db.child("chats").child(me).child(friend).setValue(summary)
 
                 val meProf = db.child("users").child(me).get().await().getValue(UserProfile::class.java)
-                
+
                 val friendSummarySnap = db.child("chats").child(friend).child(me).get().await()
                 val existingFriendSummary = friendSummarySnap.getValue(ChatSummary::class.java)
 
@@ -1078,7 +1109,7 @@ class ChatViewModel : ViewModel() {
             override fun onDataChange(s: DataSnapshot) {
                 val blocked = _blockedUsers.value.toSet()
                 val incomingChats = s.children.mapNotNull { it.getValue(ChatSummary::class.java) }
-                    .filter { it.friendId.isNotBlank() && !blocked.contains(it.friendId) }
+                    .filter { it.friendId.isNotBlank() && !blocked.contains(it.friendId) && it.friendId != "SYSTEM_AD" }
                     .sortedWith(compareByDescending<ChatSummary> { it.isPinned }.thenByDescending { it.timestamp })
 
                 val currentChats = _activeChats.value
@@ -1164,10 +1195,16 @@ class ChatViewModel : ViewModel() {
         val me = safeMe()
         if (me.isEmpty()) return
 
-        currentChatPath?.let { path -> messagesListener?.let { db.child(path).removeEventListener(it) } }
+        currentChatPath?.let { path ->
+            db.child(path).keepSynced(false)
+            messagesListener?.let { db.child(path).removeEventListener(it) }
+        }
 
         val path = messagePath(me, target)
         currentChatPath = path
+
+        // Cachear mensagens desta conversa específica enquanto aberta
+        db.child(path).keepSynced(true)
 
         startEphemeralCleanup(target)
 
@@ -1206,11 +1243,11 @@ class ChatViewModel : ViewModel() {
                 val now = System.currentTimeMillis()
                 val currentMsgs = _messages.value
                 val hasExpired = currentMsgs.any { it.expiryTime != null && it.expiryTime!! < now }
-                
+
                 if (hasExpired) {
                     val filtered = currentMsgs.filter { it.expiryTime == null || it.expiryTime!! > now }
                     _messages.value = filtered
-                    
+
                     // Cleanup DB
                     currentMsgs.forEach {
                         if (it.expiryTime != null && it.expiryTime!! < now) {
@@ -1450,7 +1487,7 @@ class ChatViewModel : ViewModel() {
     fun toggleScreenshotBlock(friendId: String, currentStatus: Boolean) {
         val me = safeMe()
         if (me.isEmpty() || friendId.isEmpty()) return
-        
+
         db.child("chats").child(me).child(friendId).child("isScreenshotDisabled").setValue(!currentStatus)
     }
 
@@ -1516,7 +1553,7 @@ class ChatViewModel : ViewModel() {
                     val isVideo = mime?.startsWith("video") == true
                     val folder = if (isVideo) FOLDER_CHAT_VIDEOS else FOLDER_STATUSES
                     val resourceType = if (isVideo) "video" else "image"
-                    
+
                     val url = uploadToCloudinary(uri, folder, resourceType)
                     if (url != null) {
                         val statusId = db.push().key ?: return@forEach
@@ -1623,12 +1660,30 @@ class ChatViewModel : ViewModel() {
         val me = safeMe()
         if (me.isEmpty() || friendId.isBlank()) return
 
-        db.child("messages/${chatKey(me, friendId)}").get().addOnSuccessListener { snapshot ->
+        val path = "messages/${chatKey(me, friendId)}"
+        db.child(path).get().addOnSuccessListener { snapshot ->
             snapshot.children.forEach { msgSnap ->
                 val msg = msgSnap.getValue(Message::class.java)
                 if (msg != null) deleteMessageMedia(msg)
             }
+            // MUDANÇA: Exclui mensagens do banco para ambos
+            db.child(path).removeValue()
+
+            // Remove o nó da conversa apenas para O USUÁRIO ATUAL (pois não tem permissão para remover no nó do outro)
             db.child("chats").child(me).child(friendId).removeValue()
+
+            // ATENÇÃO: Remoção da tentativa de escrever em chats/$friendId pois as regras do Firebase bloqueiam isso.
+            // Para informar ao outro usuário que o chat foi apagado (sem mensagens), criamos uma mensagem de sistema
+            val systemMsgId = db.push().key ?: return@addOnSuccessListener
+            val systemMsg = Message(
+                id = systemMsgId,
+                senderId = me, // ENVIAR COMO O USUÁRIO ATUAL PARA O RECEPTOR SABER DE QUEM VEIO
+                receiverId = friendId,
+                text = "Conversa apagada",
+                timestamp = System.currentTimeMillis()
+            )
+            // Escrevemos a mensagem no chatKey. A regra "messages" permite pois você faz parte do chat.
+            db.child(path).child(systemMsgId).setValue(systemMsg)
         }
     }
 
@@ -1644,9 +1699,26 @@ class ChatViewModel : ViewModel() {
             }
             db.child(path).removeValue()
 
-            val upd = mapOf("lastMessage" to "Conversa limpa", "timestamp" to System.currentTimeMillis(), "hasUnread" to false)
+            val upd = mapOf(
+                "lastMessage" to "Conversa limpa",
+                "timestamp" to System.currentTimeMillis(),
+                "hasUnread" to false,
+                "lastSenderId" to ""
+            )
+            // Atualiza apenas o PRÓPRIO nó, já que escrever em chats/$friendId não é permitido pelas regras.
             db.child("chats").child(me).child(friendId).updateChildren(upd)
-            db.child("chats").child(friendId).child(me).updateChildren(upd)
+
+            // Para forçar a atualização visual no aparelho do outro (já que as mensagens sumiram),
+            // enviamos uma mensagem de sistema silenciosa invisível ou com texto de limpeza
+            val systemMsgId = db.push().key ?: return@addOnSuccessListener
+            val systemMsg = Message(
+                id = systemMsgId,
+                senderId = me,
+                receiverId = friendId,
+                text = "Conversa limpa",
+                timestamp = System.currentTimeMillis()
+            )
+            db.child(path).child(systemMsgId).setValue(systemMsg)
         }
     }
 
@@ -1706,6 +1778,7 @@ class ChatViewModel : ViewModel() {
 
                     if (lastMsg != null) {
                         val updatedText = when {
+                            lastMsg.isAd -> "📢 Anúncio"
                             lastMsg.audioUrl != null -> "🎤 Áudio"
                             lastMsg.imageUrl != null -> "📷 Imagem"
                             lastMsg.videoUrl != null -> "📹 Vídeo"
@@ -1970,5 +2043,26 @@ class ChatViewModel : ViewModel() {
             isEdited = false, // Usar um campo para sinalizar aviso do sistema se quiser, ou texto simples
         )
         sendMessageObject(msg)
+    }
+
+    fun sendTestAd() {
+        val me = safeMe()
+        val target = safeTarget()
+        if (me.isEmpty() || target.isEmpty()) return
+
+        val msgId = db.push().key ?: return
+        val msg = Message(
+            id = msgId,
+            senderId = "SYSTEM_AD",
+            receiverId = me,
+            text = "Confira as novas figurinhas exclusivas do Wappi Messenger!",
+            imageUrl = "https://img.freepik.com/vetores-gratis/modelo-de-banner-de-venda-de-sexta-feira-negra-plana_23-2149111440.jpg",
+            timestamp = System.currentTimeMillis(),
+            isAd = true,
+            adLink = "https://github.com/TelegramMessenger/Tato"
+        )
+
+        db.child(messagePath(me, target)).child(msgId).setValue(msg)
+        // updateChatSummary(msg) REMOVIDO: Evita que apareça na lista de chats
     }
 }

@@ -89,7 +89,7 @@ fun StickerPicker(
                             .background(Color.LightGray.copy(alpha = 0.5f))
                     )
                 }
-                
+
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
                     contentPadding = PaddingValues(16.dp),

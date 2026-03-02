@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.Manifest
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -26,6 +27,7 @@ import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
 import com.jack.friend.ui.chat.ChatScreen
+import com.jack.friend.ui.chat.SecurityWrapper
 import com.jack.friend.ui.theme.FriendTheme
 
 class MainActivity : FragmentActivity() {
@@ -44,6 +46,33 @@ class MainActivity : FragmentActivity() {
             FriendTheme {
                 mainViewModel = viewModel()
                 val isUserLoggedIn by mainViewModel.isUserLoggedIn.collectAsStateWithLifecycle()
+
+                var showAdNoticeDialog by remember { mutableStateOf(false) }
+
+                LaunchedEffect(Unit) {
+                    val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                    val adNoticeShown = prefs.getBoolean("ad_notice_shown", false)
+                    if (!adNoticeShown) {
+                        showAdNoticeDialog = true
+                    }
+                }
+
+                if (showAdNoticeDialog) {
+                    AlertDialog(
+                        onDismissRequest = { /* Não permite fechar fora */ },
+                        title = { Text("Aviso de Anúncios") },
+                        text = { Text("Para manter o Wappi Messenger gratuito e com servidores ativos, poderemos exibir alguns anúncios durante o uso do chat. Agradecemos a compreensão!") },
+                        confirmButton = {
+                            Button(onClick = {
+                                val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+                                prefs.edit().putBoolean("ad_notice_shown", true).apply()
+                                showAdNoticeDialog = false
+                            }) {
+                                Text("Entendi")
+                            }
+                        }
+                    )
+                }
 
                 val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     arrayOf(
@@ -86,7 +115,7 @@ class MainActivity : FragmentActivity() {
                         finish()
                     }
                 } else {
-                    ChatScreen(mainViewModel)
+                    SecurityWrapper(isUserLoggedIn = true, viewModel = mainViewModel)
                 }
 
                 var showOverlayDialog by remember { mutableStateOf(false) }

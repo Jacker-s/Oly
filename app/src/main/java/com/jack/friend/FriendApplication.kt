@@ -3,13 +3,21 @@ package com.jack.friend
 import android.app.Activity
 import android.app.Application
 import android.content.Context
+import android.os.Build.VERSION.SDK_INT
 import android.os.Bundle
 import com.cloudinary.android.MediaManager
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
+import com.google.android.gms.ads.MobileAds
+import com.google.firebase.database.FirebaseDatabase
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.io.File
 
 class FriendApplication : Application(), Application.ActivityLifecycleCallbacks, ImageLoaderFactory {
@@ -30,6 +38,19 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
         instance = this
         registerActivityLifecycleCallbacks(this)
         
+        // Inicializar AdMob
+        val backgroundScope = CoroutineScope(Dispatchers.IO)
+        backgroundScope.launch {
+            MobileAds.initialize(this@FriendApplication) {}
+        }
+
+        // Ativa persistência offline do Firebase
+        try {
+            FirebaseDatabase.getInstance().setPersistenceEnabled(true)
+        } catch (e: Exception) {
+            // Pode falhar se já tiver sido chamado
+        }
+
         val config = mapOf(
             "cloud_name" to "dagdvifyz",
             "api_key" to "515648516698279",
@@ -41,7 +62,7 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
     fun clearAppData() {
         try {
             // Limpa SharedPreferences conhecidas
-            val prefs = listOf("friend_prefs", "security_prefs", "ui_prefs", "recent_emojis_prefs")
+            val prefs = listOf("friend_prefs", "security_prefs", "ui_prefs", "recent_emojis_prefs", "chat_cache_prefs")
             prefs.forEach { name ->
                 getSharedPreferences(name, Context.MODE_PRIVATE).edit().clear().apply()
             }
@@ -60,6 +81,11 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {
+                if (SDK_INT >= 28) {
+                    add(ImageDecoderDecoder.Factory())
+                } else {
+                    add(GifDecoder.Factory())
+                }
                 add(VideoFrameDecoder.Factory())
             }
             .crossfade(true)

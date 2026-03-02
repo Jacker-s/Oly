@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -51,7 +52,8 @@ fun ChatOptionsMenuSheet(
     onTogglePin: () -> Unit,
     onToggleTempMessages: () -> Unit,
     onClearChat: () -> Unit,
-    onBlockToggle: () -> Unit
+    onBlockToggle: () -> Unit,
+    onSendTestAd: () -> Unit = {}
 ) {
     val colors = LocalChatColors.current
     val durationText = when {
@@ -105,6 +107,12 @@ fun ChatOptionsMenuSheet(
         )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.separator.copy(alpha = 0.5f))
+
+        SheetOption(
+            icon = Icons.Rounded.Campaign,
+            text = "Testar Anúncio",
+            onClick = { onDismiss(); onSendTestAd() }
+        )
 
         SheetOption(
             icon = Icons.Rounded.DeleteSweep,

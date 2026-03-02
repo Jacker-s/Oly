@@ -131,9 +131,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
         activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
-    LaunchedEffect(messages.size) { 
+    LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
-            listState.animateScrollToItem(messages.size - 1) 
+            listState.animateScrollToItem(messages.size - 1)
             // Se a conversa está aberta e chegou mensagem, marca como lida
             if (targetId.isNotEmpty()) {
                 viewModel.markAsRead()
@@ -208,6 +208,34 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     val statusLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
         if (uris.isNotEmpty()) viewModel.uploadStatus(uris)
+    }
+
+    // 🔥 Injeta anúncios apenas localmente (não salva no Firebase)
+    fun injectAdsLocally(messages: List<Message>): List<Message> {
+        if (messages.size < 8) return messages
+
+        val result = mutableListOf<Message>()
+        val random = Random()
+
+        messages.forEachIndexed { index, message ->
+            result.add(message)
+
+            // A cada 8-14 mensagens insere anúncio
+            if (index > 0 && index % (8 + random.nextInt(6)) == 0) {
+                result.add(
+                    Message(
+                        id = "local_ad_${System.currentTimeMillis()}_$index",
+                        senderId = "AD_SYSTEM",
+                        receiverId = "",
+                        text = "",
+                        timestamp = System.currentTimeMillis(),
+                        isAd = true
+                    )
+                )
+            }
+        }
+
+        return result
     }
 
     Scaffold(
@@ -334,7 +362,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             onMessage = {
                                 showChatInfo = false
                                 viewModel.setTargetId(it.id)
-                             },
+                            },
                             onAudioCall = { callLogic(false) },
                             onVideoCall = { callLogic(true) },
                             onToggleMute = { viewModel.toggleMuteChat(targetProfile.id, currentChat?.isMuted ?: false) },
@@ -361,7 +389,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                 onTogglePin = { viewModel.togglePinChat(targetId, currentChat?.isPinned ?: false) },
                                 onToggleTempMessages = { showTempMessageSelector = true },
                                 onClearChat = { showClearChatDialog = true },
-                                onBlockToggle = { if (blockedUsers.contains(targetId)) viewModel.unblockUser(targetId) else viewModel.blockUser(targetId) }
+                                onBlockToggle = { if (blockedUsers.contains(targetId)) viewModel.unblockUser(targetId) else viewModel.blockUser(targetId) },
+                                onSendTestAd = { viewModel.sendTestAd() }
                             )
                         }
                     }

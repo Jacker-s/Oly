@@ -5,6 +5,8 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.util.Log
 import android.view.HapticFeedbackConstants
+import android.widget.FrameLayout
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.BorderStroke
@@ -48,16 +50,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
 import coil.compose.AsyncImage
-import com.jack.friend.AnimatedEmoji
-import com.jack.friend.AnimatedEmojiHelper
-import com.jack.friend.LinkPreview
-import com.jack.friend.Message
-import com.jack.friend.MetaEmojiPickerPro
-import com.jack.friend.RecentEmojiStore
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.AdSize
+import com.google.android.gms.ads.AdView
+import com.google.android.gms.ads.LoadAdError
+import com.jack.friend.*
 import com.jack.friend.ui.theme.LocalChatColors
 import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.MetaGray4
@@ -77,7 +79,7 @@ fun MetaMessageBubble(
     targetPhotoUrl: String?,
     isFirstInGroup: Boolean,
     isLastInGroup: Boolean,
-    showReadReceipts: Boolean = true, // Adicionado
+    showReadReceipts: Boolean = true,
     onImageClick: (String) -> Unit,
     onVideoClick: (String) -> Unit,
     onDelete: (String) -> Unit,
@@ -88,31 +90,35 @@ fun MetaMessageBubble(
     onAudioPlayed: () -> Unit = {}
 ) {
     val chatColors = LocalChatColors.current
+
+    // Se for um anúncio, renderizar o AdMob
+    if (message.isAd) {
+        AdMobBubble()
+        return
+    }
+
     val isSingleEmoji = AnimatedEmojiHelper.isSingleEmoji(message.text) && message.imageUrl == null && message.audioUrl == null && message.videoUrl == null && message.replyToId == null
     val animUrl = if (isSingleEmoji) AnimatedEmojiHelper.getAnimUrl(message.text) else null
-    
-    // Theme-aware colors
+
     val bubbleColor = if (isMe) chatColors.bubbleMe else chatColors.bubbleOther
     val textColor = if (isMe) {
-        // High contrast white for dark bubbles, dark for light ones
         if (isColorDark(chatColors.bubbleMe)) Color.White else Color.Black
     } else {
         chatColors.textPrimary
     }
-    
+
     val view = LocalView.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     var showContext by remember { mutableStateOf(false) }
 
-    // Swipe to Reply State
     var dragAmount by remember { mutableFloatStateOf(0f) }
     val offsetX = animateFloatAsState(
         targetValue = dragAmount,
         animationSpec = spring(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow),
         label = "offsetX"
     )
-    
+
     var isReplyTriggered by remember { mutableStateOf(false) }
 
     val shape = if (isMe) RoundedCornerShape(
@@ -130,11 +136,12 @@ fun MetaMessageBubble(
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(vertical = if (isFirstInGroup) 4.dp else 0.dp)
             .draggable(
                 state = rememberDraggableState { delta ->
                     val newOffset = (dragAmount + delta).coerceIn(0f, 100f)
                     dragAmount = newOffset
-                    
+
                     if (newOffset >= 70f && !isReplyTriggered) {
                         isReplyTriggered = true
                         view.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP)
@@ -150,7 +157,6 @@ fun MetaMessageBubble(
                 }
             )
     ) {
-        // Reply icon behind bubble
         if (offsetX.value > 10f) {
             Box(
                 modifier = Modifier
@@ -176,7 +182,7 @@ fun MetaMessageBubble(
             modifier = Modifier
                 .offset { IntOffset(offsetX.value.roundToInt(), 0) }
                 .fillMaxWidth()
-                .padding(vertical = 1.dp, horizontal = 8.dp),
+                .padding(horizontal = 8.dp),
             horizontalArrangement = if (isMe) Arrangement.End else Arrangement.Start,
             verticalAlignment = Alignment.Bottom
         ) {
@@ -200,9 +206,9 @@ fun MetaMessageBubble(
                         contentDescription = "Sticker",
                         modifier = Modifier.size(160.dp).combinedClickable(
                             onClick = { },
-                            onLongClick = { 
+                            onLongClick = {
                                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                showContext = true 
+                                showContext = true
                             }
                         )
                     )
@@ -212,20 +218,20 @@ fun MetaMessageBubble(
                             AnimatedEmoji(
                                 emoji = message.text,
                                 modifier = Modifier.size(110.dp),
-                                onLongClick = { 
+                                onLongClick = {
                                     view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                    showContext = true 
+                                    showContext = true
                                 }
                             )
                         } else {
                             Text(
-                                text = message.text, 
-                                fontSize = 64.sp, 
+                                text = message.text,
+                                fontSize = 64.sp,
                                 modifier = Modifier.combinedClickable(
-                                    onClick = { showContext = true }, 
-                                    onLongClick = { 
+                                    onClick = { showContext = true },
+                                    onLongClick = {
                                         view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                        showContext = true 
+                                        showContext = true
                                     }
                                 )
                             )
@@ -242,17 +248,17 @@ fun MetaMessageBubble(
                                 if (message.imageUrl != null) onImageClick(message.imageUrl!!)
                                 else if (message.videoUrl != null) onVideoClick(message.videoUrl!!)
                             },
-                            onLongClick = { 
+                            onLongClick = {
                                 view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                showContext = true 
+                                showContext = true
                             }
                         )
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                             if (message.replyToId != null) {
                                 Surface(
-                                    color = if (isMe) textColor.copy(0.15f) else Color.Black.copy(0.05f), 
-                                    shape = RoundedCornerShape(10.dp), 
+                                    color = if (isMe) textColor.copy(0.15f) else Color.Black.copy(0.05f),
+                                    shape = RoundedCornerShape(10.dp),
                                     modifier = Modifier.padding(bottom = 6.dp).fillMaxWidth()
                                 ) {
                                     Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -279,8 +285,8 @@ fun MetaMessageBubble(
                             }
 
                             if (message.audioUrl != null) AudioPlayerBubble(
-                                url = message.audioUrl!!, 
-                                localPath = message.localAudioPath, 
+                                url = message.audioUrl!!,
+                                localPath = message.localAudioPath,
                                 isMe = isMe,
                                 isPlayed = message.audioPlayed,
                                 durationSeconds = message.audioDurationSeconds,
@@ -299,7 +305,7 @@ fun MetaMessageBubble(
                                         modifier = Modifier.padding(bottom = 2.dp)
                                     )
                                 }
-                                
+
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (message.isEdited) {
                                         Text(
@@ -325,8 +331,8 @@ fun MetaMessageBubble(
                                         }
                                         Icon(
                                             if (isReadToDisplay) Icons.Default.DoneAll else Icons.Default.Check,
-                                            null, 
-                                            tint = statusIconColor, 
+                                            null,
+                                            tint = statusIconColor,
                                             modifier = Modifier.size(13.dp)
                                         )
                                     }
@@ -378,7 +384,99 @@ fun MetaMessageBubble(
     }
 }
 
-// Utility to check if a color is dark
+@Composable
+fun AdMobBubble() {
+    val chatColors = LocalChatColors.current
+    var adLoaded by remember { mutableStateOf(false) }
+    var adFailed by remember { mutableStateOf(false) }
+
+    if (adFailed) return
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .animateContentSize()
+            .padding(vertical = if (adLoaded) 12.dp else 0.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (adLoaded) {
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                tonalElevation = 2.dp,
+                shadowElevation = 2.dp,
+                color = chatColors.secondaryBackground,
+                border = BorderStroke(0.5.dp, chatColors.separator.copy(alpha = 0.3f)),
+                modifier = Modifier.widthIn(max = 320.dp)
+            ) {
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Rounded.Info,
+                            contentDescription = null,
+                            tint = chatColors.primary.copy(alpha = 0.7f),
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = "Publicidade",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = chatColors.primary,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    AndroidView(
+                        factory = { context ->
+                            AdView(context).apply {
+                                setAdSize(AdSize.LARGE_BANNER)
+                                adUnitId = "ca-app-pub-7931782163570852/1428917414"
+                                adListener = object : com.google.android.gms.ads.AdListener() {
+                                    override fun onAdLoaded() {
+                                        adLoaded = true
+                                    }
+                                    override fun onAdFailedToLoad(error: LoadAdError) {
+                                        adFailed = true
+                                    }
+                                }
+                                loadAd(AdRequest.Builder().build())
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(100.dp)
+                    )
+                }
+            }
+        } else {
+            // AndroidView invisível para disparar o carregamento sem ocupar espaço
+            AndroidView(
+                factory = { context ->
+                    AdView(context).apply {
+                        setAdSize(AdSize.LARGE_BANNER)
+                        adUnitId = "ca-app-pub-7931782163570852/1428917414"
+                        adListener = object : com.google.android.gms.ads.AdListener() {
+                            override fun onAdLoaded() {
+                                adLoaded = true
+                            }
+                            override fun onAdFailedToLoad(error: LoadAdError) {
+                                adFailed = true
+                            }
+                        }
+                        loadAd(AdRequest.Builder().build())
+                    }
+                },
+                modifier = Modifier.size(1.dp).alpha(0f)
+            )
+        }
+    }
+}
+
 private fun isColorDark(color: Color): Boolean {
     val luminance = 0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue
     return luminance < 0.5
@@ -479,13 +577,13 @@ fun SwiftUIMessageMenu(isMe: Boolean, onDismiss: () -> Unit, onReply: () -> Unit
         ), contentAlignment = Alignment.Center) {
             Column(modifier = Modifier.width(300.dp).padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Surface(
-                    shape = RoundedCornerShape(32.dp), 
-                    color = chatColors.secondaryBackground, 
+                    shape = RoundedCornerShape(32.dp),
+                    color = chatColors.secondaryBackground,
                     tonalElevation = 8.dp,
                     modifier = Modifier.padding(bottom = 16.dp).shadow(12.dp, RoundedCornerShape(32.dp))
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp), 
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         LazyRow(
@@ -504,32 +602,32 @@ fun SwiftUIMessageMenu(isMe: Boolean, onDismiss: () -> Unit, onReply: () -> Unit
                                 }
 
                                 Text(
-                                    text = emoji, 
+                                    text = emoji,
                                     modifier = Modifier
                                         .graphicsLayer(scaleX = emojiScale.value, scaleY = emojiScale.value, alpha = emojiAlpha.value)
-                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { 
+                                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {
                                             scope.launch {
                                                 emojiScale.animateTo(1.5f, tween(100))
                                                 emojiScale.animateTo(1f, tween(100))
                                                 onReact(emoji)
                                             }
                                         }
-                                        .padding(horizontal = 6.dp), 
+                                        .padding(horizontal = 6.dp),
                                     fontSize = 30.sp
                                 )
                             }
                         }
-                        
+
                         IconButton(onClick = { showFullEmojiPicker = true }) {
                             Icon(Icons.Default.Add, null, tint = chatColors.primary, modifier = Modifier.size(28.dp))
                         }
                     }
                 }
-                
+
                 if (!showFullEmojiPicker) {
                     Surface(
-                        shape = RoundedCornerShape(24.dp), 
-                        color = chatColors.secondaryBackground, 
+                        shape = RoundedCornerShape(24.dp),
+                        color = chatColors.secondaryBackground,
                         tonalElevation = 4.dp,
                         modifier = Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(24.dp))
                     ) {
@@ -571,8 +669,8 @@ fun SwiftUIDivider() {
 
 @Composable
 fun AudioPlayerBubble(
-    url: String, 
-    localPath: String?, 
+    url: String,
+    localPath: String?,
     isMe: Boolean,
     isPlayed: Boolean,
     durationSeconds: Long?,
@@ -587,7 +685,7 @@ fun AudioPlayerBubble(
     } else {
         chatColors.textPrimary
     }
-    
+
     val playedColor = chatColors.primary // Usa a cor primária do tema atual para o áudio ouvido
 
     val formattedDuration = remember(durationSeconds) {
@@ -644,9 +742,9 @@ fun AudioPlayerBubble(
             modifier = Modifier.size(42.dp)
         ) {
             Icon(
-                imageVector = if (isPlaying) Icons.Rounded.PauseCircleFilled else Icons.Rounded.PlayCircleFilled, 
-                contentDescription = null, 
-                tint = if (isPlayed && !isMe) playedColor else textColor, 
+                imageVector = if (isPlaying) Icons.Rounded.PauseCircleFilled else Icons.Rounded.PlayCircleFilled,
+                contentDescription = null,
+                tint = if (isPlayed && !isMe) playedColor else textColor,
                 modifier = Modifier.size(38.dp)
             )
         }
@@ -655,8 +753,8 @@ fun AudioPlayerBubble(
             AudioVisualizer(isPlaying = isPlaying, color = if (isPlayed && !isMe) playedColor else textColor)
             Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(
-                progress = { progress }, 
-                modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape), 
+                progress = { progress },
+                modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),
                 color = if (isMe) textColor else if (isPlayed) playedColor else chatColors.primary,
                 trackColor = textColor.copy(alpha = 0.2f)
             )
@@ -664,9 +762,9 @@ fun AudioPlayerBubble(
         Spacer(Modifier.width(10.dp))
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(
-                Icons.Rounded.Mic, 
-                null, 
-                tint = if (isPlayed && !isMe) playedColor else textColor.copy(alpha = 0.6f), 
+                Icons.Rounded.Mic,
+                null,
+                tint = if (isPlayed && !isMe) playedColor else textColor.copy(alpha = 0.6f),
                 modifier = Modifier.size(18.dp)
             )
             if (formattedDuration.isNotEmpty()) {

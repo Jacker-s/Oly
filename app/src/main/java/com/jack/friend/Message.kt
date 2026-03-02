@@ -42,6 +42,11 @@ data class Message(
     // Link Preview
     var linkPreview: LinkPreview? = null,
 
+    // Anúncio
+    var isAd: Boolean = false,
+    var adLink: String? = null,
+    var adButtonText: String? = null,
+
     // =========================
     // Estados da mensagem
     // =========================
@@ -134,6 +139,7 @@ data class Message(
     val safeText: String
         get() = when {
             isDeleted -> "Mensagem apagada"
+            isAd -> "📢 Anúncio"
             isImage -> "📷 Imagem"
             isVideo -> "📹 Vídeo"
             isAudio -> "🎤 Áudio"

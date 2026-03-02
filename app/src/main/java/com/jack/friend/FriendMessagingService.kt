@@ -47,21 +47,30 @@ class FriendMessagingService : FirebaseMessagingService() {
             if (messageJson != null) {
                 try {
                     val message = Gson().fromJson(messageJson, Message::class.java)
+
+                    // IGNORAR ANÚNCIOS NAS NOTIFICAÇÕES E RESUMOS
+                    if (message.isAd || message.senderId == "SYSTEM_AD") {
+                        return
+                    }
+
                     val isCall = data["type"] == "CALL" || (message.callType != null && message.callStatus == "STARTING")
 
                     if (isCall) {
                         handleIncomingCall(message)
                     } else {
                         val isChatOpen = FriendApplication.isAppInForeground && FriendApplication.currentOpenedChatId == message.senderId
-                        
-                        // Atualiza o resumo, mas define 'hasUnread' como falso se a conversa já estiver aberta
-                        updateChatSummaryOnMessage(message, !isChatOpen)
 
-                        if (isChatOpen) return
-                        
+                        // Atualiza o resumo, mas define 'hasUnread' como falso se a conversa já estiver aberta
+                        // Para mensagens de sistema que esvaziam a conversa, deixamos false pois não tem conteúdo lido/não lido novo pra ver, a conversa só foi deletada.
+                        val isSystemClear = message.text == "Conversa limpa" || message.text == "Conversa apagada"
+                        updateChatSummaryOnMessage(message, if (isSystemClear) false else !isChatOpen)
+
+                        // Se for uma limpeza de chat, paramos o processamento aqui, pois não queremos exibir uma notificação vibrando na tela da pessoa só pra avisar que foi limpo!
+                        if (isChatOpen || isSystemClear) return
+
                         val prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                         val cachedUsername = prefs.getString(KEY_MY_USERNAME, null)
-                        
+
                         // Processar em thread separada para permitir downloads sem travar o serviço
                         Thread {
                             showNotification(message, cachedUsername)
@@ -87,10 +96,12 @@ class FriendMessagingService : FirebaseMessagingService() {
     }
 
     private fun updateChatSummaryOnMessage(msg: Message, setAsUnread: Boolean) {
+        if (msg.isAd || msg.senderId == "SYSTEM_AD") return
+
         val db = FirebaseDatabase.getInstance().reference
         val sender = msg.senderId
         val receiver = msg.receiverId
-        
+
         val lastMsgText = when {
             msg.audioUrl != null -> "🎤 Áudio"
             msg.imageUrl != null -> "📷 Imagem"
@@ -111,7 +122,7 @@ class FriendMessagingService : FirebaseMessagingService() {
                 friendPhotoUrl = senderProfile?.photoUrl,
                 isGroup = false,
                 isOnline = senderProfile?.isOnline ?: false,
-                hasUnread = setAsUnread, 
+                hasUnread = setAsUnread,
                 presenceStatus = senderProfile?.presenceStatus ?: "Online"
             )
             db.child("chats").child(receiver).child(sender).setValue(summary)
@@ -122,7 +133,7 @@ class FriendMessagingService : FirebaseMessagingService() {
         if (url.isNullOrEmpty()) return null
         return try {
             val connection = URL(url).openConnection() as HttpURLConnection
-            connection.connectTimeout = 5000 
+            connection.connectTimeout = 5000
             connection.readTimeout = 5000
             connection.doInput = true
             connection.connect()
@@ -165,13 +176,24 @@ class FriendMessagingService : FirebaseMessagingService() {
         val chatId = if (message.isGroup) message.receiverId else message.senderId
         val senderName = message.senderName ?: "Wappi"
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        
+
+        // Criar uma Intent que force a MainActivity a processar o targetId
         val intent = Intent(this, MainActivity::class.java).apply {
+            action = "OPEN_CHAT_" + chatId
             putExtra("targetId", chatId)
             putExtra("isGroup", message.isGroup)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            // IMPORTANTE: Flags para garantir que a atividade seja trazida para frente corretamente
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        val pendingIntent = PendingIntent.getActivity(this, chatId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+
+        val pendingIntent = PendingIntent.getActivity(
+            this,
+            chatId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
 
         val userPerson = Person.Builder().setName(myUsername ?: "Eu").build()
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
@@ -182,24 +204,22 @@ class FriendMessagingService : FirebaseMessagingService() {
             .setContentIntent(pendingIntent)
             .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
             .setColor(0xFF007AFF.toInt())
-            .setShortcutId(chatId) 
+            .setShortcutId(chatId)
             .setLocusId(androidx.core.content.LocusIdCompat(chatId))
 
-        // 1. Download IMEDIATO da imagem do remetente
+        // Download da imagem do remetente
         val senderBitmap = downloadBitmap(message.senderPhotoUrl)
         val senderIcon = if (senderBitmap != null) IconCompat.createWithBitmap(senderBitmap) else null
-        
+
         val senderPerson = Person.Builder()
             .setName(senderName)
-            .setIcon(senderIcon) 
+            .setIcon(senderIcon)
             .build()
 
         val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
             .setConversationTitle(if (message.isGroup) senderName else null)
             .setGroupConversation(message.isGroup)
 
-        // 2. Download da imagem da mensagem ou texto alternativo para áudio
-        val messageBitmap = if (message.isImage) downloadBitmap(message.imageUrl) else null
         val msgText = when {
             message.isImage -> "📷 Imagem"
             message.isAudio -> "🎤 Mensagem de áudio"
@@ -210,14 +230,13 @@ class FriendMessagingService : FirebaseMessagingService() {
 
         val notificationMessage = NotificationCompat.MessagingStyle.Message(msgText, message.timestamp, senderPerson)
 
-        if (messageBitmap != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (message.isImage && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             notificationMessage.setData("image/", Uri.parse(message.imageUrl))
         }
-        
+
         messagingStyle.addMessage(notificationMessage)
         builder.setStyle(messagingStyle)
-        
-        // Backup: Set LargeIcon para garantir visibilidade da foto em versões antigas
+
         if (senderBitmap != null) builder.setLargeIcon(senderBitmap)
 
         // Resposta rápida

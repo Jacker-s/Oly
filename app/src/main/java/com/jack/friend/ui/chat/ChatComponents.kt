@@ -42,14 +42,14 @@ fun MetaStatusRow(
     onViewUserStatuses: (List<UserStatus>) -> Unit
 ) {
     val contactIds = contacts.map { it.id }.toSet()
-    
+
     // Filtra para mostrar apenas status próprios ou de contatos
     val filteredStatuses = statuses.filter { it.userId == myUsername || contactIds.contains(it.userId) }
-    
+
     val grouped = filteredStatuses.groupBy { it.userId }
     val myStatuses = grouped[myUsername] ?: emptyList()
     val otherStatuses = grouped.filter { it.key != myUsername }
-    
+
     val hasUnread = { list: List<UserStatus> -> list.any { !it.viewers.containsKey(myUsername) } }
 
     LazyRow(
@@ -65,7 +65,7 @@ fun MetaStatusRow(
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     val borderColor = if (myStatuses.isNotEmpty()) MessengerBlue else Color.Transparent
-                    
+
                     Box(
                         modifier = Modifier
                             .size(68.dp)
@@ -79,7 +79,7 @@ fun MetaStatusRow(
                             contentScale = ContentScale.Crop
                         )
                     }
-                    
+
                     if (myStatuses.isEmpty()) {
                         Surface(
                             modifier = Modifier.align(Alignment.BottomEnd).size(22.dp).offset(x = (-2).dp, y = (-2).dp),
@@ -99,7 +99,7 @@ fun MetaStatusRow(
         otherStatuses.forEach { (_, userList) ->
             val first = userList.first()
             val unread = hasUnread(userList)
-            
+
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -113,7 +113,7 @@ fun MetaStatusRow(
                                 val strokeWidth = 2.5.dp.toPx()
                                 val gap = 4f
                                 val count = userList.size
-                                
+
                                 if (count == 1) {
                                     drawCircle(color = segmentColor, style = Stroke(strokeWidth))
                                 } else {
@@ -135,7 +135,7 @@ fun MetaStatusRow(
                     ) {
                         AsyncImage(
                             model = first.userPhotoUrl,
-                            contentDescription = null, 
+                            contentDescription = null,
                             modifier = Modifier.fillMaxSize().clip(CircleShape).background(LocalChatColors.current.separator),
                             contentScale = ContentScale.Crop
                         )
@@ -150,13 +150,13 @@ fun MetaStatusRow(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MetaChatItem(
-    summary: ChatSummary, 
+    summary: ChatSummary,
     myId: String,
-    onClick: () -> Unit, 
+    onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
     val chatColors = LocalChatColors.current
-    
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -166,15 +166,15 @@ fun MetaChatItem(
     ) {
         Box {
             AsyncImage(
-                model = summary.friendPhotoUrl, 
-                contentDescription = null, 
+                model = summary.friendPhotoUrl,
+                contentDescription = null,
                 modifier = Modifier
                     .size(60.dp)
                     .clip(CircleShape)
-                    .background(chatColors.separator), 
+                    .background(chatColors.separator),
                 contentScale = ContentScale.Crop
             )
-            
+
             if (summary.isOnline && summary.presenceStatus != "Invisível") {
                 val presenceColor = when (summary.presenceStatus) {
                     "Online" -> iOSGreen
@@ -192,23 +192,23 @@ fun MetaChatItem(
                 )
             }
         }
-        
+
         Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
             Row(
-                modifier = Modifier.fillMaxWidth(), 
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Text(
-                        text = summary.friendName ?: summary.friendId, 
+                        text = summary.friendName ?: summary.friendId,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = if (summary.hasUnread) FontWeight.Bold else FontWeight.SemiBold
-                        ), 
-                        maxLines = 1, 
+                        ),
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                    
+
                     if (summary.isMuted) {
                         Icon(
                             imageVector = Icons.Rounded.NotificationsOff,
@@ -217,7 +217,7 @@ fun MetaChatItem(
                             modifier = Modifier.padding(start = 4.dp).size(14.dp)
                         )
                     }
-                    
+
                     if (summary.isPinned) {
                         Icon(
                             imageVector = Icons.Default.PushPin,
@@ -227,25 +227,27 @@ fun MetaChatItem(
                         )
                     }
                 }
-                
+
                 Text(
-                    text = formatChatTime(summary.timestamp), 
-                    style = MaterialTheme.typography.labelSmall, 
+                    text = formatChatTime(summary.timestamp),
+                    style = MaterialTheme.typography.labelSmall,
                     color = if (summary.hasUnread) MessengerBlue else MetaGray4
                 )
             }
-            
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 2.dp)
             ) {
                 val lastMessageText = if (summary.isTyping) {
                     "Digitando..."
+                } else if (summary.lastMessage == "Conversa limpa" || summary.lastMessage == "Conversa apagada") {
+                    summary.lastMessage
                 } else {
                     val prefix = if (summary.lastSenderId == myId) "Você: " else ""
                     "$prefix${summary.lastMessage}"
                 }
-                
+
                 val contentColor = if (summary.isTyping) {
                     MessengerBlue
                 } else if (summary.hasUnread) {
@@ -253,7 +255,7 @@ fun MetaChatItem(
                 } else {
                     MetaGray4
                 }
-                
+
                 if (summary.isEphemeral && !summary.isTyping) {
                     Icon(
                         imageVector = Icons.Rounded.Timer,
@@ -264,16 +266,16 @@ fun MetaChatItem(
                 }
 
                 Text(
-                    text = lastMessageText, 
+                    text = lastMessageText,
                     style = MaterialTheme.typography.bodyMedium.copy(
                         fontWeight = if (summary.hasUnread) FontWeight.Medium else FontWeight.Normal
-                    ), 
-                    color = contentColor, 
-                    maxLines = 1, 
-                    overflow = TextOverflow.Ellipsis, 
+                    ),
+                    color = contentColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                
+
                 if (summary.hasUnread) {
                     Box(
                         modifier = Modifier
@@ -291,10 +293,10 @@ private fun formatChatTime(timestamp: Long): String {
     if (timestamp == 0L) return ""
     val now = Calendar.getInstance()
     val chatTime = Calendar.getInstance().apply { timeInMillis = timestamp }
-    
+
     val isSameDay = now.get(Calendar.YEAR) == chatTime.get(Calendar.YEAR) &&
-                    now.get(Calendar.DAY_OF_YEAR) == chatTime.get(Calendar.DAY_OF_YEAR)
-                    
+            now.get(Calendar.DAY_OF_YEAR) == chatTime.get(Calendar.DAY_OF_YEAR)
+
     return when {
         isSameDay -> {
             SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
@@ -313,17 +315,17 @@ private fun formatChatTime(timestamp: Long): String {
 
 @Composable
 fun MetaUserItem(
-    user: UserProfile, 
-    isContact: Boolean, 
+    user: UserProfile,
+    isContact: Boolean,
     onItemClick: () -> Unit,
-    onChatClick: () -> Unit, 
+    onChatClick: () -> Unit,
     onAddContactClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onItemClick() }
-            .padding(16.dp), 
+            .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(model = user.photoUrl, contentDescription = null, modifier = Modifier.size(50.dp).clip(CircleShape).background(LocalChatColors.current.separator), contentScale = ContentScale.Crop)
