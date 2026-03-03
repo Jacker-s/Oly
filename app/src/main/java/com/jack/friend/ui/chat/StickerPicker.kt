@@ -26,7 +26,8 @@ import com.google.firebase.database.FirebaseDatabase
 fun StickerPicker(
     onStickerSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    heightDp: Int = 300
+    heightDp: Int = 300,
+    onDismissRequest: (() -> Unit)? = null // ✅ Adicionado parâmetro opcional
 ) {
     var stickers by remember { mutableStateOf<List<String>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -79,7 +80,8 @@ fun StickerPicker(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 12.dp),
+                        .padding(vertical = 12.dp)
+                        .clickable { onDismissRequest?.invoke() }, // ✅ Clique na barra para fechar
                     contentAlignment = Alignment.Center
                 ) {
                     Box(

@@ -35,11 +35,11 @@ fun MediaAttachmentSheet(
     onOpenCamera: () -> Unit,
     onOpenGallery: () -> Unit,
     onOpenFile: () -> Unit,
-    onMediaSelected: (Uri, Boolean) -> Unit
+    onMediaSelected: (List<Uri>) -> Unit // ✅ Alterado para receber lista de Uris
 ) {
     val context = LocalContext.current
     val localMedia by viewModel.localMedia.collectAsState()
-    val selectedUris = remember { mutableStateListOf<Pair<Uri, Boolean>>() }
+    val selectedUris = remember { mutableStateListOf<Uri>() }
 
     LaunchedEffect(Unit) {
         viewModel.fetchLocalMedia(context)
@@ -69,9 +69,7 @@ fun MediaAttachmentSheet(
                 )
                 if (selectedUris.isNotEmpty()) {
                     TextButton(onClick = {
-                        selectedUris.forEach { (uri, isVideo) ->
-                            onMediaSelected(uri, isVideo)
-                        }
+                        onMediaSelected(selectedUris.toList())
                         onDismiss()
                     }) {
                         Text("ENVIAR (${selectedUris.size})", fontWeight = FontWeight.Bold, color = MessengerBlue)
@@ -86,7 +84,7 @@ fun MediaAttachmentSheet(
                     modifier = Modifier.height(120.dp)
                 ) {
                     items(localMedia.take(20)) { media ->
-                        val isSelected = selectedUris.any { it.first == media.uri }
+                        val isSelected = selectedUris.contains(media.uri)
                         
                         Box(
                             modifier = Modifier
@@ -98,9 +96,8 @@ fun MediaAttachmentSheet(
                                     shape = RoundedCornerShape(12.dp)
                                 )
                                 .clickable {
-                                    val pair = media.uri to media.isVideo
-                                    if (isSelected) selectedUris.remove(pair)
-                                    else selectedUris.add(pair)
+                                    if (isSelected) selectedUris.remove(media.uri)
+                                    else selectedUris.add(media.uri)
                                 }
                         ) {
                             AsyncImage(

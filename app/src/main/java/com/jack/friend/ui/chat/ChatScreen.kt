@@ -10,30 +10,45 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.*
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -54,19 +69,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.math.roundToInt
 
 /**
  * Main screen for the chat functionality, handling both the conversation list and individual chat sessions.
- *
- * This composable manages various states including:
- * - Message history and real-time updates.
- * - User search and contact management.
- * - Media attachments (images, videos, stickers).
- * - Status viewing and uploading.
- * - Call initiation (audio/video).
- * - Privacy features like temporary messages.
- *
- * @param viewModel The [ChatViewModel] that provides data and handles business logic for the chat.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -121,6 +127,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
     // State to open profile from search
     var searchingUserProfile by remember { mutableStateOf<UserProfile?>(null) }
 
+    // Status Composer State
+    var statusItemsToCompose by remember { mutableStateOf<SnapshotStateList<StatusDraft>?>(null) }
+    var showStatusAttachmentMenu by remember { mutableStateOf(false) }
+    var showInAppStatusCamera by remember { mutableStateOf(false) }
+    var showInAppStatusGallery by remember { mutableStateOf(false) }
+
     val filteredChats by remember(activeChats, selectedFilter) {
         derivedStateOf { if (selectedFilter == "Não Lidas") activeChats.filter { it.hasUnread } else activeChats }
     }
@@ -134,7 +146,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
     LaunchedEffect(messages.size) {
         if (messages.isNotEmpty()) {
             listState.animateScrollToItem(messages.size - 1)
-            // Se a conversa está aberta e chegou mensagem, marca como lida
             if (targetId.isNotEmpty()) {
                 viewModel.markAsRead()
             }
@@ -145,7 +156,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         if (targetId.isNotEmpty()) {
             viewModel.markAsRead()
             FriendApplication.currentOpenedChatId = targetId
-            // Remove a notificação da barra de status ao abrir a conversa
             val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.cancel(targetId.hashCode())
         } else {
@@ -153,7 +163,6 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    // Sincronizar duração das mensagens temporárias com o chat ativo
     LaunchedEffect(targetId, activeChats) {
         if (targetId.isNotEmpty()) {
             val currentChat = activeChats.find { it.friendId == targetId }
@@ -180,8 +189,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
         })
     }
 
-    BackHandler(enabled = targetId.isNotEmpty() || isSearching || mediaViewerItem != null || currentBottomRoute != BottomBarScreen.Home.route || viewingStatuses != null || showEmojiPicker || showStickerPicker || showChatInfo || showInAppCamera || showModernGallery || showAttachmentMenu || searchingUserProfile != null || showTempMessageSelector) {
+    BackHandler(enabled = targetId.isNotEmpty() || isSearching || mediaViewerItem != null || currentBottomRoute != BottomBarScreen.Home.route || viewingStatuses != null || showEmojiPicker || showStickerPicker || showChatInfo || showInAppCamera || showModernGallery || showAttachmentMenu || searchingUserProfile != null || showTempMessageSelector || statusItemsToCompose != null || showInAppStatusCamera || showInAppStatusGallery) {
         when {
+            statusItemsToCompose != null -> statusItemsToCompose = null
+            showInAppStatusCamera -> showInAppStatusCamera = false
+            showInAppStatusGallery -> showInAppStatusGallery = false
             showTempMessageSelector -> showTempMessageSelector = false
             searchingUserProfile != null -> searchingUserProfile = null
             showInAppCamera -> showInAppCamera = false
@@ -206,42 +218,10 @@ fun ChatScreen(viewModel: ChatViewModel) {
         }
     }
 
-    val statusLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
-        if (uris.isNotEmpty()) viewModel.uploadStatus(uris)
-    }
-
-    // 🔥 Injeta anúncios apenas localmente (não salva no Firebase)
-    fun injectAdsLocally(messages: List<Message>): List<Message> {
-        if (messages.size < 8) return messages
-
-        val result = mutableListOf<Message>()
-        val random = Random()
-
-        messages.forEachIndexed { index, message ->
-            result.add(message)
-
-            // A cada 8-14 mensagens insere anúncio
-            if (index > 0 && index % (8 + random.nextInt(6)) == 0) {
-                result.add(
-                    Message(
-                        id = "local_ad_${System.currentTimeMillis()}_$index",
-                        senderId = "AD_SYSTEM",
-                        receiverId = "",
-                        text = "",
-                        timestamp = System.currentTimeMillis(),
-                        isAd = true
-                    )
-                )
-            }
-        }
-
-        return result
-    }
-
     Scaffold(
         containerColor = Color.Transparent,
         topBar = {
-            if (viewingStatuses == null && !showChatInfo && !showInAppCamera && !showModernGallery && mediaViewerItem == null && searchingUserProfile == null) {
+            if (viewingStatuses == null && !showChatInfo && !showInAppCamera && !showModernGallery && mediaViewerItem == null && searchingUserProfile == null && statusItemsToCompose == null && !showInAppStatusCamera && !showInAppStatusGallery) {
                 ChatTopBar(
                     targetId = targetId, targetProfile = targetProfileState, activeChats = activeChats, myPhotoUrl = myPhotoUrl,
                     isTargetTyping = isTargetTyping, showContacts = false, isSearching = isSearching, searchInput = searchInput,
@@ -256,7 +236,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             }
         },
         bottomBar = {
-            if (viewingStatuses == null && !showChatInfo && !showInAppCamera && !showModernGallery && mediaViewerItem == null && searchingUserProfile == null) {
+            if (viewingStatuses == null && !showChatInfo && !showInAppCamera && !showModernGallery && mediaViewerItem == null && searchingUserProfile == null && statusItemsToCompose == null && !showInAppStatusCamera && !showInAppStatusGallery) {
                 if (targetId.isNotBlank()) {
                     Column {
                         ChatInputSection(
@@ -438,7 +418,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
                         }
                         ChatListScreenIOS(
                             isSearching = isSearching, searchInput = searchInput, searchResults = searchResults, filteredChats = filteredChats, statuses = statuses,
-                            myPhotoUrl = myPhotoUrl, myUsername = myUsername, contacts = contacts, onStatusAdd = { statusLauncher.launch("image/*") },
+                            myPhotoUrl = myPhotoUrl, myUsername = myUsername, contacts = contacts,
+                            onStatusAdd = { showStatusAttachmentMenu = true },
                             onStatusView = { userStatuses -> viewModel.markStatusAsViewed(userStatuses.first().id); viewingStatuses = userStatuses },
                             onChatClick = { summary ->
                                 if (hasPendingShare) showShareConfirmDialog = summary.friendId
@@ -460,9 +441,26 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 }
             }
 
-            if (showAttachmentMenu) MediaAttachmentSheet(viewModel = viewModel, onDismiss = { showAttachmentMenu = false }, onOpenCamera = { showInAppCamera = true }, onOpenGallery = { showModernGallery = true }, onMediaSelected = { uri, isV -> if (isV) viewModel.uploadVideo(uri, tempMessageDuration) else viewModel.uploadImage(uri, tempMessageDuration) }, onOpenFile = { })
+            if (showAttachmentMenu) MediaAttachmentSheet(viewModel = viewModel, onDismiss = { showAttachmentMenu = false }, onOpenCamera = { showInAppCamera = true }, onOpenGallery = { showModernGallery = true }, onMediaSelected = { uris -> uris.forEach { viewModel.uploadImage(it, tempMessageDuration) } }, onOpenFile = { })
             if (showInAppCamera) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { InAppCameraView(onDismiss = { showInAppCamera = false }, onPhotoCaptured = { uri -> viewModel.uploadImage(uri, tempMessageDuration) }, onVideoCaptured = { uri -> viewModel.uploadVideo(uri, tempMessageDuration) }) }
             if (showModernGallery) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { ModernGalleryPicker(viewModel = viewModel, onDismiss = { showModernGallery = false }, onSend = { uris -> uris.forEach { u -> viewModel.uploadImage(u, tempMessageDuration) } }) }
+
+            if (showStatusAttachmentMenu) MediaAttachmentSheet(viewModel = viewModel, onDismiss = { showStatusAttachmentMenu = false }, onOpenCamera = { showInAppStatusCamera = true }, onOpenGallery = { showInAppStatusGallery = true }, onMediaSelected = { uris -> statusItemsToCompose = mutableStateListOf<StatusDraft>().apply { uris.forEach { add(StatusDraft(it)) } }; showStatusAttachmentMenu = false }, onOpenFile = { })
+            if (showInAppStatusCamera) Box(modifier = Modifier.fillMaxSize().zIndex(11f)) { InAppCameraView(onDismiss = { showInAppStatusCamera = false }, onPhotoCaptured = { statusItemsToCompose = mutableStateListOf(StatusDraft(it)); showInAppStatusCamera = false }, onVideoCaptured = { statusItemsToCompose = mutableStateListOf(StatusDraft(it)); showInAppStatusCamera = false }) }
+            if (showInAppStatusGallery) Box(modifier = Modifier.fillMaxSize().zIndex(11f)) { ModernGalleryPicker(viewModel = viewModel, onDismiss = { showInAppStatusGallery = false }, onSend = { uris -> statusItemsToCompose = mutableStateListOf<StatusDraft>().apply { uris.forEach { add(StatusDraft(it)) } }; showInAppStatusGallery = false }) }
+
+            if (statusItemsToCompose != null) {
+                StatusComposer(
+                    statusItems = statusItemsToCompose!!,
+                    onDismiss = { statusItemsToCompose = null },
+                    onPost = { finalStatusList ->
+                        finalStatusList.forEach { statusDraft ->
+                            viewModel.uploadStatus(statusDraft.uri, statusDraft.caption, statusDraft.overlays.toList())
+                        }
+                        statusItemsToCompose = null
+                    }
+                )
+            }
 
             MediaViewerScreen(mediaItem = mediaViewerItem, onDismiss = { mediaViewerItem = null })
 
@@ -571,13 +569,291 @@ fun ChatScreen(viewModel: ChatViewModel) {
 }
 
 /**
+ * A full-screen composer for user statuses (similar to stories), with native-like caption input and floating text overlays.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun StatusComposer(
+    statusItems: SnapshotStateList<StatusDraft>,
+    onDismiss: () -> Unit,
+    onPost: (List<StatusDraft>) -> Unit
+) {
+    var currentStatusIndex by remember { mutableIntStateOf(0) }
+    val currentStatusDraft = statusItems[currentStatusIndex]
+
+    var showTextEditor by remember { mutableStateOf(false) }
+    var currentOverlayText by remember { mutableStateOf("") }
+    var selectedColor by remember { mutableStateOf(Color.White) }
+    var selectedFont by remember { mutableStateOf("Default") }
+
+    var showEmojiStickerPicker by remember { mutableStateOf(false) }
+
+    val fonts = listOf("Default", "Serif", "Monospace", "Cursive")
+    val colors = listOf(Color.White, Color.Black, Color.Red, Color.Green, Color.Blue, Color.Yellow, Color.Magenta, Color.Cyan)
+
+    val context = LocalContext.current
+    val isVideo = context.contentResolver.getType(currentStatusDraft.uri)?.startsWith("video") == true
+    var containerSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .zIndex(20f)
+            .onGloballyPositioned { containerSize = it.size }
+    ) {
+        if (isVideo) {
+            VideoStatusPlayer(url = currentStatusDraft.uri.toString(), onComplete = {}, isPaused = showTextEditor)
+        } else {
+            AsyncImage(
+                model = currentStatusDraft.uri,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit
+            )
+        }
+
+        currentStatusDraft.overlays.forEachIndexed { index, overlay ->
+            var offsetX by remember(currentStatusIndex, index) { mutableFloatStateOf(overlay.x * containerSize.width) }
+            var offsetY by remember(currentStatusIndex, index) { mutableFloatStateOf(overlay.y * containerSize.height) }
+
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+                    .pointerInput(currentStatusIndex, index) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            offsetX += dragAmount.x
+                            offsetY += dragAmount.y
+                            currentStatusDraft.overlays[index] = overlay.copy(
+                                x = if (containerSize.width > 0) offsetX / containerSize.width else 0.5f,
+                                y = if (containerSize.height > 0) offsetY / containerSize.height else 0.5f
+                            )
+                        }
+                    }
+                    .padding(8.dp)
+            ) {
+                if (overlay.isAnimated && overlay.stickerUrl != null) {
+                    AnimatedEmoji(emoji = overlay.stickerUrl!!, modifier = Modifier.size(100.dp))
+                } else {
+                    Text(
+                        text = overlay.text,
+                        color = Color(overlay.color),
+                        fontSize = overlay.fontSize.sp,
+                        fontFamily = when(overlay.fontStyle) {
+                            "Serif" -> FontFamily.Serif
+                            "Monospace" -> FontFamily.Monospace
+                            "Cursive" -> FontFamily.Cursive
+                            else -> FontFamily.Default
+                        },
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.background(Color.Black.copy(0.3f), RoundedCornerShape(4.dp)).padding(4.dp)
+                    )
+                }
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+            Row(
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onDismiss) {
+                    Icon(Icons.Rounded.Close, null, tint = Color.White)
+                }
+            }
+
+            Row(
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { showEmojiStickerPicker = true }) {
+                    Icon(Icons.Rounded.Face, null, tint = Color.White)
+                }
+                IconButton(onClick = {
+                    currentOverlayText = ""
+                    showTextEditor = true
+                }) {
+                    Icon(Icons.Rounded.TextFields, null, tint = Color.White)
+                }
+            }
+
+            if (statusItems.size > 1) {
+                Row(
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .statusBarsPadding()
+                        .padding(top = 16.dp)
+                        .fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    statusItems.forEachIndexed { index, _ ->
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (index == currentStatusIndex) Color.White else Color.Gray.copy(alpha = 0.5f))
+                                .clickable { currentStatusIndex = index }
+                                .padding(horizontal = 4.dp)
+                        )
+                    }
+                }
+            }
+
+            if (statusItems.size > 1) {
+                IconButton(
+                    onClick = { if (currentStatusIndex > 0) currentStatusIndex-- },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowLeft, null, tint = Color.White)
+                }
+                IconButton(
+                    onClick = { if (currentStatusIndex < statusItems.size - 1) currentStatusIndex++ },
+                    modifier = Modifier.align(Alignment.CenterEnd)
+                ) {
+                    Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color.White)
+                }
+            }
+
+            Column(
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+            ) {
+                TextField(
+                    value = currentStatusDraft.caption,
+                    onValueChange = { currentStatusDraft.caption = it },
+                    placeholder = { Text("Adicione uma legenda...", color = Color.LightGray) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(30.dp)),
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                        unfocusedContainerColor = Color.Black.copy(alpha = 0.5f),
+                        focusedTextColor = Color.White,
+                        unfocusedTextColor = Color.White,
+                        cursorColor = MessengerBlue,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent
+                    ),
+                    trailingIcon = {
+                        IconButton(
+                            onClick = { onPost(statusItems.toList()) },
+                            modifier = Modifier
+                                .padding(4.dp)
+                                .background(MessengerBlue, CircleShape)
+                        ) {
+                            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White)
+                        }
+                    }
+                )
+            }
+        }
+
+        if (showTextEditor) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.8f))
+                    .zIndex(30f),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(32.dp)) {
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 16.dp)) {
+                        items(fonts) { font ->
+                            Text(
+                                text = font,
+                                color = if (selectedFont == font) MessengerBlue else Color.White,
+                                modifier = Modifier
+                                    .clickable { selectedFont = font }
+                                    .padding(8.dp),
+                                fontWeight = if (selectedFont == font) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    }
+
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(bottom = 24.dp)) {
+                        items(colors) { color ->
+                            Box(
+                                modifier = Modifier
+                                    .size(30.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                                    .clickable { selectedColor = color }
+                                    .then(if (selectedColor == color) Modifier.border(2.dp, Color.White, CircleShape) else Modifier)
+                            )
+                        }
+                    }
+
+                    BasicTextField(
+                        value = currentOverlayText,
+                        onValueChange = { currentOverlayText = it },
+                        textStyle = TextStyle(
+                            color = selectedColor,
+                            fontSize = 32.sp,
+                            textAlign = TextAlign.Center,
+                            fontFamily = when(selectedFont) {
+                                "Serif" -> FontFamily.Serif
+                                "Monospace" -> FontFamily.Monospace
+                                "Cursive" -> FontFamily.Cursive
+                                else -> FontFamily.Default
+                            },
+                            fontWeight = FontWeight.Bold
+                        ),
+                        modifier = Modifier.fillMaxWidth(),
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MessengerBlue)
+                    )
+
+                    Spacer(Modifier.height(32.dp))
+
+                    Button(
+                        onClick = {
+                            if (currentOverlayText.isNotBlank()) {
+                                currentStatusDraft.overlays.add(StatusOverlay(
+                                    text = currentOverlayText,
+                                    x = 0.5f,
+                                    y = 0.5f,
+                                    color = selectedColor.toArgb().toLong(),
+                                    fontStyle = selectedFont
+                                ))
+                            }
+                            currentOverlayText = ""
+                            showTextEditor = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+                    ) {
+                        Text("Concluído")
+                    }
+                    TextButton(onClick = {
+                        showTextEditor = false
+                        currentOverlayText = ""
+                    }) {
+                        Text("Cancelar", color = Color.White)
+                    }
+                }
+            }
+        }
+
+        AnimatedVisibility(visible = showEmojiStickerPicker) {
+            MetaEmojiPickerPro(
+                onEmojiSelected = { emoji ->
+                    currentStatusDraft.overlays.add(
+                        StatusOverlay(
+                            stickerUrl = emoji,
+                            isAnimated = true,
+                            x = 0.5f,
+                            y = 0.5f
+                        )
+                    )
+                    showEmojiStickerPicker = false
+                },
+                heightDp = 350
+            )
+        }
+    }
+}
+
+/**
  * A full-screen viewer for user statuses (similar to stories), supporting progress indicators and navigation.
- *
- * @param userStatuses List of statuses to be displayed for a specific user.
- * @param myUsername The username of the current user, used to determine if they can see viewer info or delete.
- * @param viewModel The [ChatViewModel] to handle status-related actions like marking as viewed or deleting.
- * @param onClose Callback to be invoked when the viewer is closed.
- * @param onDelete Callback to be invoked when a status is deleted.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -590,8 +866,9 @@ fun StatusViewer(
 ) {
     var currentIndex by remember { mutableIntStateOf(0) }
     val currentStatus = userStatuses[currentIndex]
-    var progress by remember { mutableStateOf(0f) }
+    var progress by remember { mutableFloatStateOf(0f) }
     var showViewers by remember { mutableStateOf(false) }
+    var containerSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
 
     LaunchedEffect(currentIndex) {
         progress = 0f
@@ -607,12 +884,77 @@ fun StatusViewer(
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-        AsyncImage(model = currentStatus.imageUrl, contentDescription = null, modifier = Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black).onGloballyPositioned { containerSize = it.size }) {
+        if (currentStatus.isVideo && currentStatus.videoUrl != null) {
+            VideoStatusPlayer(
+                url = currentStatus.videoUrl!!,
+                onComplete = {
+                    if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
+                },
+                isPaused = showViewers
+            )
+        } else {
+            AsyncImage(
+                model = currentStatus.imageUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        }
+
+        currentStatus.overlays.forEach { overlay ->
+            Box(
+                modifier = Modifier
+                    .offset {
+                        IntOffset(
+                            (overlay.x * containerSize.width).roundToInt(),
+                            (overlay.y * containerSize.height).roundToInt()
+                        )
+                    }
+                    .padding(8.dp)
+            ) {
+                if (overlay.isAnimated && overlay.stickerUrl != null) {
+                    AnimatedEmoji(emoji = overlay.stickerUrl!!, modifier = Modifier.size(100.dp))
+                } else {
+                    Text(
+                        text = overlay.text,
+                        color = Color(overlay.color),
+                        fontSize = overlay.fontSize.sp,
+                        fontFamily = when(overlay.fontStyle) {
+                            "Serif" -> FontFamily.Serif
+                            "Monospace" -> FontFamily.Monospace
+                            "Cursive" -> FontFamily.Cursive
+                            else -> FontFamily.Default
+                        },
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.background(Color.Black.copy(0.3f), RoundedCornerShape(4.dp)).padding(4.dp)
+                    )
+                }
+            }
+        }
 
         Row(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxHeight().clickable { if (currentIndex > 0) currentIndex-- })
             Box(modifier = Modifier.weight(1f).fillMaxHeight().clickable { if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose() })
+        }
+
+        if (currentStatus.caption.isNotBlank()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 80.dp)
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = currentStatus.caption,
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+            }
         }
 
         Column(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
@@ -684,10 +1026,6 @@ fun StatusViewer(
 
 /**
  * A specialized player for video statuses using ExoPlayer.
- *
- * @param url The URL of the video to play.
- * @param onComplete Callback invoked when the video playback finishes.
- * @param isPaused Whether the video playback should be currently paused.
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -731,16 +1069,6 @@ fun VideoStatusPlayer(url: String, onComplete: () -> Unit, isPaused: Boolean) {
 
 /**
  * A pop-up dialog menu providing quick actions for a specific chat from the chat list.
- *
- * @param summary The summary information of the selected chat.
- * @param isBlocked Whether the friend in this chat is currently blocked.
- * @param onDismiss Callback to close the menu.
- * @param onOpen Callback to open the full conversation.
- * @param onClear Callback to clear the message history for this chat.
- * @param onDelete Callback to delete the chat entry.
- * @param onBlockToggle Callback to toggle the block status of the user.
- * @param onTogglePin Callback to toggle the pinned status of the chat.
- * @param onToggleMute Callback to toggle the mute status of the chat.
  */
 @Composable
 fun ChatPopUpMenu(
@@ -774,7 +1102,6 @@ fun ChatPopUpMenu(
                     .background(chatColors.secondaryBackground)
                     .clickable(enabled = false) {}
             ) {
-                // Header com Preview
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -808,10 +1135,9 @@ fun ChatPopUpMenu(
 
                 HorizontalDivider(color = chatColors.separator.copy(alpha = 0.3f), thickness = 0.5.dp)
 
-                // Opções
                 ChatPopOptionItem(
                     text = "Abrir Conversa",
-                    icon = Icons.Rounded.Chat,
+                    icon = Icons.AutoMirrored.Rounded.Chat,
                     onClick = { onOpen(summary); onDismiss() }
                 )
 
@@ -858,12 +1184,6 @@ fun ChatPopUpMenu(
 
 /**
  * A single menu item within the [ChatPopUpMenu].
- *
- * @param text The display text for the option.
- * @param icon The icon representing the action.
- * @param onClick The action to perform when the item is clicked.
- * @param textColor Optional color for the text (e.g., red for destructive actions).
- * @param iconColor Optional color for the icon.
  */
 @Composable
 fun ChatPopOptionItem(

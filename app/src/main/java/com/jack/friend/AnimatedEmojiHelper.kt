@@ -30,6 +30,10 @@ object AnimatedEmojiHelper {
             i += Character.charCount(cp)
         }
         val fileName = codepoints.joinToString("_")
+        
+        if (emoji.startsWith("http") && emoji.endsWith(".json")) {
+            return emoji
+        }
         return "$BASE_URL/$fileName/lottie.json"
     }
 
@@ -106,10 +110,10 @@ fun AnimatedEmoji(emoji: String, modifier: Modifier = Modifier, onLongClick: () 
         iterations = LottieConstants.IterateForever
     )
 
-    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(140.dp)) {
+    Box(contentAlignment = Alignment.Center, modifier = modifier.size(140.dp)) {
         // Renderizar Partículas de Efeito
         particles.forEach { particle ->
-            key(particle.id) {
+            androidx.compose.runtime.key(particle.id) {
                 ParticleEffect(particle) {
                     particles.remove(particle)
                 }

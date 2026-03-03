@@ -1,11 +1,33 @@
 package com.jack.friend
 
+import android.net.Uri
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.google.firebase.database.IgnoreExtraProperties
 import com.google.firebase.database.PropertyName
 
 // =========================
 // Firebase Models (SEGUROS)
 // =========================
+
+@IgnoreExtraProperties
+data class StatusOverlay(
+    var text: String = "",
+    var x: Float = 0.5f, // Posição relativa (0.0 a 1.0)
+    var y: Float = 0.5f,
+    var color: Long = 0xFFFFFFFF,
+    var fontSize: Float = 24f,
+    var fontStyle: String = "Default",
+    var stickerUrl: String? = null, // ✅ Novo: URL para sticker ou emoji animado
+    var isAnimated: Boolean = false  // ✅ Novo: Define se é animado (Lottie/GIF)
+)
+
+// ✅ Novo: Classe para gerenciar múltiplos status em rascunho
+data class StatusDraft(
+    val uri: Uri,
+    var caption: String = "",
+    val overlays: SnapshotStateList<StatusOverlay> = mutableStateListOf()
+)
 
 @IgnoreExtraProperties
 data class ChatSummary(
@@ -73,7 +95,9 @@ data class UserStatus(
     var timestamp: Long = 0L,
     var userPhotoUrl: String? = null,
     var id: String = "",
-    var viewers: Map<String, Long> = emptyMap() // userId -> timestamp
+    var viewers: Map<String, Long> = emptyMap(), // userId -> timestamp
+    var caption: String = "", // ✅ Adicionado campo para descrição
+    var overlays: List<StatusOverlay> = emptyList() // ✅ Novo: Textos flutuantes sobre a imagem
 )
 
 // =========================
