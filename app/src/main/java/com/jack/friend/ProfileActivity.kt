@@ -13,6 +13,8 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -41,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import com.jack.friend.FeedPostCard
 import com.jack.friend.ui.chat.MediaViewerItem
 import com.jack.friend.ui.chat.MediaViewerScreen
 import com.jack.friend.ui.profile.PrivacyPolicyScreen
@@ -67,6 +70,10 @@ class ProfileActivity : ComponentActivity() {
                 val myStatus by viewModel.myStatus.collectAsStateWithLifecycle("")
                 val myPresenceStatus by viewModel.myPresenceStatus.collectAsStateWithLifecycle("Online")
                 val isHiddenFromSearch by viewModel.isHiddenFromSearch.collectAsStateWithLifecycle(false)
+                
+                val myContacts by viewModel.contacts.collectAsStateWithLifecycle(emptyList())
+                val feedPosts by viewModel.feedPosts.collectAsStateWithLifecycle(emptyList())
+                val myPosts = feedPosts.filter { it.authorId == myUsername }
 
                 var nameInput by remember { mutableStateOf("") }
                 var statusInput by remember { mutableStateOf("") }
@@ -77,6 +84,7 @@ class ProfileActivity : ComponentActivity() {
                 var showPresenceMenu by remember { mutableStateOf(false) }
                 var showPrivacyPolicy by remember { mutableStateOf(false) }
                 var fullScreenPhotoUrl by remember { mutableStateOf<String?>(null) }
+                var showSettingsMenu by remember { mutableStateOf(false) }
                 
                 var dataLoaded by remember { mutableStateOf(false) }
 
@@ -95,8 +103,9 @@ class ProfileActivity : ComponentActivity() {
                     selectedImageUri = uri
                 }
 
-                BackHandler(enabled = showPrivacyPolicy || fullScreenPhotoUrl != null) {
+                BackHandler(enabled = showPrivacyPolicy || fullScreenPhotoUrl != null || showSettingsMenu) {
                     if (fullScreenPhotoUrl != null) fullScreenPhotoUrl = null
+                    else if (showSettingsMenu) showSettingsMenu = false
                     else if (showPrivacyPolicy) showPrivacyPolicy = false
                 }
 
@@ -105,74 +114,50 @@ class ProfileActivity : ComponentActivity() {
                 } else {
                     Scaffold(
                         topBar = {
-                            CenterAlignedTopAppBar(
-                                title = { Text("Meu Perfil", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold) },
-                                navigationIcon = {
+                            Surface(
+                                color = colors.background.copy(alpha = 0.95f),
+                                modifier = Modifier.statusBarsPadding()
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
                                     IconButton(onClick = { finish() }) {
-                                        Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = MessengerBlue, modifier = Modifier.size(22.dp))
+                                        Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = colors.textPrimary, modifier = Modifier.size(22.dp))
                                     }
-                                },
-                                actions = {
-                                    if (isSaving) {
-                                        CircularProgressIndicator(modifier = Modifier.size(24.dp).padding(end = 16.dp), strokeWidth = 2.dp, color = MessengerBlue)
-                                    } else {
-                                        TextButton(onClick = {
-                                            isSaving = true
-                                            viewModel.updateProfile(
-                                                name = nameInput,
-                                                imageUri = selectedImageUri,
-                                                status = statusInput,
-                                                presenceStatus = selectedPresence,
-                                                privacySettings = mapOf("isHiddenFromSearch" to hideFromSearch)
-                                            ) { success ->
-                                                isSaving = false
-                                                if (success) {
-                                                    Toast.makeText(context, "Perfil atualizado!", Toast.LENGTH_SHORT).show()
-                                                    finish()
-                                                } else {
-                                                    Toast.makeText(context, "Erro ao salvar", Toast.LENGTH_SHORT).show()
-                                                }
-                                            }
-                                        }) {
-                                            Text("Salvar", color = MessengerBlue, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                        }
-                                    }
-                                },
-                                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.Transparent)
-                            )
+                                    
+                                    Text(
+                                        text = "@${myUsername.lowercase()}", 
+                                        style = MaterialTheme.typography.titleMedium, 
+                                        fontWeight = FontWeight.Bold,
+                                        color = colors.textPrimary
+                                    )
+                                    
+                                    Spacer(Modifier.width(48.dp)) // Spacer to keep title centered
+                                }
+                            }
                         },
                         containerColor = colors.background
                     ) { innerPadding ->
-                        Box(modifier = Modifier.fillMaxSize()) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .padding(bottom = innerPadding.calculateBottomPadding())
-                                    .verticalScroll(rememberScrollState()),
+                        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                // Immersive Header with adjusted height and arrangement to avoid overlap
-                                Box(modifier = Modifier.fillMaxWidth().height(300.dp)) {
-                                    AsyncImage(
-                                        model = selectedImageUri ?: myPhotoUrl,
-                                        contentDescription = null,
-                                        modifier = Modifier.fillMaxSize().blur(50.dp).clickable { fullScreenPhotoUrl = (selectedImageUri ?: myPhotoUrl)?.toString() },
-                                        contentScale = ContentScale.Crop,
-                                        alpha = 0.3f
-                                    )
-                                    Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color.Transparent, colors.background))))
-                                    
-                                    Column(
-                                        modifier = Modifier.fillMaxSize(),
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.Bottom // Push photo to bottom
+                                // Profile Info Section
+                                item {
+                                    Spacer(Modifier.height(12.dp))
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Box(contentAlignment = Alignment.BottomEnd, modifier = Modifier.padding(bottom = 32.dp)) {
+                                        // Profile Photo
+                                        Box(contentAlignment = Alignment.BottomEnd) {
                                             Surface(
                                                 shape = CircleShape,
-                                                border = BorderStroke(3.dp, Color.White),
-                                                shadowElevation = 12.dp,
-                                                modifier = Modifier.size(140.dp).clickable { photoLauncher.launch("image/*") }
+                                                border = BorderStroke(2.dp, colors.separator.copy(alpha = 0.5f)),
+                                                modifier = Modifier.size(90.dp).clickable { photoLauncher.launch("image/*") }
                                             ) {
                                                 AsyncImage(
                                                     model = selectedImageUri ?: myPhotoUrl,
@@ -182,101 +167,220 @@ class ProfileActivity : ComponentActivity() {
                                                 )
                                             }
                                             Surface(
-                                                modifier = Modifier.size(38.dp).offset(x = (-4).dp, y = (-4).dp).shadow(4.dp, CircleShape),
+                                                modifier = Modifier.size(28.dp).offset(x = 2.dp, y = 2.dp),
                                                 shape = CircleShape,
                                                 color = MessengerBlue,
                                                 onClick = { photoLauncher.launch("image/*") }
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
-                                                    Icon(Icons.Rounded.CameraAlt, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                                    Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
                                                 }
                                             }
                                         }
+
+                                        // Stats Row
+                                        Row(
+                                            modifier = Modifier.weight(1f).padding(start = 24.dp),
+                                            horizontalArrangement = Arrangement.SpaceEvenly
+                                        ) {
+                                            StatItem(label = "Posts", count = "${myPosts.size}", colors = colors)
+                                            StatItem(label = "Amigos", count = "${myContacts.size}", colors = colors)
+                                        }
                                     }
-                                }
 
-                                Text(
-                                    text = "@${myUsername.lowercase()}",
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = colors.textSecondary,
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(bottom = 24.dp)
-                                )
-
-                                // Settings Groups
-                                MetaSettingsGroup(title = "Minha Conta", colors = colors) {
-                                    ProfileEditRow(label = "Nome", value = nameInput, onValueChange = { nameInput = it }, icon = Icons.Rounded.Person, colors = colors)
-                                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp, color = colors.separator.copy(0.4f))
-                                    ProfileEditRow(label = "Recado", value = statusInput, onValueChange = { statusInput = it }, icon = Icons.Rounded.ChatBubbleOutline, colors = colors)
-                                }
-
-                                Spacer(Modifier.height(24.dp))
-
-                                MetaSettingsGroup(title = "Minha Presença", colors = colors) {
-                                    PresenceSelectorRow(selectedPresence, onClick = { showPresenceMenu = true }, colors = colors)
-                                    
-                                    DropdownMenu(
-                                        expanded = showPresenceMenu,
-                                        onDismissRequest = { showPresenceMenu = false },
-                                        modifier = Modifier.background(colors.secondaryBackground)
+                                    // Bio / Status
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                                        horizontalAlignment = Alignment.Start
                                     ) {
-                                        listOf("Online", "Ocupado", "Ausente", "Invisível").forEach { status ->
-                                            DropdownMenuItem(
-                                                text = { Text(status, color = colors.textPrimary) },
-                                                onClick = { selectedPresence = status; showPresenceMenu = false }
-                                            )
+                                        Text(
+                                            text = nameInput.ifBlank { "Wappi User" },
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            color = colors.textPrimary
+                                        )
+                                        Text(
+                                            text = statusInput.ifBlank { "Sem biografia" },
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = colors.textPrimary
+                                        )
+                                    }
+
+                                    // Action Buttons
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        Button(
+                                            onClick = { showSettingsMenu = true },
+                                            modifier = Modifier.weight(1f).height(36.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("Editar Perfil", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         }
+                                        Button(
+                                            onClick = {
+                                                val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                                                    type = "text/plain"
+                                                    putExtra(Intent.EXTRA_TEXT, "Converse comigo no Wappi Messenger! Meu usuário é @$myUsername")
+                                                }
+                                                context.startActivity(Intent.createChooser(shareIntent, "Compartilhar perfil"))
+                                            },
+                                            modifier = Modifier.weight(1f).height(36.dp),
+                                            colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Text("Compartilhar", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        }
+                                    }
+
+                                    Spacer(Modifier.height(24.dp))
+                                    HorizontalDivider(thickness = 0.5.dp, color = colors.separator.copy(0.3f))
+                                }
+
+                                // Tabs or Title for Posts
+                                item {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+                                        horizontalArrangement = Arrangement.Center
+                                    ) {
+                                        Icon(
+                                            Icons.Rounded.GridView, 
+                                            null, 
+                                            tint = colors.textPrimary,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    HorizontalDivider(thickness = 0.5.dp, color = colors.separator.copy(0.2f))
+                                }
+
+                                // The Focus: My Posts
+                                if (myPosts.isEmpty()) {
+                                    item {
+                                        Column(
+                                            modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                border = BorderStroke(1.dp, colors.textPrimary.copy(alpha = 0.5f)),
+                                                color = Color.Transparent,
+                                                modifier = Modifier.size(64.dp)
+                                            ) {
+                                                Icon(Icons.Rounded.CameraAlt, null, tint = colors.textPrimary, modifier = Modifier.padding(16.dp))
+                                            }
+                                            Spacer(Modifier.height(16.dp))
+                                            Text("Ainda não há publicações", fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                                        }
+                                    }
+                                } else {
+                                    items(myPosts.size) { index ->
+                                        FeedPostCard(
+                                            post = myPosts[index],
+                                            myUsername = myUsername,
+                                            viewModel = viewModel,
+                                            onImageClick = { fullScreenPhotoUrl = it }
+                                        )
                                     }
                                 }
 
-                                Spacer(Modifier.height(24.dp))
-
-                                MetaSettingsGroup(title = "Privacidade e Segurança", colors = colors) {
-                                    MetaSettingsSwitchItem(
-                                        icon = Icons.Rounded.VisibilityOff,
-                                        iconColor = Color.Gray,
-                                        title = "Modo Fantasma",
-                                        checked = hideFromSearch,
-                                        onCheckedChange = { hideFromSearch = it }
-                                    )
-                                    HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp, color = colors.separator.copy(0.4f))
-                                    ActionItemRow(
-                                        label = "Política de Privacidade",
-                                        icon = Icons.Rounded.Description,
-                                        iconColor = Color.Gray,
-                                        onClick = { showPrivacyPolicy = true },
-                                        colors = colors
-                                    )
-                                }
-                                
-                                Text(
-                                    "O Modo Fantasma impede que outras pessoas encontrem seu perfil pela busca global.",
-                                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 12.dp),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = colors.textSecondary,
-                                    textAlign = TextAlign.Center
-                                )
-
-                                Spacer(Modifier.height(32.dp))
-                                
-                                // Logout
-                                TextButton(
-                                    onClick = { 
-                                        viewModel.logout()
-                                        val intent = Intent(context, MainActivity::class.java).apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                        }
-                                        context.startActivity(intent)
-                                        finish()
-                                    },
-                                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp)
-                                ) {
-                                    Text("Sair da Conta", color = iOSRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                                }
-                                
-                                Spacer(Modifier.height(60.dp))
+                                 item { Spacer(Modifier.height(100.dp)) }
                             }
 
+                            // Settings Bottom Sheet
+                            if (showSettingsMenu) {
+                                ModalBottomSheet(
+                                    onDismissRequest = { showSettingsMenu = false },
+                                    containerColor = colors.background,
+                                    tonalElevation = 8.dp,
+                                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 48.dp)
+                                            .verticalScroll(rememberScrollState()),
+                                        horizontalAlignment = Alignment.CenterHorizontally
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 8.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            TextButton(onClick = { showSettingsMenu = false }) {
+                                                Text("Cancelar", color = colors.textSecondary)
+                                            }
+                                            Text(
+                                                "Editar Perfil",
+                                                style = MaterialTheme.typography.titleMedium,
+                                                fontWeight = FontWeight.Bold,
+                                                color = colors.textPrimary
+                                            )
+                                            TextButton(
+                                                onClick = {
+                                                    isSaving = true
+                                                    viewModel.updateProfile(
+                                                        name = nameInput,
+                                                        imageUri = selectedImageUri,
+                                                        status = statusInput,
+                                                        presenceStatus = selectedPresence,
+                                                        privacySettings = mapOf("isHiddenFromSearch" to hideFromSearch)
+                                                    ) { success ->
+                                                        isSaving = false
+                                                        if (success) {
+                                                            Toast.makeText(context, "Perfil atualizado!", Toast.LENGTH_SHORT).show()
+                                                            showSettingsMenu = false
+                                                        }
+                                                    }
+                                                },
+                                                enabled = !isSaving
+                                            ) {
+                                                if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MessengerBlue)
+                                                else Text("Concluir", color = MessengerBlue, fontWeight = FontWeight.ExtraBold)
+                                            }
+                                        }
+
+                                        Spacer(Modifier.height(16.dp))
+
+                                        MetaSettingsGroup(title = "Minha Conta", colors = colors) {
+                                            ProfileEditRow(label = "Nome", value = nameInput, onValueChange = { nameInput = it }, icon = Icons.Rounded.Person, colors = colors)
+                                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp, color = colors.separator.copy(0.4f))
+                                            ProfileEditRow(label = "Bio", value = statusInput, onValueChange = { statusInput = it }, icon = Icons.Rounded.ChatBubbleOutline, colors = colors)
+                                        }
+
+                                        Spacer(Modifier.height(24.dp))
+
+                                        MetaSettingsGroup(title = "Presença & Privacidade", colors = colors) {
+                                            PresenceSelectorRow(selectedPresence, onClick = { showPresenceMenu = true }, colors = colors)
+                                            HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp, color = colors.separator.copy(0.4f))
+                                            MetaSettingsSwitchItem(
+                                                icon = Icons.Rounded.VisibilityOff,
+                                                iconColor = Color.Gray,
+                                                title = "Modo Fantasma",
+                                                checked = hideFromSearch,
+                                                onCheckedChange = { hideFromSearch = it }
+                                            )
+                                        }
+
+                                        Spacer(Modifier.height(32.dp))
+
+                                        TextButton(
+                                            onClick = { 
+                                                viewModel.logout()
+                                                val intent = Intent(context, MainActivity::class.java).apply {
+                                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                                                }
+                                                context.startActivity(intent)
+                                                finish()
+                                            },
+                                            modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
+                                        ) {
+                                            Text("Sair da Conta", color = iOSRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                        }
+                                    }
+                                }
+                            }
                             // Photo Viewer
                             if (fullScreenPhotoUrl != null) {
                                 MediaViewerScreen(
@@ -284,11 +388,66 @@ class ProfileActivity : ComponentActivity() {
                                     onDismiss = { fullScreenPhotoUrl = null }
                                 )
                             }
-                        }
-                    }
-                }
-            }
-        }
+                            // Presence Selection Bottom Sheet
+                            if (showPresenceMenu) {
+                                ModalBottomSheet(
+                                    onDismissRequest = { showPresenceMenu = false },
+                                    containerColor = colors.background,
+                                    tonalElevation = 8.dp
+                                ) {
+                                    Column(
+                                        modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)
+                                    ) {
+                                        Text(
+                                            "Status de Presença",
+                                            modifier = Modifier.padding(16.dp),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.Bold,
+                                            color = colors.textPrimary
+                                        )
+                                        
+                                        listOf("Online", "Ocupado", "Ausente", "Invisível").forEach { status ->
+                                            val color = when(status) {
+                                                "Online" -> iOSGreen
+                                                "Ocupado" -> iOSRed
+                                                "Ausente" -> iOSOrange
+                                                else -> Color.Gray
+                                            }
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .clickable { 
+                                                        selectedPresence = status
+                                                        showPresenceMenu = false
+                                                    }
+                                                    .padding(16.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(color))
+                                                Spacer(Modifier.width(16.dp))
+                                                Text(status, color = colors.textPrimary, fontWeight = if (selectedPresence == status) FontWeight.Bold else FontWeight.Normal)
+                                                Spacer(Modifier.weight(1f))
+                                                if (selectedPresence == status) {
+                                                    Icon(Icons.Rounded.Check, null, tint = MessengerBlue)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } // End of Box
+                    } // End of Scaffold content
+                } // End of else
+            } // End of FriendTheme
+        } // End of setContent
+    } // End of onCreate
+} // End of ProfileActivity
+
+@Composable
+private fun StatItem(label: String, count: String, colors: ChatColors) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(text = count, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.textPrimary)
+        Text(text = label, fontSize = 13.sp, color = colors.textPrimary)
     }
 }
 
