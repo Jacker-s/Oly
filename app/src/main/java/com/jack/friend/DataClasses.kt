@@ -122,3 +122,44 @@ fun UserStatus.hasViewed(userId: String): Boolean = viewers.containsKey(userId)
 
 val UserStatus.isExpired: Boolean
     get() = System.currentTimeMillis() - timestamp > 86_400_000L // 24h
+
+@IgnoreExtraProperties
+data class FeedPost(
+    var id: String = "",
+    var authorId: String = "",
+    var authorName: String = "",
+    var authorPhotoUrl: String? = null,
+    var text: String = "",
+    var timestamp: Long = 0L,
+    var photoUrl: String? = null,
+    var mediaType: String? = null,
+    var likes: Map<String, Boolean> = emptyMap(),
+    var isPublic: Boolean = true,
+    var comments: Map<String, FeedComment> = emptyMap(),
+    var reactions: Map<String, String> = emptyMap(), // userId -> emoji
+    var animatedEmoji: String? = null
+)
+
+@IgnoreExtraProperties
+data class FeedComment(
+    var id: String = "",
+    var authorId: String = "",
+    var authorName: String = "",
+    var authorPhotoUrl: String? = null,
+    var text: String = "",
+    var timestamp: Long = 0L
+)
+
+@IgnoreExtraProperties
+data class FeedNotification(
+    var id: String = "",
+    var type: String = "LIKE", // LIKE, COMMENT, REACTION
+    var fromId: String = "",
+    var fromName: String = "",
+    var fromPhotoUrl: String? = null,
+    var postId: String = "",
+    var postPreviewText: String = "",
+    var timestamp: Long = 0L,
+    var isRead: Boolean = false,
+    var reactionEmoji: String? = null
+)

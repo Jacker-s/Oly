@@ -12,6 +12,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBackIos
 import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.VideoCall
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -97,7 +98,7 @@ fun ChatTopBar(
                         }
                     } else if (!isSearching) {
                         Text(
-                            if (showContacts) "Contatos" else "Conversas",
+                            if (showContacts) "Amigos" else "Conversas",
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Black,
                             letterSpacing = (-0.5).sp
@@ -143,6 +144,10 @@ fun ChatTopBar(
                     } else if (showContacts) {
                         IconButton(onClick = { onAddContact() }) {
                             Icon(Icons.Rounded.PersonAdd, null, tint = MessengerBlue, modifier = Modifier.size(26.dp))
+                        }
+                    } else if (!isSearching) {
+                        IconButton(onClick = { onSearchActiveChange(true) }) {
+                            Icon(Icons.Rounded.Add, contentDescription = "Pesquisar", tint = MessengerBlue, modifier = Modifier.size(28.dp))
                         }
                     }
                 },

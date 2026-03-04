@@ -70,6 +70,7 @@ data class Message(
     var replyToId: String? = null,
     var replyToText: String? = null,
     var replyToName: String? = null,
+    var replyToImageUrl: String? = null,
 
     // =========================
     // Reações

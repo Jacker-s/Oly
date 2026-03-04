@@ -42,9 +42,15 @@ class MessagingService : Service() {
 
     private fun startSilentForeground() {
         val notification = NotificationCompat.Builder(this, SILENT_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher).setContentTitle("Friend").setContentText("Ativo para chamadas e mensagens").setPriority(NotificationCompat.PRIORITY_MIN).build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
-        else startForeground(FOREGROUND_ID, notification)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Friend")
+            .setContentText("Ativo para chamadas e mensagens")
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+            startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+        else
+            startForeground(FOREGROUND_ID, notification)
     }
 
     private fun setupUserListener(uid: String) {
@@ -54,8 +60,38 @@ class MessagingService : Service() {
                 listenToBlockedUsers(it)
                 listenForCallSignals(it)
                 listenForNewMessages(it)
+                listenForFeedNotifications(it)
             }
         }
+    }
+
+    private var feedNotificationsListener: ChildEventListener? = null
+    // Guarda os IDs já processados nesta sessão para não renotificar
+    private val processedFeedNotifIds = mutableSetOf<String>()
+
+    private fun listenForFeedNotifications(username: String) {
+        feedNotificationsListener = object : ChildEventListener {
+            override fun onChildAdded(snapshot: DataSnapshot, prev: String?) {
+                val notif = snapshot.getValue(FeedNotification::class.java) ?: return
+                if (notif.isRead) return
+                if (processedFeedNotifIds.contains(notif.id)) return
+                processedFeedNotifIds.add(notif.id)
+
+                val sinceMs = System.currentTimeMillis() - notif.timestamp
+                if (sinceMs > 60_000) return // Ignorar notificações com mais de 1 min
+
+                if (!FriendApplication.isAppInForeground) {
+                    FeedNotificationHelper.showFeedInteractionNotification(applicationContext, notif)
+                }
+            }
+            override fun onChildChanged(snapshot: DataSnapshot, prev: String?) {}
+            override fun onChildRemoved(snapshot: DataSnapshot) {}
+            override fun onChildMoved(snapshot: DataSnapshot, prev: String?) {}
+            override fun onCancelled(error: DatabaseError) {}
+        }
+        database.child("notifications").child(username)
+            .limitToLast(20)
+            .addChildEventListener(feedNotificationsListener!!)
     }
 
     private fun listenToBlockedUsers(username: String) {
@@ -237,6 +273,7 @@ class MessagingService : Service() {
         myUsername?.let {
             database.child("call_notifications").child(it).removeEventListener(callNotificationListener!!)
             blockedListener?.let { l -> database.child("blocks").child(it).removeEventListener(l) }
+            feedNotificationsListener?.let { l -> database.child("notifications").child(it).removeEventListener(l) }
         }
         super.onDestroy()
     }

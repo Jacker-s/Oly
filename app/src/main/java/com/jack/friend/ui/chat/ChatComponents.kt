@@ -61,16 +61,28 @@ fun MetaStatusRow(
         item {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(72.dp).clickable { if (myStatuses.isNotEmpty()) onViewUserStatuses(myStatuses) else onAdd() }
+                modifier = Modifier.width(76.dp).clickable { if (myStatuses.isNotEmpty()) onViewUserStatuses(myStatuses) else onAdd() }
             ) {
                 Box(contentAlignment = Alignment.Center) {
-                    val borderColor = if (myStatuses.isNotEmpty()) MessengerBlue else Color.Transparent
+                    val gradientBrush = Brush.linearGradient(
+                        colors = listOf(
+                            Color(0xFF833AB4),
+                            Color(0xFFFD1D1D),
+                            Color(0xFFF56040),
+                            Color(0xFFFFDC80)
+                        )
+                    )
 
                     Box(
                         modifier = Modifier
-                            .size(68.dp)
-                            .then(if (myStatuses.isNotEmpty()) Modifier.border(2.dp, borderColor, CircleShape) else Modifier)
-                            .padding(4.dp)
+                            .size(72.dp)
+                            .drawBehind {
+                                val strokeWidth = 3.dp.toPx()
+                                if (myStatuses.isNotEmpty()) {
+                                    drawCircle(brush = gradientBrush, style = Stroke(strokeWidth))
+                                }
+                            }
+                            .padding(6.dp)
                     ) {
                         AsyncImage(
                             model = myPhotoUrl,
@@ -103,35 +115,57 @@ fun MetaStatusRow(
             item {
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.width(72.dp).clickable { onViewUserStatuses(userList) }
+                    modifier = Modifier.width(76.dp).clickable { onViewUserStatuses(userList) }
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(68.dp)
+                            .size(72.dp)
                             .drawBehind {
-                                val segmentColor = if (unread) MessengerBlue else Color.LightGray.copy(alpha = 0.5f)
-                                val strokeWidth = 2.5.dp.toPx()
-                                val gap = 4f
+                                val strokeWidth = 3.dp.toPx()
+                                val gap = 6f
                                 val count = userList.size
+                                val gradientBrush = Brush.linearGradient(
+                                    colors = listOf(
+                                        Color(0xFF833AB4),
+                                        Color(0xFFFD1D1D),
+                                        Color(0xFFF56040),
+                                        Color(0xFFFFDC80)
+                                    )
+                                )
 
                                 if (count == 1) {
-                                    drawCircle(color = segmentColor, style = Stroke(strokeWidth))
+                                    val unread = !userList[0].viewers.containsKey(myUsername)
+                                    if (unread) {
+                                        drawCircle(brush = gradientBrush, style = Stroke(strokeWidth))
+                                    } else {
+                                        drawCircle(color = Color.LightGray.copy(alpha = 0.4f), style = Stroke(strokeWidth))
+                                    }
                                 } else {
                                     val sweep = (360f / count) - gap
                                     for (i in 0 until count) {
                                         val start = (i * (360f / count)) - 90f + (gap / 2)
-                                        val color = if (userList[i].viewers.containsKey(myUsername)) Color.LightGray.copy(alpha = 0.5f) else MessengerBlue
-                                        drawArc(
-                                            color = color,
-                                            startAngle = start,
-                                            sweepAngle = sweep,
-                                            useCenter = false,
-                                            style = Stroke(strokeWidth)
-                                        )
+                                        val unread = !userList[i].viewers.containsKey(myUsername)
+                                        if (unread) {
+                                            drawArc(
+                                                brush = gradientBrush,
+                                                startAngle = start,
+                                                sweepAngle = sweep,
+                                                useCenter = false,
+                                                style = Stroke(strokeWidth)
+                                            )
+                                        } else {
+                                            drawArc(
+                                                color = Color.LightGray.copy(alpha = 0.4f),
+                                                startAngle = start,
+                                                sweepAngle = sweep,
+                                                useCenter = false,
+                                                style = Stroke(strokeWidth)
+                                            )
+                                        }
                                     }
                                 }
                             }
-                            .padding(5.dp)
+                            .padding(6.dp)
                     ) {
                         AsyncImage(
                             model = first.userPhotoUrl,

@@ -27,6 +27,7 @@ import com.google.firebase.storage.FirebaseStorage
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -100,6 +101,7 @@ class ChatViewModel : ViewModel() {
         private const val FOLDER_CHAT_IMAGES = "chat_images"
         private const val FOLDER_CHAT_VIDEOS = "chat_videos"
         private const val FOLDER_STATUSES = "statuses"
+        private const val FOLDER_FEEDS = "feeds"
     }
 
     private val auth = FirebaseAuth.getInstance()
@@ -140,6 +142,20 @@ class ChatViewModel : ViewModel() {
 
     private val _myPresenceStatus = MutableStateFlow("Online")
     val myPresenceStatus: StateFlow<String> = _myPresenceStatus
+
+    private val _openFeed = MutableStateFlow(false)
+    val openFeed: StateFlow<Boolean> = _openFeed
+
+    private val _openPostId = MutableStateFlow<String?>(null)
+    val openPostId: StateFlow<String?> = _openPostId
+
+    fun setOpenFeed(open: Boolean) {
+        _openFeed.value = open
+    }
+
+    fun setOpenPostId(postId: String?) {
+        _openPostId.value = postId
+    }
 
     private val _recentEmojis = MutableStateFlow<List<String>>(emptyList())
     val recentEmojis: StateFlow<List<String>> = _recentEmojis
@@ -183,17 +199,56 @@ class ChatViewModel : ViewModel() {
     private val _searchResults = MutableStateFlow<List<UserProfile>>(emptyList())
     val searchResults: StateFlow<List<UserProfile>> = _searchResults
 
-    private val _statuses = MutableStateFlow<List<UserStatus>>(emptyList())
-    val statuses: StateFlow<List<UserStatus>> = _statuses
-
     private val _blockedUsers = MutableStateFlow<List<String>>(emptyList())
     val blockedUsers: StateFlow<List<String>> = _blockedUsers
 
     private val _blockedProfiles = MutableStateFlow<List<UserProfile>>(emptyList())
     val blockedProfiles: StateFlow<List<UserProfile>> = _blockedProfiles
 
+    private val _rawStatuses = MutableStateFlow<List<UserStatus>>(emptyList())
+    val statuses: StateFlow<List<UserStatus>> = kotlinx.coroutines.flow.combine(
+        _rawStatuses,
+        _contacts,
+        _blockedUsers,
+        _myUsername
+    ) { raw, contactsList, blockedList, me ->
+        val now = System.currentTimeMillis()
+        val blocked = blockedList.toSet()
+        val contactIds = contactsList.map { it.id }.toSet()
+
+        raw.filter { now - it.timestamp < STATUS_TTL_MS && !blocked.contains(it.userId) }
+           .filter { it.userId == me || contactIds.contains(it.userId) }
+           .sortedByDescending { it.timestamp }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _localMedia = MutableStateFlow<List<LocalMedia>>(emptyList())
     val localMedia: StateFlow<List<LocalMedia>> = _localMedia
+
+    private val _mutualContactIds = MutableStateFlow<Set<String>>(emptySet())
+    val mutualContactIds: StateFlow<Set<String>> = _mutualContactIds
+
+    private val _rawFeedPosts = MutableStateFlow<List<FeedPost>>(emptyList())
+    val feedPosts: StateFlow<List<FeedPost>> = kotlinx.coroutines.flow.combine(
+        _rawFeedPosts,
+        _mutualContactIds,
+        _blockedUsers,
+        _myUsername
+    ) { posts, mutuals, blocked, me ->
+        logD("Re-filtering feed: posts=${posts.size}, mutuals=${mutuals.size}, blocked=${blocked.size}, me=$me")
+        posts.filter { post ->
+            val isBlocked = blocked.contains(post.authorId)
+            val isOwner = post.authorId == me
+            val isMutual = mutuals.contains(post.authorId)
+            
+            !isBlocked && (post.isPublic || isOwner || isMutual)
+        }.sortedByDescending { it.timestamp }
+    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _feedNotifications = MutableStateFlow<List<FeedNotification>>(emptyList())
+    val feedNotifications: StateFlow<List<FeedNotification>> = _feedNotifications
+
+    private val _latestNotification = kotlinx.coroutines.flow.MutableSharedFlow<FeedNotification>()
+    val latestNotification: kotlinx.coroutines.flow.SharedFlow<FeedNotification> = _latestNotification
 
     // Compartilhamento externo
     private val _pendingSharedMedia = MutableStateFlow<List<Uri>>(emptyList())
@@ -214,6 +269,9 @@ class ChatViewModel : ViewModel() {
     private var statusesListener: ValueEventListener? = null
     private var pinnedMessageListener: ValueEventListener? = null
     private var blockedListener: ValueEventListener? = null
+    private var notificationsListener: ValueEventListener? = null
+    private val mutualListeners = mutableMapOf<String, ValueEventListener>()
+    private var feedRefreshJob: Job? = null
     private var currentChatPath: String? = null
 
     private val presenceListeners = mutableMapOf<String, ValueEventListener>()
@@ -266,7 +324,11 @@ class ChatViewModel : ViewModel() {
     // Helpers (paths / logging)
     // ---------------------------
     private fun logE(msg: String, t: Throwable? = null) {
-        if (t != null) Log.e(TAG, msg, t) else Log.e(TAG, msg)
+        Log.e(TAG, msg, t)
+    }
+
+    private fun logD(msg: String) {
+        Log.d(TAG, msg)
     }
 
     private fun chatKey(u1: String, u2: String): String {
@@ -312,7 +374,8 @@ class ChatViewModel : ViewModel() {
         db.child("uid_to_username").child(uid).get()
             .addOnSuccessListener { snapshot ->
                 val username = snapshot.getValue(String::class.java).orEmpty()
-                if (username.isNotEmpty()) {
+            logD("setupUserSession: fetched username='$username'")
+            if (username.isNotEmpty()) {
                     _myUsername.value = username
 
                     // Habilitar keepSynced para carregamento instantâneo (Cache)
@@ -326,9 +389,12 @@ class ChatViewModel : ViewModel() {
                     listenToChats(username)
                     listenToCallLogs(username)
                     listenToContacts(username)
-                    listenToStatuses(username)
-                    setupPresence(username)
-                    updateFcmToken(username)
+                listenToStatuses(username)
+                listenToFeeds()
+                listenToNotifications(username)
+                startPeriodicFeedRefresh()
+                setupPresence(username)
+                updateFcmToken(username)
 
                     // Aplicar target pendente se existir (vindo de notificação)
                     pendingTargetId?.let {
@@ -443,7 +509,7 @@ class ChatViewModel : ViewModel() {
         _isScreenshotDisabled.value = false
         _contacts.value = emptyList()
         _searchResults.value = emptyList()
-        _statuses.value = emptyList()
+        _rawStatuses.value = emptyList()
         _blockedUsers.value = emptyList()
         _blockedProfiles.value = emptyList()
     }
@@ -456,6 +522,9 @@ class ChatViewModel : ViewModel() {
             contactsListener?.let { db.child("contacts").child(me).removeEventListener(it) }
             blockedListener?.let { db.child("blocks").child(me).removeEventListener(it) }
             statusesListener?.let { db.child("status").removeEventListener(it) }
+            feedsListener?.let { db.child("feeds").removeEventListener(it) }
+            notificationsListener?.let { db.child("notifications").child(me).removeEventListener(it) }
+            feedRefreshJob?.cancel()
         }
 
         currentChatPath?.let { path ->
@@ -678,6 +747,7 @@ class ChatViewModel : ViewModel() {
                 else if (replyingTo?.audioUrl != null) "🎤 Áudio"
                 else null,
             replyToName = replyingTo?.senderName ?: replyingTo?.senderId,
+            replyToImageUrl = replyingTo?.imageUrl ?: replyingTo?.videoThumbnailUrl,
             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
         )
 
@@ -739,7 +809,8 @@ class ChatViewModel : ViewModel() {
                 ?: if (replyingTo?.imageUrl != null) "📷 Imagem"
                 else if (replyingTo?.audioUrl != null) "🎤 Áudio"
                 else if (replyingTo?.stickerUrl != null) "Sticker" else null,
-            replyToName = replyingTo?.senderName ?: replyingTo?.senderId
+            replyToName = replyingTo?.senderName ?: replyingTo?.senderId,
+            replyToImageUrl = replyingTo?.imageUrl ?: replyingTo?.videoThumbnailUrl
         )
 
         sendMessageObject(msg)
@@ -1157,20 +1228,60 @@ class ChatViewModel : ViewModel() {
             override fun onDataChange(s: DataSnapshot) {
                 val ids = s.children.mapNotNull { it.key }
                 val blocked = _blockedUsers.value.toSet()
+                logD("Contacts listener for $username received ${ids.size} IDs: $ids")
 
                 viewModelScope.launch(errorHandler) {
-                    try {
-                        val profiles = ids.filter { it.isNotBlank() && !blocked.contains(it) }
-                            .mapNotNull { id -> db.child("users").child(id).get().await().getValue(UserProfile::class.java) }
+                try {
+                    val profiles = ids.filter { it.isNotBlank() && !blocked.contains(it) }
+                        .mapNotNull { id -> db.child("users").child(id).get().await().getValue(UserProfile::class.java) }
 
-                        _contacts.value = profiles
-                        profiles.forEach { syncFriendPresence(it.id) }
-                    } catch (_: Exception) {}
+                    logD("Loaded ${profiles.size} contact profiles for $username")
+                    _contacts.value = profiles
+                    profiles.forEach { syncFriendPresence(it.id) }
+                
+                    // Check mutual status
+                    if (username.isNotEmpty()) {
+                        // Limpar listeners antigos que não estão mais na lista
+                        val currentIds = profiles.map { it.id }.toSet()
+                        val toRemove = mutualListeners.keys.filter { !currentIds.contains(it) }
+                        toRemove.forEach { id ->
+                            mutualListeners[id]?.let { db.child("contacts").child(id).child(username).removeEventListener(it) }
+                            mutualListeners.remove(id)
+                            val newMutuals = _mutualContactIds.value.toMutableSet()
+                            newMutuals.remove(id)
+                            _mutualContactIds.value = newMutuals
+                        }
+
+                        profiles.forEach { contact ->
+                            if (!mutualListeners.containsKey(contact.id)) {
+                                val listener = object : ValueEventListener {
+                                    override fun onDataChange(snapshot: DataSnapshot) {
+                                        val isMutual = snapshot.exists()
+                                        logD("Mutual check update: ${contact.id} -> $username mutual=$isMutual")
+                                        val newMutuals = _mutualContactIds.value.toMutableSet()
+                                        if (isMutual) newMutuals.add(contact.id) else newMutuals.remove(contact.id)
+                                        _mutualContactIds.value = newMutuals
+                                    }
+                                    override fun onCancelled(error: DatabaseError) {
+                                        logE("Mutual check PERMISSION ERROR for ${contact.id}: ${error.message}")
+                                    }
+                                }
+                                mutualListeners[contact.id] = listener
+                                db.child("contacts").child(contact.id).child(username).addValueEventListener(listener)
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    logE("Error loading contact profiles: ${e.message}", e)
                 }
             }
-            override fun onCancelled(error: DatabaseError) {}
         }
+        override fun onCancelled(error: DatabaseError) {
+            logE("Contacts listener error: ${error.message}")
+        }
+    }
 
+        logD("Attaching contacts listener for $username")
         db.child("contacts").child(username).addValueEventListener(contactsListener!!)
     }
 
@@ -1244,6 +1355,8 @@ class ChatViewModel : ViewModel() {
         }
 
         db.child(path).addValueEventListener(messagesListener!!)
+        
+        startEphemeralCleanup(target)
     }
 
     private fun startEphemeralCleanup(target: String) {
@@ -1623,16 +1736,8 @@ class ChatViewModel : ViewModel() {
 
         statusesListener = object : ValueEventListener {
             override fun onDataChange(s: DataSnapshot) {
-                val now = System.currentTimeMillis()
-                val blocked = _blockedUsers.value.toSet()
-                val contactIds = _contacts.value.map { it.id }.toSet()
-
                 val list = s.children.mapNotNull { it.getValue(UserStatus::class.java) }
-                    .filter { now - it.timestamp < STATUS_TTL_MS && !blocked.contains(it.userId) }
-                    .filter { it.userId == myUsername || contactIds.contains(it.userId) }
-                    .sortedByDescending { it.timestamp }
-
-                _statuses.value = list
+                _rawStatuses.value = list
             }
             override fun onCancelled(e: DatabaseError) {
                 logE("Status listener cancelled: ${e.message}")
@@ -1640,6 +1745,280 @@ class ChatViewModel : ViewModel() {
         }
 
         db.child("status").limitToLast(100).addValueEventListener(statusesListener!!)
+    }
+
+    // ---------------------------\
+    // Feed
+    // ---------------------------\
+    fun postToFeed(text: String, imageUri: Uri? = null, animatedEmoji: String? = null, isPublic: Boolean = true) {
+        val uid = safeMe()
+        val username = _myUsername.value
+        logD("Attempting to post to feed: uid=$uid, username=$username")
+        if (uid.isEmpty() || username.isEmpty()) {
+            logE("Cannot post: uid or username is empty")
+            return
+        }
+
+        viewModelScope.launch(errorHandler) {
+            try {
+                var imageUrl: String? = null
+                if (imageUri != null) {
+                    imageUrl = uploadToCloudinary(imageUri, FOLDER_FEEDS)
+                }
+
+                val postId = db.push().key ?: return@launch
+                val post = FeedPost(
+                    id = postId,
+                    authorId = username,
+                    authorName = _myName.value.ifBlank { username },
+                    authorPhotoUrl = _myPhotoUrl.value,
+                    text = text,
+                    photoUrl = imageUrl,
+                    mediaType = if (imageUrl != null) "IMAGE_FEED" else null,
+                    animatedEmoji = animatedEmoji,
+                    timestamp = System.currentTimeMillis(),
+                    isPublic = isPublic
+                )
+                db.child("feeds").child(postId).setValue(post)
+            } catch (e: Exception) {
+                logE("Error posting to feed: ${e.message}", e)
+            }
+        }
+    }
+
+    fun deleteFeedPost(postId: String) {
+        viewModelScope.launch {
+            try {
+                db.child("feeds").child(postId).removeValue().await()
+            } catch (e: Exception) {
+                logE("Error deleting feed post: ${e.message}")
+            }
+        }
+    }
+
+    fun toggleFeedLike(postId: String, like: Boolean) {
+        val username = _myUsername.value
+        if (username.isEmpty()) return
+        
+        val ref = db.child("feeds").child(postId)
+        
+        if (like) {
+            ref.child("likes").child(username).setValue(true)
+            
+            // Enviar notificação para o autor
+            viewModelScope.launch {
+                try {
+                    val post = ref.get().await().getValue(FeedPost::class.java) ?: return@launch
+                    if (post.authorId != username) { // Não notificar a si mesmo
+                        val notificationId = db.child("notifications").child(post.authorId).push().key ?: return@launch
+                        val notification = FeedNotification(
+                            id = notificationId,
+                            fromId = username,
+                            fromName = _myName.value.ifBlank { username },
+                            fromPhotoUrl = _myPhotoUrl.value,
+                            postId = postId,
+                            postPreviewText = post.text.take(50),
+                            timestamp = System.currentTimeMillis()
+                        )
+                        db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
+                    }
+                } catch (e: Exception) {
+                    logE("Error sending like notification: ${e.message}")
+                }
+            }
+        } else {
+            ref.child("likes").child(username).removeValue()
+        }
+    }
+    
+    fun addFeedComment(postId: String, text: String) {
+        val username = _myUsername.value
+        if (username.isEmpty() || text.isBlank()) return
+        
+        viewModelScope.launch {
+            try {
+                val ref = db.child("feeds").child(postId)
+                val commentId = ref.child("comments").push().key ?: return@launch
+                val comment = FeedComment(
+                    id = commentId,
+                    authorId = username,
+                    authorName = _myName.value.ifBlank { username },
+                    authorPhotoUrl = _myPhotoUrl.value,
+                    text = text,
+                    timestamp = System.currentTimeMillis()
+                )
+                
+                logD("Adding comment to post $postId: $text")
+                ref.child("comments").child(commentId).setValue(comment).await()
+                logD("Comment added successfully")
+                
+                // Notificar o autor do post
+                val post = ref.get().await().getValue(FeedPost::class.java) ?: return@launch
+                if (post.authorId != username) {
+                    val notificationId = db.child("notifications").child(post.authorId).push().key ?: return@launch
+                    val notification = FeedNotification(
+                        id = notificationId,
+                        type = "COMMENT",
+                        fromId = username,
+                        fromName = _myName.value.ifBlank { username },
+                        fromPhotoUrl = _myPhotoUrl.value,
+                        postId = postId,
+                        postPreviewText = text.take(50),
+                        timestamp = System.currentTimeMillis()
+                    )
+                    db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
+                }
+            } catch (e: Exception) {
+                logE("Error adding comment: ${e.message}")
+            }
+        }
+    }
+
+    fun deleteFeedComment(postId: String, commentId: String) {
+        viewModelScope.launch {
+            try {
+                db.child("feeds").child(postId).child("comments").child(commentId).removeValue().await()
+            } catch (e: Exception) {
+                logE("Error deleting comment: ${e.message}")
+            }
+        }
+    }
+
+    fun setFeedReaction(postId: String, emoji: String?) {
+        val username = _myUsername.value
+        if (username.isEmpty()) return
+        
+        val ref = db.child("feeds").child(postId)
+        viewModelScope.launch {
+            try {
+                if (emoji == null) {
+                    ref.child("reactions").child(username).removeValue().await()
+                } else {
+                    ref.child("reactions").child(username).setValue(emoji).await()
+                    
+                    // Notificar o autor do post
+                    val post = ref.get().await().getValue(FeedPost::class.java) ?: return@launch
+                    if (post.authorId != username) {
+                        val notificationId = db.child("notifications").child(post.authorId).push().key ?: return@launch
+                        val notification = FeedNotification(
+                            id = notificationId,
+                            type = "REACTION",
+                            fromId = username,
+                            fromName = _myName.value.ifBlank { username },
+                            fromPhotoUrl = _myPhotoUrl.value,
+                            postId = postId,
+                            postPreviewText = post.text.take(50),
+                            timestamp = System.currentTimeMillis(),
+                            reactionEmoji = emoji
+                        )
+                        db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
+                    }
+                }
+            } catch (e: Exception) {
+                logE("Error setting reaction: ${e.message}")
+            }
+        }
+    }
+
+    private fun listenToNotifications(username: String) {
+        notificationsListener?.let { db.child("notifications").child(username).removeEventListener(it) }
+        notificationsListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val newList = snapshot.children.mapNotNull { it.getValue(FeedNotification::class.java) }
+                    .sortedByDescending { it.timestamp }
+                
+                val oldList = _feedNotifications.value
+                val newest = newList.firstOrNull { !it.isRead }
+
+                // Inteligente: Só emitir se for realmente novo (timestamp recente e não estava na lista anterior como unread)
+                if (newest != null && newest.timestamp > System.currentTimeMillis() - 15000) {
+                    val previouslyHadThis = oldList.any { it.id == newest.id }
+                    if (!previouslyHadThis) {
+                        // Agrupar se houver mais notificações do mesmo tipo para o mesmo post
+                        val similar = newList.filter { 
+                            it.postId == newest.postId && 
+                            it.type == newest.type && 
+                            !it.isRead && 
+                            it.fromId != newest.fromId 
+                        }
+                        
+                        if (similar.isNotEmpty() && newest.type != "COMMENT") {
+                            val aggregated = newest.copy(
+                                fromName = "${newest.fromName} e ${similar.size} outras pessoas"
+                            )
+                            viewModelScope.launch { _latestNotification.emit(aggregated) }
+                            FeedNotificationHelper.showFeedInteractionNotification(FriendApplication.instance, aggregated)
+                        } else {
+                            viewModelScope.launch { _latestNotification.emit(newest) }
+                            FeedNotificationHelper.showFeedInteractionNotification(FriendApplication.instance, newest)
+                        }
+                    }
+                }
+                _feedNotifications.value = newList
+            }
+            override fun onCancelled(error: DatabaseError) {
+                logE("Notifications listener cancelled: ${error.message}")
+            }
+        }
+        db.child("notifications").child(username).limitToLast(50).addValueEventListener(notificationsListener!!)
+    }
+
+    fun markNotificationsAsRead() {
+        val username = _myUsername.value
+        if (username.isEmpty()) return
+        
+        viewModelScope.launch {
+            try {
+                val snapshot = db.child("notifications").child(username).get().await()
+                val updates = mutableMapOf<String, Any?>()
+                snapshot.children.forEach { 
+                    updates["${it.key}/isRead"] = true
+                }
+                db.child("notifications").child(username).updateChildren(updates)
+            } catch (e: Exception) {}
+        }
+    }
+
+    fun deleteNotification(id: String) {
+        val username = _myUsername.value
+        if (username.isEmpty()) return
+        db.child("notifications").child(username).child(id).removeValue()
+    }
+
+    private var feedsListener: ValueEventListener? = null
+
+    private fun startPeriodicFeedRefresh() {
+        feedRefreshJob?.cancel()
+        feedRefreshJob = viewModelScope.launch {
+            while (isActive) {
+                delay(60000) // 1 minuto
+                val username = _myUsername.value
+                if (username.isNotEmpty()) {
+                    logD("Iniciando verificação periódica de 1 minuto para postagens...")
+                    // Forçar um re-fetch dos contatos para garantir que o status mútuo esteja atualizado
+                    listenToContacts(username)
+                    // Opcional: Forçar re-fetch do feed se necessário
+                    // db.child("feeds").get().addOnSuccessListener { ... }
+                }
+            }
+        }
+    }
+    
+    private fun listenToFeeds() {
+        feedsListener?.let { db.child("feeds").removeEventListener(it) }
+        
+        feedsListener = object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                logD("Feed data received: ${snapshot.childrenCount} items")
+                val list = snapshot.children.mapNotNull { it.getValue(FeedPost::class.java) }
+                _rawFeedPosts.value = list
+            }
+            override fun onCancelled(error: DatabaseError) {
+                logE("Feed listener cancelled: ${error.message}")
+            }
+        }
+        
+        db.child("feeds").limitToLast(100).addValueEventListener(feedsListener!!)
     }
 
     // ---------------------------\\

@@ -263,10 +263,18 @@ fun MetaMessageBubble(
                                 ) {
                                     Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Box(modifier = Modifier.width(3.dp).height(32.dp).background(if (isMe) textColor.copy(0.6f) else chatColors.primary, RoundedCornerShape(2.dp)))
-                                        Column(modifier = Modifier.padding(start = 10.dp)) {
+                                        Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
                                             Text(message.replyToName ?: "", color = if (isMe) textColor.copy(0.9f) else chatColors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
                                             val replyText = message.replyToText ?: if (message.imageUrl != null) "📷 Imagem" else if (message.audioUrl != null) "🎤 Áudio" else if (message.videoUrl != null) "📹 Vídeo" else ""
                                             Text(replyText, color = textColor.copy(0.8f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        }
+                                        if (message.replyToImageUrl != null) {
+                                            AsyncImage(
+                                                model = message.replyToImageUrl,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
+                                                contentScale = ContentScale.Crop
+                                            )
                                         }
                                     }
                                 }

@@ -14,6 +14,7 @@ import androidx.compose.material.icons.automirrored.rounded.Message
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.google.firebase.database.FirebaseDatabase
+import com.jack.friend.ChatViewModel
+import com.jack.friend.FeedPostCard
 import com.jack.friend.UserProfile
 import com.jack.friend.ui.chat.MediaViewerItem
 import com.jack.friend.ui.chat.MediaViewerScreen
@@ -44,6 +47,7 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun IOS17ContactProfileSheet(
+    viewModel: ChatViewModel,
     user: UserProfile,
     myUsername: String,
     isMuted: Boolean,
@@ -88,6 +92,9 @@ fun IOS17ContactProfileSheet(
         "Ausente" -> iOSOrange
         else -> MetaGray4
     }
+
+    val feedPosts by viewModel.feedPosts.collectAsStateWithLifecycle()
+    val userPosts = feedPosts.filter { it.authorId == user.id }
 
     val presenceText = remember(user.isOnline, user.showLastSeen, user.lastActive, user.presenceStatus, user.isVisibleOnline) {
         when {
@@ -296,7 +303,7 @@ fun IOS17ContactProfileSheet(
                 ProfileCard(colors) {
                     ActionItem(
                         icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
-                        label = if (isBlocked) "Desbloquear" else "Bloquear Contato",
+                        label = if (isBlocked) "Desbloquear" else "Bloquear Amigo",
                         contentColor = iOSRed,
                         colors = colors,
                         onClick = onToggleBlock
@@ -305,10 +312,31 @@ fun IOS17ContactProfileSheet(
                         HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
                         ActionItem(
                             icon = Icons.Rounded.PersonRemove,
-                            label = "Remover Contato",
+                            label = "Desfazer Amizade",
                             contentColor = iOSRed,
                             colors = colors,
                             onClick = { onRemove(user) }
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                if (userPosts.isNotEmpty()) {
+                    Text(
+                        "Postagens de ${user.name}", 
+                        fontWeight = FontWeight.Bold, 
+                        fontSize = 20.sp, 
+                        color = colors.textPrimary,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                    )
+                    
+                    userPosts.forEach { post ->
+                        FeedPostCard(
+                            post = post,
+                            myUsername = myUsername,
+                            viewModel = viewModel,
+                            onImageClick = { fullScreenPhotoUrl = it }
                         )
                     }
                 }

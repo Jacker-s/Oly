@@ -58,12 +58,23 @@ class SettingsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val context = LocalContext.current
-            val uiPrefs = remember { context.getSharedPreferences("ui_prefs", MODE_PRIVATE) }
-            var isDarkMode by remember { mutableStateOf(uiPrefs.getBoolean("dark_mode", false)) }
-            var selectedThemeName by remember { mutableStateOf(uiPrefs.getString("app_theme", AppTheme.DEFAULT.name) ?: AppTheme.DEFAULT.name) }
+            FriendTheme {
+                val viewModel: ChatViewModel = viewModel()
+                SettingsScreen(viewModel = viewModel, onBack = { finish() })
+            }
+        }
+    }
+}
 
-            FriendTheme(isDarkModeOverride = isDarkMode) {
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
+    val context = LocalContext.current
+    val uiPrefs = remember { context.getSharedPreferences("ui_prefs", Context.MODE_PRIVATE) }
+    var isDarkMode by remember { mutableStateOf(uiPrefs.getBoolean("dark_mode", false)) }
+    var selectedThemeName by remember { mutableStateOf(uiPrefs.getString("app_theme", AppTheme.DEFAULT.name) ?: AppTheme.DEFAULT.name) }
+
+    FriendTheme(isDarkModeOverride = isDarkMode) {
                 val viewModel: ChatViewModel = viewModel()
                 
                 val myName by viewModel.myName.collectAsStateWithLifecycle("")
@@ -75,7 +86,7 @@ class SettingsActivity : ComponentActivity() {
                 val showReadReceipts by viewModel.showReadReceipts.collectAsStateWithLifecycle(true)
                 val showOnlineStatus by viewModel.showOnlineStatus.collectAsStateWithLifecycle(true)
 
-                val securityPrefs = remember { context.getSharedPreferences("security_prefs", MODE_PRIVATE) }
+                val securityPrefs = remember { context.getSharedPreferences("security_prefs", Context.MODE_PRIVATE) }
 
                 var isPinEnabled by remember { mutableStateOf(securityPrefs.getBoolean("pin_enabled", false)) }
                 var isBiometricEnabled by remember { mutableStateOf(securityPrefs.getBoolean("biometric_enabled", false)) }
@@ -94,11 +105,6 @@ class SettingsActivity : ComponentActivity() {
                     topBar = {
                         CenterAlignedTopAppBar(
                             title = { Text("Configurações", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) },
-                            navigationIcon = {
-                                IconButton(onClick = { finish() }) {
-                                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = MaterialTheme.colorScheme.onSurface)
-                                }
-                            },
                             colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = LocalChatColors.current.topBar)
                         )
                     }
@@ -227,7 +233,6 @@ class SettingsActivity : ComponentActivity() {
                                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                                 }
                                 context.startActivity(intent)
-                                finish()
                             })
                             MetaSettingsDivider()
                             MetaSettingsItem(title = "Excluir Conta", icon = Icons.Default.DeleteForever, iconColor = MessengerBusy, textColor = MessengerBusy, onClick = { showDeleteAccountDialog = true })
@@ -328,7 +333,6 @@ class SettingsActivity : ComponentActivity() {
                                                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                                             }
                                             context.startActivity(intent)
-                                            finish()
                                         } else {
                                             Toast.makeText(context, error ?: "Erro ao excluir conta. Tente sair e entrar novamente.", Toast.LENGTH_LONG).show()
                                         }
@@ -381,8 +385,6 @@ class SettingsActivity : ComponentActivity() {
                         }
                     )
                 }
-            }
-        }
     }
 }
 

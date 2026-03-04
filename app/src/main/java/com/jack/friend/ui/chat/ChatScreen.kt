@@ -14,12 +14,18 @@ import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -31,11 +37,18 @@ import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
+import com.jack.friend.FeedScreen
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.blur
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -43,6 +56,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -122,10 +136,40 @@ fun ChatScreen(viewModel: ChatViewModel) {
     var viewingStatuses by remember { mutableStateOf<List<UserStatus>?>(null) }
     var selectedFilter by remember { mutableStateOf("Tudo") }
     var selectedChatForOptions by remember { mutableStateOf<ChatSummary?>(null) }
+    val bottomScreens = remember { listOf(BottomBarScreen.Home, BottomBarScreen.Feed, BottomBarScreen.Contacts, BottomBarScreen.Calls, BottomBarScreen.Settings) }
     var currentBottomRoute by remember { mutableStateOf(BottomBarScreen.Home.route) }
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { bottomScreens.size })
+
+    val openFeed by viewModel.openFeed.collectAsStateWithLifecycle(false)
+    val openPostId by viewModel.openPostId.collectAsStateWithLifecycle(null)
+
+    LaunchedEffect(openFeed, openPostId) {
+        if (openFeed) {
+            currentBottomRoute = BottomBarScreen.Feed.route
+            val targetIndex = bottomScreens.indexOf(BottomBarScreen.Feed)
+            if (targetIndex != -1) pagerState.animateScrollToPage(targetIndex)
+            // After navigating, reset openFeed state so it doesn't get stuck
+            viewModel.setOpenFeed(false)
+        }
+    }
 
     // State to open profile from search
     var searchingUserProfile by remember { mutableStateOf<UserProfile?>(null) }
+    
+    var activePopupNotification by remember { mutableStateOf<FeedNotification?>(null) }
+
+    LaunchedEffect(Unit) {
+        viewModel.latestNotification.collect { notification ->
+            activePopupNotification = notification
+        }
+    }
+
+    LaunchedEffect(activePopupNotification) {
+        if (activePopupNotification != null) {
+            delay(5000)
+            activePopupNotification = null
+        }
+    }
 
     // Status Composer State
     var statusItemsToCompose by remember { mutableStateOf<SnapshotStateList<StatusDraft>?>(null) }
@@ -141,6 +185,24 @@ fun ChatScreen(viewModel: ChatViewModel) {
     LaunchedEffect(Unit) {
         val activity = context as? Activity ?: return@LaunchedEffect
         activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+    }
+
+    LaunchedEffect(currentBottomRoute) {
+        if (currentBottomRoute != BottomBarScreen.Search.route) {
+            val index = bottomScreens.indexOfFirst { it.route == currentBottomRoute }
+            if (index != -1 && pagerState.currentPage != index) {
+                pagerState.animateScrollToPage(index)
+            }
+        }
+    }
+
+    LaunchedEffect(pagerState.currentPage, pagerState.isScrollInProgress) {
+        if (!pagerState.isScrollInProgress) {
+            val page = bottomScreens[pagerState.currentPage]
+            if (currentBottomRoute != page.route && currentBottomRoute != BottomBarScreen.Search.route) {
+                currentBottomRoute = page.route
+            }
+        }
     }
 
     LaunchedEffect(messages.size) {
@@ -222,17 +284,19 @@ fun ChatScreen(viewModel: ChatViewModel) {
         containerColor = Color.Transparent,
         topBar = {
             if (viewingStatuses == null && !showChatInfo && !showInAppCamera && !showModernGallery && mediaViewerItem == null && searchingUserProfile == null && statusItemsToCompose == null && !showInAppStatusCamera && !showInAppStatusGallery) {
-                ChatTopBar(
-                    targetId = targetId, targetProfile = targetProfileState, activeChats = activeChats, myPhotoUrl = myPhotoUrl,
-                    isTargetTyping = isTargetTyping, showContacts = false, isSearching = isSearching, searchInput = searchInput,
-                    onBack = { if (targetId.isNotEmpty()) viewModel.setTargetId("") else { isSearching = false; currentBottomRoute = BottomBarScreen.Home.route } },
-                    onSearchChange = { searchInput = it; viewModel.searchUsers(it) },
-                    onSearchActiveChange = { isSearching = it; if (!it) currentBottomRoute = BottomBarScreen.Home.route },
-                    onCallClick = { callLogic(false) }, onVideoCallClick = { callLogic(true) },
-                    onOptionClick = { showOptionsMenu = true },
-                    onAddContact = { showAddContactDialog = true },
-                    onChatHeaderClick = { showChatInfo = true }
-                )
+                if (targetId.isNotEmpty() || currentBottomRoute == BottomBarScreen.Home.route || currentBottomRoute == BottomBarScreen.Search.route) {
+                    ChatTopBar(
+                        targetId = targetId, targetProfile = targetProfileState, activeChats = activeChats, myPhotoUrl = myPhotoUrl,
+                        isTargetTyping = isTargetTyping, showContacts = false, isSearching = isSearching, searchInput = searchInput,
+                        onBack = { if (targetId.isNotEmpty()) viewModel.setTargetId("") else { isSearching = false; currentBottomRoute = BottomBarScreen.Home.route } },
+                        onSearchChange = { searchInput = it; viewModel.searchUsers(it) },
+                        onSearchActiveChange = { isSearching = it; if (!it) currentBottomRoute = BottomBarScreen.Home.route },
+                        onCallClick = { callLogic(false) }, onVideoCallClick = { callLogic(true) },
+                        onOptionClick = { showOptionsMenu = true },
+                        onAddContact = { showAddContactDialog = true },
+                        onChatHeaderClick = { showChatInfo = true }
+                    )
+                }
             }
         },
         bottomBar = {
@@ -301,14 +365,11 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 } else {
                     ResponsiveFloatingDock(
                         currentRoute = currentBottomRoute,
+                        pagerOffset = if (!isSearching) (pagerState.currentPage + pagerState.currentPageOffsetFraction) else null,
                         onNavigate = { screen ->
-                            if (screen == BottomBarScreen.Contacts) {
-                                context.startActivity(Intent(context, ContactsActivity::class.java))
-                            } else {
-                                currentBottomRoute = screen.route
-                                isSearching = screen == BottomBarScreen.Search
-                                if (screen == BottomBarScreen.Home) selectedFilter = "Tudo"
-                            }
+                            currentBottomRoute = screen.route
+                            isSearching = screen == BottomBarScreen.Search
+                            if (screen == BottomBarScreen.Home) selectedFilter = "Tudo"
                         },
                         onFabClick = { }
                     )
@@ -334,6 +395,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     if (showChatInfo && targetProfile != null) {
                         val currentChat = activeChats.find { it.friendId == targetId }
                         IOS17ContactProfileSheet(
+                            viewModel = viewModel,
                             user = targetProfile,
                             myUsername = myUsername,
                             isMuted = currentChat?.isMuted ?: false,
@@ -393,50 +455,97 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     }
                 }
                 else -> {
-                    Column {
-                        if (hasPendingShare) {
-                            Surface(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(8.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                shape = RoundedCornerShape(12.dp),
-                                tonalElevation = 4.dp
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(Icons.Rounded.Share, null, tint = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.width(12.dp))
-                                    Text("Conteúdo pronto para compartilhar. Selecione um contato.", Modifier.weight(1f), fontSize = 14.sp)
-                                    TextButton(onClick = { viewModel.clearPendingShare() }) {
-                                        Text("Cancelar", color = iOSRed)
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.fillMaxSize(),
+                        userScrollEnabled = !isSearching // Disable swipe when searching
+                    ) { page ->
+                        when(bottomScreens[page]) {
+                            BottomBarScreen.Home -> {
+                                Column {
+                                    if (hasPendingShare) {
+                                        Surface(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(8.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer,
+                                            shape = RoundedCornerShape(12.dp),
+                                            tonalElevation = 4.dp
+                                        ) {
+                                            Row(
+                                                modifier = Modifier.padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(Icons.Rounded.Share, null, tint = MaterialTheme.colorScheme.primary)
+                                                Spacer(Modifier.width(12.dp))
+                                                Text("Conteúdo pronto para compartilhar. Selecione um amigo.", Modifier.weight(1f), fontSize = 14.sp)
+                                                TextButton(onClick = { viewModel.clearPendingShare() }) {
+                                                    Text("Cancelar", color = iOSRed)
+                                                }
+                                            }
+                                        }
                                     }
+                                    ChatListScreenIOS(
+                                        isSearching = isSearching && (currentBottomRoute == BottomBarScreen.Home.route || currentBottomRoute == BottomBarScreen.Search.route),
+                                        searchInput = searchInput, searchResults = searchResults, filteredChats = filteredChats, statuses = statuses,
+                                        myPhotoUrl = myPhotoUrl, myUsername = myUsername, contacts = contacts,
+                                        onStatusAdd = { showStatusAttachmentMenu = true },
+                                        onStatusView = { userStatuses -> viewModel.markStatusAsViewed(userStatuses.first().id); viewingStatuses = userStatuses },
+                                        onChatClick = { summary ->
+                                            if (hasPendingShare) showShareConfirmDialog = summary.friendId
+                                            else viewModel.setTargetId(summary.friendId)
+                                        },
+                                        onChatLongClick = { summary -> selectedChatForOptions = summary },
+                                        onUserSearchClick = { user ->
+                                            searchingUserProfile = user
+                                        },
+                                        onAddContactSearch = { id -> viewModel.addContact(id) { _, _ -> } },
+                                        onUserChatClick = { user ->
+                                            isSearching = false
+                                            searchInput = ""
+                                            viewModel.searchUsers("")
+                                            viewModel.setTargetId(user.id)
+                                        }
+                                    )
                                 }
                             }
-                        }
-                        ChatListScreenIOS(
-                            isSearching = isSearching, searchInput = searchInput, searchResults = searchResults, filteredChats = filteredChats, statuses = statuses,
-                            myPhotoUrl = myPhotoUrl, myUsername = myUsername, contacts = contacts,
-                            onStatusAdd = { showStatusAttachmentMenu = true },
-                            onStatusView = { userStatuses -> viewModel.markStatusAsViewed(userStatuses.first().id); viewingStatuses = userStatuses },
-                            onChatClick = { summary ->
-                                if (hasPendingShare) showShareConfirmDialog = summary.friendId
-                                else viewModel.setTargetId(summary.friendId)
-                            },
-                            onChatLongClick = { summary -> selectedChatForOptions = summary },
-                            onUserSearchClick = { user ->
-                                searchingUserProfile = user
-                            },
-                            onAddContactSearch = { id -> viewModel.addContact(id) { _, _ -> } },
-                            onUserChatClick = { user ->
-                                isSearching = false
-                                searchInput = ""
-                                viewModel.searchUsers("")
-                                viewModel.setTargetId(user.id)
+                            BottomBarScreen.Feed -> {
+                                FeedScreen(viewModel = viewModel)
                             }
-                        )
+                            BottomBarScreen.Contacts -> { 
+                                ContactsScreenIOS17(
+                                    viewModel = viewModel, 
+                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route }, 
+                                    onOpenChat = { user -> viewModel.setTargetId(user.id) }, 
+                                    onStartCall = { user, isVideo -> 
+                                        viewModel.setTargetId(user.id)
+                                        callLogic(isVideo)
+                                    }
+                                ) 
+                            }
+                            BottomBarScreen.Calls -> { 
+                                CallsScreen(
+                                    viewModel = viewModel, 
+                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route }, 
+                                    onOpenCall = { roomId, targetIdCall, targetPhotoUrl, isOutgoing, isVideo -> 
+                                        context.startActivity(Intent(context, CallActivity::class.java).apply {
+                                            putExtra("roomId", roomId)
+                                            putExtra("targetId", targetIdCall)
+                                            putExtra("targetPhotoUrl", targetPhotoUrl)
+                                            putExtra("isOutgoing", isOutgoing)
+                                            putExtra("isVideo", isVideo)
+                                        })
+                                    }
+                                ) 
+                            }
+                            BottomBarScreen.Settings -> { 
+                                SettingsScreen(
+                                    viewModel = viewModel, 
+                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route }
+                                ) 
+                            }
+                            else -> {}
+                        }
                     }
                 }
             }
@@ -496,7 +605,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 AlertDialog(
                     onDismissRequest = { showShareConfirmDialog = null },
                     title = { Text("Compartilhar com $shareTargetName?") },
-                    text = { Text("Deseja enviar o conteúdo selecionado para este contato?") },
+                    text = { Text("Deseja enviar o conteúdo selecionado para este amigo?") },
                     confirmButton = {
                         TextButton(onClick = {
                             viewModel.sendPendingShare(shareTargetId, tempMessageDuration)
@@ -516,6 +625,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                 val chat = activeChats.firstOrNull { !it.isGroup && it.friendId == user.id }
 
                 IOS17ContactProfileSheet(
+                    viewModel = viewModel,
                     user = user,
                     myUsername = myUsername,
                     isMuted = chat?.isMuted ?: false,
@@ -564,6 +674,130 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     }
                 )
             }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = 20.dp, start = 8.dp, end = 8.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = activePopupNotification != null,
+                    enter = slideInVertically { -it } + fadeIn(),
+                    exit = slideOutVertically { -it } + fadeOut()
+                ) {
+                    activePopupNotification?.let { notification ->
+                        NotificationPopup(
+                            notification = notification,
+                            onDismiss = { activePopupNotification = null },
+                            onClick = {
+                                activePopupNotification = null
+                                currentBottomRoute = BottomBarScreen.Feed.route
+                                scope.launch { 
+                                    pagerState.animateScrollToPage(1)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun NotificationPopup(
+    notification: FeedNotification,
+    onDismiss: () -> Unit,
+    onClick: () -> Unit
+) {
+    val colors = LocalChatColors.current
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .clickable { onClick() },
+        color = colors.secondaryBackground.copy(alpha = 0.98f),
+        tonalElevation = 12.dp,
+        shadowElevation = 12.dp,
+        border = BorderStroke(1.dp, colors.separator.copy(alpha = 0.3f))
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(contentAlignment = Alignment.BottomEnd) {
+                AsyncImage(
+                    model = notification.fromPhotoUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(48.dp)
+                        .clip(CircleShape)
+                        .background(colors.separator),
+                    contentScale = ContentScale.Crop
+                )
+                
+                // Pequeno badge do tipo de notificação
+                val icon = when (notification.type) {
+                    "LIKE" -> Icons.Rounded.Favorite
+                    "COMMENT" -> Icons.Rounded.Comment
+                    "REACTION" -> Icons.Rounded.AddReaction
+                    else -> Icons.Rounded.Notifications
+                }
+                val iconColor = when (notification.type) {
+                    "LIKE" -> Color.Red
+                    "COMMENT" -> MessengerBlue
+                    "REACTION" -> Color(0xFFFF9800)
+                    else -> colors.primary
+                }
+                
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .padding(2.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, null, tint = iconColor, modifier = Modifier.size(12.dp))
+                }
+            }
+            
+            Spacer(Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = buildString {
+                        append(notification.fromName.ifBlank { "Alguém" })
+                        when (notification.type) {
+                            "LIKE" -> append(" curtiu sua postagem")
+                            "COMMENT" -> append(" comentou na sua postagem")
+                            "REACTION" -> append(" reagiu ${notification.reactionEmoji} à sua postagem")
+                            else -> append(" interagiu com você")
+                        }
+                    },
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primary,
+                    maxLines = 1
+                )
+                if (notification.postPreviewText.isNotBlank()) {
+                    Text(
+                        notification.postPreviewText,
+                        fontSize = 13.sp,
+                        color = colors.textSecondary,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
+                    )
+                }
+            }
+            
+            Icon(
+                Icons.Rounded.ChevronRight, 
+                null, 
+                tint = colors.textSecondary.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }
@@ -580,6 +814,8 @@ fun StatusComposer(
 ) {
     var currentStatusIndex by remember { mutableIntStateOf(0) }
     val currentStatusDraft = statusItems[currentStatusIndex]
+    
+    var draftCaption by remember(currentStatusIndex) { mutableStateOf(currentStatusDraft.caption) }
 
     var showTextEditor by remember { mutableStateOf(false) }
     var currentOverlayText by remember { mutableStateOf("") }
@@ -605,6 +841,17 @@ fun StatusComposer(
         if (isVideo) {
             VideoStatusPlayer(url = currentStatusDraft.uri.toString(), onComplete = {}, isPaused = showTextEditor)
         } else {
+            // Premium Blurred Background Base Layer
+            AsyncImage(
+                model = currentStatusDraft.uri,
+                contentDescription = "Blurred Background",
+                modifier = Modifier
+                    .fillMaxSize()
+                    .alpha(0.6f)
+                    .blur(60.dp),
+                contentScale = ContentScale.Crop
+            )
+            // Foreground Focused Image Layer
             AsyncImage(
                 model = currentStatusDraft.uri,
                 contentDescription = null,
@@ -612,6 +859,14 @@ fun StatusComposer(
                 contentScale = ContentScale.Fit
             )
         }
+
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(180.dp)
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(0.85f))))
+        )
 
         currentStatusDraft.overlays.forEachIndexed { index, overlay ->
             var offsetX by remember(currentStatusIndex, index) { mutableFloatStateOf(overlay.x * containerSize.width) }
@@ -656,25 +911,35 @@ fun StatusComposer(
 
         Box(modifier = Modifier.fillMaxSize().padding(16.dp)) {
             Row(
-                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding(),
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(top = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = onDismiss) {
+                IconButton(
+                    onClick = onDismiss, 
+                    modifier = Modifier.background(Color.Black.copy(0.3f), CircleShape)
+                ) {
                     Icon(Icons.Rounded.Close, null, tint = Color.White)
                 }
             }
 
             Row(
-                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding(),
+                modifier = Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = { showEmojiStickerPicker = true }) {
+                IconButton(
+                    onClick = { showEmojiStickerPicker = true }, 
+                    modifier = Modifier.background(Color.Black.copy(0.3f), CircleShape)
+                ) {
                     Icon(Icons.Rounded.Face, null, tint = Color.White)
                 }
-                IconButton(onClick = {
-                    currentOverlayText = ""
-                    showTextEditor = true
-                }) {
+                Spacer(modifier = Modifier.width(8.dp))
+                IconButton(
+                    onClick = {
+                        currentOverlayText = ""
+                        showTextEditor = true
+                    },
+                    modifier = Modifier.background(Color.Black.copy(0.3f), CircleShape)
+                ) {
                     Icon(Icons.Rounded.TextFields, null, tint = Color.White)
                 }
             }
@@ -684,18 +949,18 @@ fun StatusComposer(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .statusBarsPadding()
-                        .padding(top = 16.dp)
+                        .padding(top = 4.dp, start = 8.dp, end = 8.dp)
                         .fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     statusItems.forEachIndexed { index, _ ->
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(if (index == currentStatusIndex) Color.White else Color.Gray.copy(alpha = 0.5f))
+                                .weight(1f)
+                                .height(3.dp)
+                                .clip(RoundedCornerShape(1.5.dp))
+                                .background(if (index == currentStatusIndex) Color.White else Color.White.copy(alpha = 0.4f))
                                 .clickable { currentStatusIndex = index }
-                                .padding(horizontal = 4.dp)
                         )
                     }
                 }
@@ -717,35 +982,55 @@ fun StatusComposer(
             }
 
             Column(
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .imePadding()
+                    .navigationBarsPadding()
+                    .padding(bottom = 12.dp, start = 12.dp, end = 12.dp)
             ) {
-                TextField(
-                    value = currentStatusDraft.caption,
-                    onValueChange = { currentStatusDraft.caption = it },
-                    placeholder = { Text("Adicione uma legenda...", color = Color.LightGray) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(30.dp)),
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Black.copy(alpha = 0.5f),
-                        unfocusedContainerColor = Color.Black.copy(alpha = 0.5f),
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        cursorColor = MessengerBlue,
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent
-                    ),
-                    trailingIcon = {
-                        IconButton(
-                            onClick = { onPost(statusItems.toList()) },
-                            modifier = Modifier
-                                .padding(4.dp)
-                                .background(MessengerBlue, CircleShape)
-                        ) {
-                            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White)
-                        }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Bottom,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(24.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        TextField(
+                            value = draftCaption,
+                            onValueChange = { 
+                                draftCaption = it
+                                currentStatusDraft.caption = it 
+                            },
+                            placeholder = { Text("Adicione uma legenda...", color = Color.White.copy(0.8f)) },
+                            modifier = Modifier.fillMaxWidth().clickable { }, // Ensures clickable area focus
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = MessengerBlue,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            maxLines = 5,
+                            textStyle = TextStyle(fontSize = 16.sp)
+                        )
                     }
-                )
+                    
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(MessengerBlue)
+                            .clickable { onPost(statusItems.toList()) },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White)
+                    }
+                }
             }
         }
 
@@ -869,29 +1154,75 @@ fun StatusViewer(
     var progress by remember { mutableFloatStateOf(0f) }
     var showViewers by remember { mutableStateOf(false) }
     var containerSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
+    var isPaused by remember { mutableStateOf(false) }
 
-    LaunchedEffect(currentIndex) {
+    var replyText by remember { mutableStateOf("") }
+    var isReplying by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
+
+    // Pausar o status se o usuário estiver focando no teclado
+    val effectiveIsPaused = isPaused || isReplying
+
+    LaunchedEffect(currentIndex, effectiveIsPaused) {
         progress = 0f
+        if (showViewers || currentStatus.isVideo) return@LaunchedEffect
+        
         val duration = 5000L
-        val steps = 100
-        val stepTime = duration / steps
-        for (i in 1..steps) {
-            delay(stepTime)
-            if (!showViewers) progress = i.toFloat() / steps
+        val updateInterval = 50L
+        var accumulatedTime = 0L
+
+        while(accumulatedTime < duration) {
+            kotlinx.coroutines.delay(updateInterval)
+            if (!effectiveIsPaused && !showViewers) {
+                accumulatedTime += updateInterval
+                progress = accumulatedTime.toFloat() / duration
+            }
         }
-        if (!showViewers) {
-            if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
-        }
+        if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
     }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.Black).onGloballyPositioned { containerSize = it.size }) {
+    Box(modifier = Modifier
+        .fillMaxSize()
+        .background(Color.Black)
+        .onGloballyPositioned { containerSize = it.size }
+        .pointerInput(Unit) {
+            detectTapGestures(
+                onPress = {
+                    val wasReplying = isReplying
+                    if (!wasReplying) isPaused = true // Só pausa por toque longo se não estiver digitando
+                    tryAwaitRelease()
+                    if (!wasReplying) isPaused = false
+                },
+                onTap = { offset ->
+                    if (isReplying) {
+                        isReplying = false // Tocar fora do teclado cancela a resposta
+                        replyText = ""
+                        focusManager.clearFocus()
+                        return@detectTapGestures
+                    }
+                    if (offset.x < size.width * 0.3f) {
+                        if (currentIndex > 0) {
+                            currentIndex--
+                            progress = 0f
+                        } else onClose() // Changed from onPreviousUser()
+                    } else {
+                        if (currentIndex < userStatuses.size - 1) {
+                            currentIndex++
+                            progress = 0f
+                        } else onClose() // Changed from onNextUser()
+                    }
+                }
+            )
+        }
+    ) {
         if (currentStatus.isVideo && currentStatus.videoUrl != null) {
             VideoStatusPlayer(
                 url = currentStatus.videoUrl!!,
                 onComplete = {
                     if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
                 },
-                isPaused = showViewers
+                isPaused = showViewers || effectiveIsPaused,
+                onProgress = { progress = it }
             )
         } else {
             AsyncImage(
@@ -934,42 +1265,186 @@ fun StatusViewer(
             }
         }
 
-        Row(modifier = Modifier.fillMaxSize()) {
-            Box(modifier = Modifier.weight(1f).fillMaxHeight().clickable { if (currentIndex > 0) currentIndex-- })
-            Box(modifier = Modifier.weight(1f).fillMaxHeight().clickable { if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose() })
-        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .align(Alignment.TopCenter)
+                .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(0.7f), Color.Transparent)))
+        )
 
-        if (currentStatus.caption.isNotBlank()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 80.dp)
-                    .background(Color.Black.copy(alpha = 0.5f))
-                    .padding(16.dp)
-            ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(0.8f))))
+        ) {
+            if (currentStatus.caption.isNotBlank()) {
                 Text(
                     text = currentStatus.caption,
                     color = Color.White,
                     fontSize = 16.sp,
-                    modifier = Modifier.align(Alignment.Center)
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp)
+                        .padding(bottom = if (currentStatus.userId == myUsername) 40.dp else 100.dp, top = 24.dp)
                 )
             }
         }
 
+        val context = LocalContext.current
+        if (currentStatus.userId != myUsername) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Quick Animated Reactions Row
+                val reactionEmojis = listOf("😂", "😍", "🔥", "😢", "👏", "🤯")
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    reactionEmojis.forEach { emoji ->
+                        AnimatedEmoji(
+                            emoji = emoji,
+                            size = 48.dp,
+                            onClick = {
+                                viewModel.setTargetId(currentStatus.userId)
+                                val mockStatusReply = Message(
+                                    id = currentStatus.id,
+                                    senderId = currentStatus.userId,
+                                    senderName = currentStatus.username,
+                                    text = if (currentStatus.isVideo) "📹 Vídeo" else "📷 Imagem",
+                                    imageUrl = if (!currentStatus.isVideo) currentStatus.imageUrl else null,
+                                    videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
+                                )
+                                viewModel.sendMessage(emoji, replyingTo = mockStatusReply)
+                                android.widget.Toast.makeText(context, "Reação Enviada", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
+                }
+
+                // Input/Action Row
+                val mockStatusReply = remember(currentStatus) {
+                    Message(
+                        id = currentStatus.id,
+                        senderId = currentStatus.userId,
+                        senderName = currentStatus.username,
+                        text = if (currentStatus.isVideo) "📹 Vídeo" else "📷 Imagem",
+                        imageUrl = if (!currentStatus.isVideo) currentStatus.imageUrl else null,
+                        videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().animateContentSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isReplying) {
+                        val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
+                        LaunchedEffect(Unit) { focusRequester.requestFocus() }
+                        
+                        TextField(
+                            value = replyText,
+                            onValueChange = { replyText = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(24.dp))
+                                .border(1.dp, Color.White.copy(0.3f), RoundedCornerShape(24.dp))
+                                .focusRequester(focusRequester),
+                            colors = TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Black.copy(0.6f),
+                                unfocusedContainerColor = Color.Black.copy(0.6f),
+                                focusedTextColor = Color.White,
+                                unfocusedTextColor = Color.White,
+                                cursorColor = Color.White,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent
+                            ),
+                            placeholder = { Text("Mensagem...", color = Color.White.copy(0.5f)) },
+                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                                imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                            ),
+                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                onSend = {
+                                    if (replyText.isNotBlank()) {
+                                        viewModel.setTargetId(currentStatus.userId)
+                                        viewModel.sendMessage(replyText.trim(), replyingTo = mockStatusReply)
+                                        android.widget.Toast.makeText(context, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
+                                        replyText = ""
+                                        isReplying = false
+                                        focusManager.clearFocus()
+                                    }
+                                }
+                            ),
+                            trailingIcon = {
+                                androidx.compose.animation.AnimatedVisibility(
+                                    visible = replyText.isNotBlank(),
+                                    enter = androidx.compose.animation.scaleIn(),
+                                    exit = androidx.compose.animation.scaleOut()
+                                ) {
+                                    IconButton(
+                                        onClick = {
+                                            viewModel.setTargetId(currentStatus.userId)
+                                            viewModel.sendMessage(replyText.trim(), replyingTo = mockStatusReply)
+                                            android.widget.Toast.makeText(context, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
+                                            replyText = ""
+                                            isReplying = false
+                                            focusManager.clearFocus()
+                                        },
+                                        modifier = Modifier.background(LocalChatColors.current.primary, CircleShape).size(36.dp)
+                                    ) {
+                                        Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                                    }
+                                }
+                            }
+                        )
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .clip(RoundedCornerShape(24.dp))
+                                .border(1.dp, Color.White.copy(0.3f), RoundedCornerShape(24.dp))
+                                .background(Color.Black.copy(0.4f))
+                                .clickable { isReplying = true }
+                                .padding(horizontal = 16.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            Text("Responder...", color = Color.White.copy(0.8f))
+                        }
+                    }
+                    
+                    if (!isReplying) {
+                        Spacer(Modifier.width(16.dp))
+                        IconButton(onClick = { onClose(); viewModel.setTargetId(currentStatus.userId) }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White)
+                        }
+                    }
+                }
+            }
+        }
+
         Column(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 userStatuses.forEachIndexed { index, _ ->
                     LinearProgressIndicator(
                         progress = { if (index < currentIndex) 1f else if (index == currentIndex) progress else 0f },
-                        modifier = Modifier.weight(1f).height(2.dp).clip(RoundedCornerShape(1.dp)),
+                        modifier = Modifier.weight(1f).height(3.dp).clip(RoundedCornerShape(1.5.dp)),
                         color = Color.White,
                         trackColor = Color.White.copy(alpha = 0.3f)
                     )
                 }
             }
 
-            Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 AsyncImage(model = currentStatus.userPhotoUrl, contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray), contentScale = ContentScale.Crop)
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -1029,13 +1504,22 @@ fun StatusViewer(
  */
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-fun VideoStatusPlayer(url: String, onComplete: () -> Unit, isPaused: Boolean) {
+fun VideoStatusPlayer(url: String, onComplete: () -> Unit, isPaused: Boolean, onProgress: (Float) -> Unit = {}) {
     val context = LocalContext.current
     val exoPlayer = remember {
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(Uri.parse(url)))
             prepare()
             playWhenReady = true
+        }
+    }
+
+    LaunchedEffect(exoPlayer) {
+        while (true) {
+            kotlinx.coroutines.delay(50)
+            if (exoPlayer.duration > 0) {
+                onProgress(exoPlayer.currentPosition.toFloat() / exoPlayer.duration.toFloat())
+            }
         }
     }
 

@@ -204,11 +204,6 @@ fun CallsScreen(
                     title = {
                         Text("Chamadas", fontWeight = FontWeight.Black)
                     },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, "Voltar", tint = MessengerBlue)
-                        }
-                    },
                     actions = {
                         IconButton(onClick = { showMenu = true }) {
                             Icon(Icons.Default.MoreVert, "Mais", tint = MessengerBlue)

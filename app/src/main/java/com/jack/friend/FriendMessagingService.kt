@@ -44,6 +44,19 @@ class FriendMessagingService : FirebaseMessagingService() {
         val data = remoteMessage.data
         if (data.isNotEmpty()) {
             val messageJson = data["message"]
+            val feedNotifJson = data["feedNotification"]
+
+            // Notificações do Feed (reações, comentários, curtidas)
+            if (data["type"] == "FEED_NOTIFICATION" && feedNotifJson != null) {
+                try {
+                    val notif = Gson().fromJson(feedNotifJson, FeedNotification::class.java)
+                    FeedNotificationHelper.showFeedInteractionNotification(this, notif)
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error processing feed notification: ${e.message}")
+                }
+                return
+            }
+
             if (messageJson != null) {
                 try {
                     val message = Gson().fromJson(messageJson, Message::class.java)

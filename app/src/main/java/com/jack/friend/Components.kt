@@ -68,7 +68,7 @@ fun AddContactDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Adicionar Contato") },
+        title = { Text("Adicionar Amigo") },
         text = {
             Column {
                 Text("Digite o @usuario para adicionar:", fontSize = 14.sp)

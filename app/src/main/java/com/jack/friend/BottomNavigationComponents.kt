@@ -30,8 +30,9 @@ sealed class BottomBarScreen(
     val icon: ImageVector
 ) {
     object Home : BottomBarScreen("home", "Chats", Icons.Rounded.ChatBubble)
-    object Contacts : BottomBarScreen("contacts", "Contatos", Icons.Rounded.Person)
+    object Contacts : BottomBarScreen("contacts", "Amigos", Icons.Rounded.People)
     object Search : BottomBarScreen("search", "Busca", Icons.Rounded.Search)
+    object Feed : BottomBarScreen("feed", "Postagens", Icons.Rounded.DynamicFeed)
     object Calls : BottomBarScreen("calls", "Ligações", Icons.Rounded.Call)
     object Settings : BottomBarScreen("settings", "Ajustes", Icons.Rounded.Settings)
 }
@@ -40,20 +41,25 @@ sealed class BottomBarScreen(
 fun ResponsiveFloatingDock(
     currentRoute: String,
     onNavigate: (BottomBarScreen) -> Unit,
-    onFabClick: () -> Unit
+    onFabClick: () -> Unit = {},
+    pagerOffset: Float? = null
 ) {
     val context = LocalContext.current
     val chatColors = LocalChatColors.current
 
     val items = listOf(
         BottomBarScreen.Home,
+        BottomBarScreen.Feed,
         BottomBarScreen.Contacts,
-        BottomBarScreen.Search,
         BottomBarScreen.Calls,
         BottomBarScreen.Settings
     )
 
-    val selectedIndex = items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    val selectedIndex = if (pagerOffset != null) {
+        (pagerOffset + 0.5f).toInt().coerceIn(0, items.size - 1)
+    } else {
+        items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
+    }
 
     fun openActivity(target: Class<*>) {
         context.startActivity(Intent(context, target))
@@ -80,11 +86,17 @@ fun ResponsiveFloatingDock(
                 val itemWidth = maxWidth / items.size
                 
                 // Cápsula de seleção que desliza
-                val indicatorOffset by animateDpAsState(
+                val animatedIndicatorOffset by animateDpAsState(
                     targetValue = itemWidth * selectedIndex,
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
                     label = "pill"
                 )
+                
+                val indicatorOffset = if (pagerOffset != null) {
+                    itemWidth * pagerOffset
+                } else {
+                    animatedIndicatorOffset
+                }
 
                 Box(
                     modifier = Modifier
@@ -116,12 +128,7 @@ fun ResponsiveFloatingDock(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
                                     onClick = {
-                                        when (screen) {
-                                            is BottomBarScreen.Contacts -> openActivity(ContactsActivity::class.java)
-                                            is BottomBarScreen.Calls -> openActivity(CallsActivity::class.java)
-                                            is BottomBarScreen.Settings -> openActivity(SettingsActivity::class.java)
-                                            else -> onNavigate(screen)
-                                        }
+                                        onNavigate(screen)
                                     }
                                 ),
                             contentAlignment = Alignment.Center

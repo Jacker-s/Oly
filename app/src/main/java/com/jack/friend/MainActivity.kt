@@ -219,6 +219,15 @@ class MainActivity : FragmentActivity() {
             if (!targetId.isNullOrEmpty()) {
                 mainViewModel.setTargetId(targetId)
             }
+            
+            val openFeed = intent.getBooleanExtra("openFeed", false)
+            val postId = intent.getStringExtra("postId")
+            if (openFeed) {
+                mainViewModel.setOpenFeed(true)
+                if (!postId.isNullOrEmpty()) {
+                    mainViewModel.setOpenPostId(postId)
+                }
+            }
         }
     }
 }

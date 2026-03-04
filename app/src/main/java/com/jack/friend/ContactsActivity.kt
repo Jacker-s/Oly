@@ -117,26 +117,6 @@ fun ContactsScreenIOS17(
         }
     }
 
-    val groupedContacts by remember(filteredContacts) {
-        derivedStateOf {
-            filteredContacts
-                .sortedBy { it.displayName.lowercase() }
-                .groupBy { p -> p.displayName.firstOrNull()?.uppercaseChar()?.toString() ?: "#" }
-                .toSortedMap()
-        }
-    }
-
-    val flatList by remember(groupedContacts) {
-        derivedStateOf {
-            buildList<ContactsRowItem> {
-                groupedContacts.forEach { (letter, list) ->
-                    add(ContactsRowItem.Header(letter))
-                    list.forEach { add(ContactsRowItem.Contact(it)) }
-                }
-            }
-        }
-    }
-
     val listState = rememberLazyListState()
 
     Scaffold(
@@ -144,19 +124,14 @@ fun ContactsScreenIOS17(
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Contatos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("Amigos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         if (contacts.isNotEmpty()) {
                             Text(
-                                text = if (query.isBlank()) "${contacts.size} contatos" else "${filteredContacts.size} encontrados",
+                                text = if (query.isBlank()) "${contacts.size} amigos" else "${filteredContacts.size} encontrados",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MetaGray4
                             )
                         }
-                    }
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, "Voltar", tint = MessengerBlue, modifier = Modifier.size(22.dp))
                     }
                 },
                 actions = {
@@ -179,7 +154,7 @@ fun ContactsScreenIOS17(
             IOS17SearchPill(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = "Pesquisar contatos",
+                placeholder = "Pesquisar amigos",
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
 
@@ -198,28 +173,19 @@ fun ContactsScreenIOS17(
                     }
                 } else {
                     items(
-                        items = flatList,
-                        key = { item ->
-                            when (item) {
-                                is ContactsRowItem.Header -> "h_${item.letter}"
-                                is ContactsRowItem.Contact -> "c_${item.profile.id}"
-                            }
-                        }
-                    ) { item ->
-                        when (item) {
-                            is ContactsRowItem.Header -> LetterHeader(item.letter)
-                            is ContactsRowItem.Contact -> {
-                                ContactRow(
-                                    contact = item.profile,
-                                    isBlocked = blockedUsers.contains(item.profile.id),
-                                    onClick = { selectedProfile = item.profile },
-                                    onLongClick = {
-                                        longPressContact = item.profile
-                                        showLongPressMenu = true
-                                    }
-                                )
-                            }
-                        }
+                        items = filteredContacts,
+                        key = { it.id }
+                    ) { contact ->
+                        FriendRow(
+                            contact = contact,
+                            isBlocked = blockedUsers.contains(contact.id),
+                            onClick = { selectedProfile = contact },
+                            onLongClick = {
+                                longPressContact = contact
+                                showLongPressMenu = true
+                            },
+                            onMessageClick = { onOpenChat(contact) }
+                        )
                     }
                 }
             }
@@ -255,6 +221,7 @@ fun ContactsScreenIOS17(
             val user = selectedProfile!!
             val chat = activeChats.firstOrNull { !it.isGroup && it.friendId == user.id }
             IOS17ContactProfileSheet(
+                viewModel = viewModel,
                 user = user,
                 myUsername = myUsername,
                 isMuted = chat?.isMuted ?: false,
@@ -287,8 +254,8 @@ fun ContactsScreenIOS17(
         if (showDeleteDialog != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("Remover Contato") },
-                text = { Text("Deseja remover ${showDeleteDialog?.name} da sua lista?") },
+                title = { Text("Desfazer Amizade") },
+                text = { Text("Deseja remover ${showDeleteDialog?.name} dos seus amigos?") },
                 confirmButton = {
                     TextButton(onClick = {
                         showDeleteDialog?.let { viewModel.deleteContact(it.id) { _, _ -> } }
@@ -316,102 +283,74 @@ fun ContactsScreenIOS17(
     }
 }
 
-private sealed class ContactsRowItem {
-    data class Header(val letter: String) : ContactsRowItem()
-    data class Contact(val profile: UserProfile) : ContactsRowItem()
-}
-
-@Composable
-private fun LetterHeader(letter: String) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(LocalChatColors.current.background.copy(alpha = 0.95f))
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-    ) {
-        Text(
-            text = letter,
-            style = MaterialTheme.typography.labelMedium,
-            color = MessengerBlue,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ContactRow(
+private fun FriendRow(
     contact: UserProfile,
     isBlocked: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
+    onMessageClick: () -> Unit
 ) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
             )
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier.padding(vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box {
-                AsyncImage(
-                    model = contact.photoUrl,
-                    contentDescription = null,
+        Box {
+            AsyncImage(
+                model = contact.photoUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(LocalChatColors.current.separator),
+                contentScale = ContentScale.Crop
+            )
+            if (contact.isOnline && contact.isVisibleOnline) {
+                Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(CircleShape)
-                        .background(LocalChatColors.current.separator),
-                    contentScale = ContentScale.Crop
-                )
-                if (contact.isOnline && contact.isVisibleOnline) {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(14.dp)
-                            .background(Color.White, CircleShape)
-                            .padding(2.dp)
-                            .background(iOSGreen, CircleShape)
-                    )
-                }
-            }
-
-            Spacer(Modifier.width(14.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = contact.displayName,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = contact.status.takeIf { it.isNotBlank() } ?: "@${contact.id.lowercase()}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (isBlocked) iOSRed else MetaGray4,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                        .align(Alignment.BottomEnd)
+                        .size(16.dp)
+                        .background(Color.White, CircleShape)
+                        .padding(2.dp)
+                        .background(iOSGreen, CircleShape)
                 )
             }
-            
-            Icon(
-                Icons.Rounded.ChevronRight,
-                null,
-                tint = MetaGray4.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp)
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = contact.displayName,
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = contact.status.takeIf { it.isNotBlank() } ?: "Amigo(a)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isBlocked) iOSRed else MetaGray4,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
             )
         }
-        HorizontalDivider(
-            modifier = Modifier.padding(start = 62.dp),
-            thickness = 0.5.dp,
-            color = LocalChatColors.current.separator
-        )
+        
+        IconButton(
+            onClick = onMessageClick,
+            modifier = Modifier
+                .size(36.dp)
+                .background(LocalChatColors.current.secondaryBackground, CircleShape)
+        ) {
+            Icon(Icons.Rounded.ChatBubble, contentDescription = "Mensagem", tint = MessengerBlue, modifier = Modifier.size(18.dp))
+        }
     }
 }
 
@@ -455,7 +394,7 @@ private fun ContactActionSheet(
             ActionItem("Chamada de Áudio", Icons.Rounded.Call, MessengerBlue) { onCall(false) }
             ActionItem("Chamada de Vídeo", Icons.Rounded.Videocam, MessengerBlue) { onCall(true) }
             ActionItem(if (isBlocked) "Desbloquear" else "Bloquear", Icons.Rounded.Block, iOSRed, onBlock)
-            ActionItem("Excluir Contato", Icons.Rounded.Delete, iOSRed, onDelete)
+            ActionItem("Desfazer Amizade", Icons.Rounded.PersonRemove, iOSRed, onDelete)
         }
     }
 }

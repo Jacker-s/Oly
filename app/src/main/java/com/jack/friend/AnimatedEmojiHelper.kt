@@ -94,7 +94,13 @@ data class EmojiParticle(
 )
 
 @Composable
-fun AnimatedEmoji(emoji: String, modifier: Modifier = Modifier, onLongClick: () -> Unit = {}) {
+fun AnimatedEmoji(
+    emoji: String, 
+    modifier: Modifier = Modifier, 
+    size: androidx.compose.ui.unit.Dp = 100.dp, 
+    onClick: () -> Unit = {}, 
+    onLongClick: () -> Unit = {}
+) {
     val url = AnimatedEmojiHelper.getAnimUrl(emoji)
     val view = LocalView.current
     val coroutineScope = rememberCoroutineScope()
@@ -110,7 +116,7 @@ fun AnimatedEmoji(emoji: String, modifier: Modifier = Modifier, onLongClick: () 
         iterations = LottieConstants.IterateForever
     )
 
-    Box(contentAlignment = Alignment.Center, modifier = modifier.size(140.dp)) {
+    Box(contentAlignment = Alignment.Center, modifier = modifier.size(size * 1.4f)) {
         // Renderizar Partículas de Efeito
         particles.forEach { particle ->
             androidx.compose.runtime.key(particle.id) {
@@ -121,7 +127,7 @@ fun AnimatedEmoji(emoji: String, modifier: Modifier = Modifier, onLongClick: () 
         }
 
         val interactionModifier = Modifier
-            .size(100.dp)
+            .size(size)
             .graphicsLayer(
                 scaleX = scale.value,
                 scaleY = scale.value,
@@ -157,6 +163,7 @@ fun AnimatedEmoji(emoji: String, modifier: Modifier = Modifier, onLongClick: () 
                                 rotation.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
                             }
                         }
+                        onClick()
                     },
                     onLongPress = { onLongClick() }
                 )
