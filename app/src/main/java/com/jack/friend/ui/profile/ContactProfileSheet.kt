@@ -118,82 +118,68 @@ fun IOS17ContactProfileSheet(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
             ) {
-                // Top Cover & Profile Image
+                // Cover Photo
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(300.dp)
+                        .height(220.dp)
                 ) {
                     AsyncImage(
                         model = user.photoUrl,
-                        contentDescription = null,
+                        contentDescription = "Capa",
                         modifier = Modifier
                             .fillMaxSize()
-                            .blur(50.dp)
+                            .blur(20.dp)
                             .clickable { fullScreenPhotoUrl = user.photoUrl },
                         contentScale = ContentScale.Crop,
-                        alpha = 0.4f
+                        alpha = 0.5f
                     )
-                    Box(
+                    Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+                }
+
+                // Profile Image overlapping Cover
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .offset(y = (-80).dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        border = BorderStroke(4.dp, colors.primaryBackground),
                         modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.verticalGradient(
-                                    listOf(Color.Transparent, colors.primaryBackground)
-                                )
-                            )
-                    )
-                    
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Bottom
+                            .size(160.dp)
+                            .clickable { fullScreenPhotoUrl = user.photoUrl }
                     ) {
+                        AsyncImage(
+                            model = user.photoUrl,
+                            contentDescription = "Avatar",
+                            modifier = Modifier.fillMaxSize(),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    if (user.isOnline && user.isVisibleOnline) {
                         Box(
-                            contentAlignment = Alignment.BottomEnd,
-                            modifier = Modifier.padding(bottom = 20.dp)
+                            modifier = Modifier.matchParentSize(),
+                            contentAlignment = Alignment.BottomEnd
                         ) {
-                            Surface(
-                                shape = CircleShape,
-                                border = BorderStroke(4.dp, Color.White),
-                                shadowElevation = 16.dp,
+                            Box(
                                 modifier = Modifier
-                                    .size(150.dp)
-                                    .clickable { fullScreenPhotoUrl = user.photoUrl }
-                            ) {
-                                AsyncImage(
-                                    model = user.photoUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxSize(),
-                                    contentScale = ContentScale.Crop
-                                )
-                            }
-                            if (user.isOnline && user.isVisibleOnline) {
-                                Surface(
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .offset(x = (-8).dp, y = (-8).dp),
-                                    shape = CircleShape,
-                                    color = Color.White,
-                                    shadowElevation = 4.dp
-                                ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(4.dp)
-                                            .background(presenceColor, CircleShape)
-                                            .border(2.dp, Color.White, CircleShape)
-                                    )
-                                }
-                            }
+                                    .padding(24.dp)
+                                    .size(26.dp)
+                                    .background(presenceColor, CircleShape)
+                                    .border(4.dp, colors.primaryBackground, CircleShape)
+                            )
                         }
                     }
                 }
 
-                // Name & ID
+                // Profile Info
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp),
+                        .offset(y = (-65).dp)
+                        .padding(horizontal = 16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Row(
@@ -204,144 +190,155 @@ fun IOS17ContactProfileSheet(
                             text = user.displayName,
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.ExtraBold,
-                            color = colors.textPrimary
+                            color = colors.textPrimary,
+                            textAlign = TextAlign.Center
                         )
                         if (isVerified) {
                             Icon(
                                 Icons.Rounded.Verified,
                                 null,
                                 tint = MessengerBlue,
-                                modifier = Modifier.padding(start = 8.dp).size(24.dp)
+                                modifier = Modifier.padding(start = 8.dp).size(26.dp)
                             )
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = user.status.ifBlank { "Olá! Estou usando o Wappi Messenger." },
+                        fontSize = 16.sp,
+                        color = colors.textPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(8.dp))
                     Text(
                         text = "@${user.id.lowercase()} • $presenceText",
-                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 14.sp,
                         color = colors.textSecondary,
                         fontWeight = FontWeight.Medium
                     )
 
-                    Spacer(Modifier.height(32.dp))
+                    if (mutualGroups > 0) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "$mutualGroups grupos em comum",
+                            fontSize = 14.sp,
+                            color = colors.textSecondary,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
 
-                    // Quick Actions
+                    Spacer(Modifier.height(24.dp))
+
+                    // Facebook-style Buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        ModernActionButton(
-                            label = "Mensagem",
-                            icon = Icons.AutoMirrored.Rounded.Message,
-                            containerColor = MessengerBlue,
-                            onClick = { onMessage(user) }
-                        )
-                        ModernActionButton(
-                            label = "Áudio",
-                            icon = Icons.Rounded.Phone,
-                            containerColor = iOSGreen,
-                            onClick = { onAudioCall(user) }
-                        )
-                        ModernActionButton(
-                            label = "Vídeo",
-                            icon = Icons.Rounded.Videocam,
-                            containerColor = iOSPurple,
-                            onClick = { onVideoCall(user) }
-                        )
-                        if (!isContact) {
-                            ModernActionButton(
-                                label = "Adicionar",
-                                icon = Icons.Rounded.PersonAdd,
-                                containerColor = MessengerBlue,
-                                onClick = { onAddContact(user) }
-                            )
+                        if (isContact) {
+                            Button(
+                                onClick = { onMessage(user) },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.Message, null, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Mensagem", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
+                            
+                            Button(
+                                onClick = { onAudioCall(user) },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Rounded.Call, null, tint = colors.textPrimary, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Ligar", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
+                        } else {
+                            Button(
+                                onClick = { onAddContact(user) },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Adicionar", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
+                            
+                            Button(
+                                onClick = { onMessage(user) },
+                                modifier = Modifier.weight(1f).height(44.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.Message, null, tint = colors.textPrimary, modifier = Modifier.size(20.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("Mensagem", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
                         }
                     }
-                }
 
-                Spacer(Modifier.height(32.dp))
+                    Spacer(Modifier.height(24.dp))
 
-                // Info Sections
-                ProfileCard(colors) {
-                    InfoItem(
-                        icon = Icons.Rounded.Info,
-                        label = "Recado",
-                        value = user.status.ifBlank { "Olá! Estou usando o Wappi Messenger." },
-                        colors = colors
-                    )
-                    HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
-                    InfoItem(
-                        icon = Icons.Rounded.Group,
-                        label = "Grupos em Comum",
-                        value = "$mutualGroups grupos",
-                        colors = colors
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                ProfileCard(colors) {
-                    ActionItem(
-                        icon = if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
-                        label = if (isMuted) "Ativar Notificações" else "Silenciar Notificações",
-                        colors = colors,
-                        onClick = onToggleMute
-                    )
-                    HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
-                    ActionItem(
-                        icon = Icons.Rounded.ContentCopy,
-                        label = "Copiar @ID de Usuário",
-                        colors = colors,
-                        onClick = {
+                    // Secondary Settings & Options
+                    ProfileCard(colors) {
+                        if (isContact) {
+                            ActionItem(Icons.Rounded.PersonRemove, "Desfazer Amizade", colors, iOSRed) { onRemove(user) }
+                            HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+                        }
+                        ActionItem(if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, if (isMuted) "Ativar Notificações" else "Silenciar Notificações", colors) { onToggleMute() }
+                        HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+                        ActionItem(if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block, if (isBlocked) "Desbloquear" else "Bloquear Amigo", colors, iOSRed) { onToggleBlock() }
+                        HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
+                        ActionItem(Icons.Rounded.ContentCopy, "Copiar ID de Usuário", colors) {
                             clipboard.setText(AnnotatedString("@${user.id.lowercase()}"))
                             Toast.makeText(context, "ID copiado!", Toast.LENGTH_SHORT).show()
                         }
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                ProfileCard(colors) {
-                    ActionItem(
-                        icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
-                        label = if (isBlocked) "Desbloquear" else "Bloquear Amigo",
-                        contentColor = iOSRed,
-                        colors = colors,
-                        onClick = onToggleBlock
-                    )
-                    if (isContact) {
-                        HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp, modifier = Modifier.padding(start = 48.dp))
-                        ActionItem(
-                            icon = Icons.Rounded.PersonRemove,
-                            label = "Desfazer Amizade",
-                            contentColor = iOSRed,
-                            colors = colors,
-                            onClick = { onRemove(user) }
-                        )
                     }
                 }
 
-                Spacer(Modifier.height(16.dp))
+                // Feed Section
+                Column(modifier = Modifier.fillMaxWidth().offset(y = (-40).dp)) {
+                    // Gray divider typical of profiles
+                    Box(modifier = Modifier.fillMaxWidth().height(12.dp).background(colors.secondaryBackground))
+                    
+                    Spacer(Modifier.height(16.dp))
 
-                if (userPosts.isNotEmpty()) {
                     Text(
-                        "Postagens de ${user.name}", 
+                        "Postagens de ${user.displayName}", 
                         fontWeight = FontWeight.Bold, 
                         fontSize = 20.sp, 
                         color = colors.textPrimary,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
                     
-                    userPosts.forEach { post ->
-                        FeedPostCard(
-                            post = post,
-                            myUsername = myUsername,
-                            viewModel = viewModel,
-                            onImageClick = { fullScreenPhotoUrl = it }
-                        )
+                    if (userPosts.isNotEmpty()) {
+                        userPosts.forEach { post ->
+                            FeedPostCard(
+                                post = post,
+                                myUsername = myUsername,
+                                viewModel = viewModel,
+                                onImageClick = { fullScreenPhotoUrl = it }
+                            )
+                        }
+                    } else {
+                        Box(
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                "Nenhuma postagem ainda.", 
+                                color = colors.textSecondary,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
-                }
 
-                Spacer(Modifier.height(60.dp))
+                    Spacer(Modifier.height(60.dp))
+                }
             }
             
             // Close Button
