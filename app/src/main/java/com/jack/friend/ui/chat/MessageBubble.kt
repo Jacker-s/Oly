@@ -54,6 +54,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
+import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -90,6 +91,7 @@ fun MetaMessageBubble(
     onAudioPlayed: () -> Unit = {}
 ) {
     val chatColors = LocalChatColors.current
+    val viewModel: ChatViewModel = viewModel()
 
     // Se for um anúncio, renderizar o AdMob
     if (message.isAd) {
@@ -132,6 +134,17 @@ fun MetaMessageBubble(
         bottomEnd = 22.dp,
         bottomStart = if (isLastInGroup) 22.dp else 6.dp
     )
+
+    // Helper para detectar se é um post compartilhado
+    val isSharedPost = message.text.contains("POST_ID:")
+    val handlePostClick = {
+        if (isSharedPost) {
+            val postId = message.text.substringAfterLast("POST_ID:").trim()
+            viewModel.setOpenPostId(postId)
+            viewModel.setOpenFeed(true)
+            viewModel.setTargetId("") // Fecha o chat para mostrar o feed
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -245,7 +258,8 @@ fun MetaMessageBubble(
                         shadowElevation = 1.dp,
                         modifier = Modifier.widthIn(max = 300.dp).combinedClickable(
                             onClick = {
-                                if (message.imageUrl != null) onImageClick(message.imageUrl!!)
+                                if (isSharedPost) handlePostClick()
+                                else if (message.imageUrl != null) onImageClick(message.imageUrl!!)
                                 else if (message.videoUrl != null) onVideoClick(message.videoUrl!!)
                             },
                             onLongClick = {
@@ -282,7 +296,11 @@ fun MetaMessageBubble(
 
                             if (message.imageUrl != null) {
                                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                                    MessageImageItem(imageUrl = message.imageUrl!!, onImageClick = onImageClick, modifier = Modifier.fillMaxWidth())
+                                    MessageImageItem(
+                                        imageUrl = message.imageUrl!!, 
+                                        onImageClick = { if (isSharedPost) handlePostClick() else onImageClick(it) }, 
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
                                 }
                             }
 
@@ -759,7 +777,7 @@ fun AudioPlayerBubble(
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             AudioVisualizer(isPlaying = isPlaying, color = if (isPlayed && !isMe) playedColor else textColor)
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(6.6.dp))
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),

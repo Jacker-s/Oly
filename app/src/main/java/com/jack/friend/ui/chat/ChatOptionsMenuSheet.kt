@@ -109,12 +109,6 @@ fun ChatOptionsMenuSheet(
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.separator.copy(alpha = 0.5f))
 
         SheetOption(
-            icon = Icons.Rounded.Campaign,
-            text = "Testar Anúncio",
-            onClick = { onDismiss(); onSendTestAd() }
-        )
-
-        SheetOption(
             icon = Icons.Rounded.DeleteSweep,
             text = "Limpar Conversa",
             onClick = { onDismiss(); onClearChat() }

@@ -85,6 +85,7 @@ class ProfileActivity : ComponentActivity() {
                 var showPrivacyPolicy by remember { mutableStateOf(false) }
                 var fullScreenPhotoUrl by remember { mutableStateOf<String?>(null) }
                 var showSettingsMenu by remember { mutableStateOf(false) }
+                var selectedTab by remember { mutableIntStateOf(0) } // 0: Grid, 1: List
                 
                 var dataLoaded by remember { mutableStateOf(false) }
 
@@ -157,7 +158,7 @@ class ProfileActivity : ComponentActivity() {
                                             Surface(
                                                 shape = CircleShape,
                                                 border = BorderStroke(2.dp, colors.separator.copy(alpha = 0.5f)),
-                                                modifier = Modifier.size(90.dp).clickable { photoLauncher.launch("image/*") }
+                                                modifier = Modifier.size(90.dp).clickable { fullScreenPhotoUrl = (selectedImageUri ?: myPhotoUrl)?.toString() }
                                             ) {
                                                 AsyncImage(
                                                     model = selectedImageUri ?: myPhotoUrl,
@@ -165,16 +166,6 @@ class ProfileActivity : ComponentActivity() {
                                                     modifier = Modifier.fillMaxSize(),
                                                     contentScale = ContentScale.Crop
                                                 )
-                                            }
-                                            Surface(
-                                                modifier = Modifier.size(28.dp).offset(x = 2.dp, y = 2.dp),
-                                                shape = CircleShape,
-                                                color = MessengerBlue,
-                                                onClick = { photoLauncher.launch("image/*") }
-                                            ) {
-                                                Box(contentAlignment = Alignment.Center) {
-                                                    Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                                }
                                             }
                                         }
 
@@ -239,18 +230,48 @@ class ProfileActivity : ComponentActivity() {
                                     HorizontalDivider(thickness = 0.5.dp, color = colors.separator.copy(0.3f))
                                 }
 
-                                // Tabs or Title for Posts
+                                // Tabs for Posts
                                 item {
                                     Row(
-                                        modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                                        horizontalArrangement = Arrangement.Center
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
                                     ) {
-                                        Icon(
-                                            Icons.Rounded.GridView, 
-                                            null, 
-                                            tint = colors.textPrimary,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { selectedTab = 0 }
+                                                .padding(vertical = 12.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.GridView, 
+                                                null, 
+                                                tint = if (selectedTab == 0) colors.textPrimary else colors.textSecondary.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            if (selectedTab == 0) {
+                                                Spacer(Modifier.height(4.dp))
+                                                Box(Modifier.height(2.dp).width(40.dp).background(colors.textPrimary))
+                                            }
+                                        }
+                                        Column(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .clickable { selectedTab = 1 }
+                                                .padding(vertical = 12.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.ViewDay, 
+                                                null, 
+                                                tint = if (selectedTab == 1) colors.textPrimary else colors.textSecondary.copy(alpha = 0.5f),
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                            if (selectedTab == 1) {
+                                                Spacer(Modifier.height(4.dp))
+                                                Box(Modifier.height(2.dp).width(40.dp).background(colors.textPrimary))
+                                            }
+                                        }
                                     }
                                     HorizontalDivider(thickness = 0.5.dp, color = colors.separator.copy(0.2f))
                                 }
@@ -275,13 +296,68 @@ class ProfileActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
-                                    items(myPosts.size) { index ->
-                                        FeedPostCard(
-                                            post = myPosts[index],
-                                            myUsername = myUsername,
-                                            viewModel = viewModel,
-                                            onImageClick = { fullScreenPhotoUrl = it }
-                                        )
+                                    if (selectedTab == 0) {
+                                        // Grid View
+                                        val rows = myPosts.chunked(3)
+                                        items(rows.size) { rowIndex ->
+                                            val rowPosts = rows[rowIndex]
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth(),
+                                                horizontalArrangement = Arrangement.Start
+                                            ) {
+                                                rowPosts.forEachIndexed { colIndex, post ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .weight(1f)
+                                                            .aspectRatio(1f)
+                                                            .padding(1.dp)
+                                                            .clickable { selectedTab = 1 } // Go to list view on click? or open viewer?
+                                                    ) {
+                                                        if (!post.photoUrl.isNullOrEmpty()) {
+                                                            AsyncImage(
+                                                                model = post.photoUrl,
+                                                                contentDescription = null,
+                                                                modifier = Modifier.fillMaxSize(),
+                                                                contentScale = ContentScale.Crop
+                                                            )
+                                                            if (post.mediaType == "VIDEO_FEED") {
+                                                                Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp))
+                                                            }
+                                                        } else if (!post.animatedEmoji.isNullOrEmpty()) {
+                                                            Box(Modifier.fillMaxSize().background(colors.tertiaryBackground), contentAlignment = Alignment.Center) {
+                                                                Text("✨", fontSize = 24.sp)
+                                                            }
+                                                        } else {
+                                                            Box(
+                                                                Modifier
+                                                                    .fillMaxSize()
+                                                                    .background(colors.tertiaryBackground)
+                                                                    .padding(8.dp),
+                                                                contentAlignment = Alignment.Center
+                                                            ) {
+                                                                Text(post.text, maxLines = 3, fontSize = 10.sp, color = colors.textPrimary, textAlign = TextAlign.Center)
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                // Fill empty slots in the row
+                                                repeat(3 - rowPosts.size) {
+                                                    Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                                                }
+                                            }
+                                        }
+                                    } else {
+                                        // List View
+                                        items(myPosts.size) { index ->
+                                            FeedPostCard(
+                                                post = myPosts[index],
+                                                myUsername = myUsername,
+                                                myPhotoUrl = myPhotoUrl,
+                                                viewModel = viewModel,
+                                                onAuthorClick = { }, // Já está no seu próprio perfil
+                                                onImageClick = { fullScreenPhotoUrl = it }
+                                            )
+                                        }
                                     }
                                 }
 
@@ -339,6 +415,42 @@ class ProfileActivity : ComponentActivity() {
                                                 if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MessengerBlue)
                                                 else Text("Concluir", color = MessengerBlue, fontWeight = FontWeight.ExtraBold)
                                             }
+                                        }
+
+                                        Spacer(Modifier.height(16.dp))
+
+                                        // Edit Photo Section
+                                        Box(
+                                            modifier = Modifier
+                                                .size(100.dp)
+                                                .clickable { photoLauncher.launch("image/*") },
+                                            contentAlignment = Alignment.BottomEnd
+                                        ) {
+                                            Surface(
+                                                shape = CircleShape,
+                                                border = BorderStroke(2.dp, colors.separator.copy(alpha = 0.5f)),
+                                                modifier = Modifier.fillMaxSize()
+                                            ) {
+                                                AsyncImage(
+                                                    model = selectedImageUri ?: myPhotoUrl,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.fillMaxSize(),
+                                                    contentScale = ContentScale.Crop
+                                                )
+                                            }
+                                            Surface(
+                                                modifier = Modifier.size(28.dp),
+                                                shape = CircleShape,
+                                                color = MessengerBlue
+                                            ) {
+                                                Box(contentAlignment = Alignment.Center) {
+                                                    Icon(Icons.Rounded.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                                }
+                                            }
+                                        }
+                                        
+                                        TextButton(onClick = { photoLauncher.launch("image/*") }) {
+                                            Text("Alterar foto", color = MessengerBlue, fontWeight = FontWeight.Bold)
                                         }
 
                                         Spacer(Modifier.height(16.dp))

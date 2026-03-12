@@ -12,18 +12,26 @@ android {
         applicationId = "com.jack.friend"
         minSdk = 24
         targetSdk = 35
-        versionCode = 25
-        versionName = "1.7"
+        versionCode = 30
+        versionName = "2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // ✅ Ativado novamente com proteções extras no proguard-rules.pro
+            isMinifyEnabled = true
+            isShrinkResources = true
+            
+            ndk {
+                debugSymbolLevel = "full"
+            }
+
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -45,7 +53,7 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
         jniLibs {
-            useLegacyPackaging = true
+            useLegacyPackaging = false
         }
     }
 }

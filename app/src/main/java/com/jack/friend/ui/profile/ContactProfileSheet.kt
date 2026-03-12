@@ -71,6 +71,8 @@ fun IOS17ContactProfileSheet(
     var isVerified by remember { mutableStateOf(false) }
     var mutualGroups by remember { mutableIntStateOf(0) }
 
+    val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
+
     LaunchedEffect(myUsername, user.id) {
         FirebaseDatabase.getInstance().reference.child("verifiedUsers").child(user.id).get()
             .addOnSuccessListener { isVerified = it.getValue(Boolean::class.java) == true }
@@ -334,7 +336,9 @@ fun IOS17ContactProfileSheet(
                         FeedPostCard(
                             post = post,
                             myUsername = myUsername,
+                            myPhotoUrl = myPhotoUrl,
                             viewModel = viewModel,
+                            onAuthorClick = { }, // Já está no perfil
                             onImageClick = { fullScreenPhotoUrl = it }
                         )
                     }

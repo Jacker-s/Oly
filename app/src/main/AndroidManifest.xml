@@ -47,7 +47,8 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Friend"
-        android:extractNativeLibs="true">
+        android:extractNativeLibs="false"
+        tools:replace="android:extractNativeLibs">
 
         <!-- AdMob App ID (TEST ID) -->
         <meta-data

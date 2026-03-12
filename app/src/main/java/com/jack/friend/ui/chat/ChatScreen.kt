@@ -38,6 +38,8 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import com.jack.friend.FeedScreen
+import com.jack.friend.ProfileActivity
+import com.jack.friend.UserProfile
 import androidx.compose.runtime.*
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshots.SnapshotStateList
@@ -78,6 +80,7 @@ import com.jack.friend.*
 import com.jack.friend.ui.components.*
 import com.jack.friend.ui.profile.IOS17ContactProfileSheet
 import com.jack.friend.ui.screens.ChatListScreenIOS
+import com.jack.friend.ui.screens.SearchScreen
 import com.jack.friend.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -155,7 +158,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // State to open profile from search
     var searchingUserProfile by remember { mutableStateOf<UserProfile?>(null) }
-    
+
     var activePopupNotification by remember { mutableStateOf<FeedNotification?>(null) }
 
     LaunchedEffect(Unit) {
@@ -462,72 +465,103 @@ fun ChatScreen(viewModel: ChatViewModel) {
                     ) { page ->
                         when(bottomScreens[page]) {
                             BottomBarScreen.Home -> {
-                                Column {
-                                    if (hasPendingShare) {
-                                        Surface(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .padding(8.dp),
-                                            color = MaterialTheme.colorScheme.primaryContainer,
-                                            shape = RoundedCornerShape(12.dp),
-                                            tonalElevation = 4.dp
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(12.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Icon(Icons.Rounded.Share, null, tint = MaterialTheme.colorScheme.primary)
-                                                Spacer(Modifier.width(12.dp))
-                                                Text("Conteúdo pronto para compartilhar. Selecione um amigo.", Modifier.weight(1f), fontSize = 14.sp)
-                                                TextButton(onClick = { viewModel.clearPendingShare() }) {
-                                                    Text("Cancelar", color = iOSRed)
-                                                }
-                                            }
-                                        }
-                                    }
-                                    ChatListScreenIOS(
-                                        isSearching = isSearching && (currentBottomRoute == BottomBarScreen.Home.route || currentBottomRoute == BottomBarScreen.Search.route),
-                                        searchInput = searchInput, searchResults = searchResults, filteredChats = filteredChats, statuses = statuses,
-                                        myPhotoUrl = myPhotoUrl, myUsername = myUsername, contacts = contacts,
-                                        onStatusAdd = { showStatusAttachmentMenu = true },
-                                        onStatusView = { userStatuses -> viewModel.markStatusAsViewed(userStatuses.first().id); viewingStatuses = userStatuses },
-                                        onChatClick = { summary ->
-                                            if (hasPendingShare) showShareConfirmDialog = summary.friendId
-                                            else viewModel.setTargetId(summary.friendId)
-                                        },
-                                        onChatLongClick = { summary -> selectedChatForOptions = summary },
-                                        onUserSearchClick = { user ->
-                                            searchingUserProfile = user
-                                        },
-                                        onAddContactSearch = { id -> viewModel.addContact(id) { _, _ -> } },
-                                        onUserChatClick = { user ->
+                                if (isSearching) {
+                                    SearchScreen(
+                                        viewModel = viewModel,
+                                        searchInput = searchInput,
+                                        onUserClick = { user -> searchingUserProfile = user },
+                                        onChatClick = { user ->
                                             isSearching = false
                                             searchInput = ""
                                             viewModel.searchUsers("")
                                             viewModel.setTargetId(user.id)
-                                        }
+                                        },
+                                        onAddContact = { id -> viewModel.addContact(id) { _, _ -> } }
                                     )
+                                } else {
+                                    Column {
+                                        if (hasPendingShare) {
+                                            Surface(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(8.dp),
+                                                color = MaterialTheme.colorScheme.primaryContainer,
+                                                shape = RoundedCornerShape(12.dp),
+                                                tonalElevation = 4.dp
+                                            ) {
+                                                Row(
+                                                    modifier = Modifier.padding(12.dp),
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Icon(Icons.Rounded.Share, null, tint = MaterialTheme.colorScheme.primary)
+                                                    Spacer(Modifier.width(12.dp))
+                                                    Text("Conteúdo pronto para compartilhar. Selecione um amigo.", Modifier.weight(1f), fontSize = 14.sp)
+                                                    TextButton(onClick = { viewModel.clearPendingShare() }) {
+                                                        Text("Cancelar", color = iOSRed)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        ChatListScreenIOS(
+                                            isSearching = isSearching && (currentBottomRoute == BottomBarScreen.Home.route || currentBottomRoute == BottomBarScreen.Search.route),
+                                            searchInput = searchInput, searchResults = searchResults, filteredChats = filteredChats, statuses = statuses,
+                                            myPhotoUrl = myPhotoUrl, myUsername = myUsername, contacts = contacts,
+                                            onStatusAdd = { showStatusAttachmentMenu = true },
+                                            onStatusView = { userStatuses -> viewModel.markStatusAsViewed(userStatuses.first().id); viewingStatuses = userStatuses },
+                                            onChatClick = { summary ->
+                                                if (hasPendingShare) showShareConfirmDialog = summary.friendId
+                                                else viewModel.setTargetId(summary.friendId)
+                                            },
+                                            onChatLongClick = { summary -> selectedChatForOptions = summary },
+                                            onUserSearchClick = { user ->
+                                                searchingUserProfile = user
+                                            },
+                                            onAddContactSearch = { id -> viewModel.addContact(id) { _, _ -> } },
+                                            onUserChatClick = { user ->
+                                                isSearching = false
+                                                searchInput = ""
+                                                viewModel.searchUsers("")
+                                                viewModel.setTargetId(user.id)
+                                            }
+                                        )
+                                    }
                                 }
                             }
                             BottomBarScreen.Feed -> {
-                                FeedScreen(viewModel = viewModel)
+                                FeedScreen(
+                                    viewModel = viewModel,
+                                    onAuthorClick = { user ->
+                                        if (user.id == myUsername) {
+                                            context.startActivity(Intent(context, ProfileActivity::class.java))
+                                        } else {
+                                            // Show partially filled profile while loading the full one
+                                            searchingUserProfile = user
+                                            // Update with full profile from DB
+                                            viewModel.fetchUserProfile(user.id) { fullProfile ->
+                                                if (fullProfile != null) {
+                                                    searchingUserProfile = fullProfile
+                                                }
+                                            }
+                                        }
+                                    }
+                                )
                             }
-                            BottomBarScreen.Contacts -> { 
+                            BottomBarScreen.Contacts -> {
                                 ContactsScreenIOS17(
-                                    viewModel = viewModel, 
-                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route }, 
-                                    onOpenChat = { user -> viewModel.setTargetId(user.id) }, 
-                                    onStartCall = { user, isVideo -> 
+                                    viewModel = viewModel,
+                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route },
+                                    onOpenChat = { user -> viewModel.setTargetId(user.id) },
+                                    onStartCall = { user, isVideo ->
                                         viewModel.setTargetId(user.id)
                                         callLogic(isVideo)
                                     }
-                                ) 
+                                )
                             }
-                            BottomBarScreen.Calls -> { 
+                            BottomBarScreen.Calls -> {
                                 CallsScreen(
-                                    viewModel = viewModel, 
-                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route }, 
-                                    onOpenCall = { roomId, targetIdCall, targetPhotoUrl, isOutgoing, isVideo -> 
+                                    viewModel = viewModel,
+                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route },
+                                    onOpenCall = { roomId, targetIdCall, targetPhotoUrl, isOutgoing, isVideo ->
                                         context.startActivity(Intent(context, CallActivity::class.java).apply {
                                             putExtra("roomId", roomId)
                                             putExtra("targetId", targetIdCall)
@@ -536,13 +570,13 @@ fun ChatScreen(viewModel: ChatViewModel) {
                                             putExtra("isVideo", isVideo)
                                         })
                                     }
-                                ) 
+                                )
                             }
-                            BottomBarScreen.Settings -> { 
+                            BottomBarScreen.Settings -> {
                                 SettingsScreen(
-                                    viewModel = viewModel, 
+                                    viewModel = viewModel,
                                     onBack = { currentBottomRoute = BottomBarScreen.Home.route }
-                                ) 
+                                )
                             }
                             else -> {}
                         }
@@ -693,7 +727,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             onClick = {
                                 activePopupNotification = null
                                 currentBottomRoute = BottomBarScreen.Feed.route
-                                scope.launch { 
+                                scope.launch {
                                     pagerState.animateScrollToPage(1)
                                 }
                             }
@@ -736,7 +770,7 @@ fun NotificationPopup(
                         .background(colors.separator),
                     contentScale = ContentScale.Crop
                 )
-                
+
                 // Pequeno badge do tipo de notificação
                 val icon = when (notification.type) {
                     "LIKE" -> Icons.Rounded.Favorite
@@ -750,7 +784,7 @@ fun NotificationPopup(
                     "REACTION" -> Color(0xFFFF9800)
                     else -> colors.primary
                 }
-                
+
                 Box(
                     modifier = Modifier
                         .size(18.dp)
@@ -762,9 +796,9 @@ fun NotificationPopup(
                     Icon(icon, null, tint = iconColor, modifier = Modifier.size(12.dp))
                 }
             }
-            
+
             Spacer(Modifier.width(12.dp))
-            
+
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = buildString {
@@ -791,10 +825,10 @@ fun NotificationPopup(
                     )
                 }
             }
-            
+
             Icon(
-                Icons.Rounded.ChevronRight, 
-                null, 
+                Icons.Rounded.ChevronRight,
+                null,
                 tint = colors.textSecondary.copy(alpha = 0.5f),
                 modifier = Modifier.size(20.dp)
             )
@@ -814,7 +848,7 @@ fun StatusComposer(
 ) {
     var currentStatusIndex by remember { mutableIntStateOf(0) }
     val currentStatusDraft = statusItems[currentStatusIndex]
-    
+
     var draftCaption by remember(currentStatusIndex) { mutableStateOf(currentStatusDraft.caption) }
 
     var showTextEditor by remember { mutableStateOf(false) }
@@ -915,7 +949,7 @@ fun StatusComposer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = onDismiss, 
+                    onClick = onDismiss,
                     modifier = Modifier.background(Color.Black.copy(0.3f), CircleShape)
                 ) {
                     Icon(Icons.Rounded.Close, null, tint = Color.White)
@@ -927,7 +961,7 @@ fun StatusComposer(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
-                    onClick = { showEmojiStickerPicker = true }, 
+                    onClick = { showEmojiStickerPicker = true },
                     modifier = Modifier.background(Color.Black.copy(0.3f), CircleShape)
                 ) {
                     Icon(Icons.Rounded.Face, null, tint = Color.White)
@@ -1000,9 +1034,9 @@ fun StatusComposer(
                     ) {
                         TextField(
                             value = draftCaption,
-                            onValueChange = { 
+                            onValueChange = {
                                 draftCaption = it
-                                currentStatusDraft.caption = it 
+                                currentStatusDraft.caption = it
                             },
                             placeholder = { Text("Adicione uma legenda...", color = Color.White.copy(0.8f)) },
                             modifier = Modifier.fillMaxWidth().clickable { }, // Ensures clickable area focus
@@ -1019,7 +1053,7 @@ fun StatusComposer(
                             textStyle = TextStyle(fontSize = 16.sp)
                         )
                     }
-                    
+
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -1166,7 +1200,7 @@ fun StatusViewer(
     LaunchedEffect(currentIndex, effectiveIsPaused) {
         progress = 0f
         if (showViewers || currentStatus.isVideo) return@LaunchedEffect
-        
+
         val duration = 5000L
         val updateInterval = 50L
         var accumulatedTime = 0L
@@ -1349,7 +1383,7 @@ fun StatusViewer(
                     if (isReplying) {
                         val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
                         LaunchedEffect(Unit) { focusRequester.requestFocus() }
-                        
+
                         TextField(
                             value = replyText,
                             onValueChange = { replyText = it },
@@ -1421,7 +1455,7 @@ fun StatusViewer(
                             Text("Responder...", color = Color.White.copy(0.8f))
                         }
                     }
-                    
+
                     if (!isReplying) {
                         Spacer(Modifier.width(16.dp))
                         IconButton(onClick = { onClose(); viewModel.setTargetId(currentStatus.userId) }, modifier = Modifier.size(40.dp)) {
@@ -1616,6 +1650,51 @@ fun ChatPopUpMenu(
                         )
                     }
                 }
+
+                HorizontalDivider(color = chatColors.separator.copy(alpha = 0.3f), thickness = 0.5.dp)
+
+                ChatPopOptionItem(
+                    text = "Abrir Conversa",
+                    icon = Icons.AutoMirrored.Rounded.Chat,
+                    onClick = { onOpen(summary); onDismiss() }
+                )
+
+                ChatPopOptionItem(
+                    text = if (summary.isPinned) "Desafixar" else "Fixar Conversa",
+                    icon = Icons.Rounded.PushPin,
+                    iconColor = if (summary.isPinned) MessengerBlue else null,
+                    onClick = { onTogglePin(summary.friendId, summary.isPinned); onDismiss() }
+                )
+
+                ChatPopOptionItem(
+                    text = if (summary.isMuted) "Ativar Sons" else "Silenciar",
+                    icon = if (summary.isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+                    onClick = { onToggleMute(summary.friendId, summary.isMuted); onDismiss() }
+                )
+
+                ChatPopOptionItem(
+                    text = "Limpar Histórico",
+                    icon = Icons.Rounded.DeleteSweep,
+                    textColor = iOSRed,
+                    iconColor = iOSRed,
+                    onClick = { onClear(summary); onDismiss() }
+                )
+
+                ChatPopOptionItem(
+                    text = "Excluir Chat",
+                    icon = Icons.Rounded.DeleteOutline,
+                    textColor = iOSRed,
+                    iconColor = iOSRed,
+                    onClick = { onDelete(summary); onDismiss() }
+                )
+
+                ChatPopOptionItem(
+                    text = if (isBlocked) "Desbloquear" else "Bloquear",
+                    icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
+                    textColor = if (isBlocked) null else iOSRed,
+                    iconColor = if (isBlocked) null else iOSRed,
+                    onClick = { onBlockToggle(summary.friendId); onDismiss() }
+                )
 
                 HorizontalDivider(color = chatColors.separator.copy(alpha = 0.3f), thickness = 0.5.dp)
 

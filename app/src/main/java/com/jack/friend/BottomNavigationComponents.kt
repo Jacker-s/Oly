@@ -1,6 +1,5 @@
 package com.jack.friend
 
-import android.content.Intent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
@@ -9,6 +8,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -27,14 +26,41 @@ import com.jack.friend.ui.theme.LocalChatColors
 sealed class BottomBarScreen(
     val route: String,
     val title: String,
-    val icon: ImageVector
+    val unselectedIcon: ImageVector,
+    val selectedIcon: ImageVector
 ) {
-    object Home : BottomBarScreen("home", "Chats", Icons.Rounded.ChatBubble)
-    object Contacts : BottomBarScreen("contacts", "Amigos", Icons.Rounded.People)
-    object Search : BottomBarScreen("search", "Busca", Icons.Rounded.Search)
-    object Feed : BottomBarScreen("feed", "Postagens", Icons.Rounded.DynamicFeed)
-    object Calls : BottomBarScreen("calls", "Ligações", Icons.Rounded.Call)
-    object Settings : BottomBarScreen("settings", "Ajustes", Icons.Rounded.Settings)
+
+    object Home : BottomBarScreen(
+        "home", "Chats", 
+        Icons.Outlined.ChatBubbleOutline, 
+        Icons.Rounded.ChatBubble
+    )
+
+    object Feed : BottomBarScreen(
+        "feed", "Feed",
+        Icons.Outlined.Explore,
+        Icons.Rounded.Explore
+    )
+    object Contacts : BottomBarScreen(
+        "contacts", "Amigos", 
+        Icons.Outlined.Person, 
+        Icons.Rounded.Person
+    )
+    object Search : BottomBarScreen(
+        "search", "Busca", 
+        Icons.Outlined.Search, 
+        Icons.Rounded.Search
+    )
+    object Calls : BottomBarScreen(
+        "calls", "Ligações", 
+        Icons.Outlined.Phone, 
+        Icons.Rounded.Phone
+    )
+    object Settings : BottomBarScreen(
+        "settings", "Ajustes", 
+        Icons.Outlined.Settings, 
+        Icons.Rounded.Settings
+    )
 }
 
 @Composable
@@ -44,7 +70,6 @@ fun ResponsiveFloatingDock(
     onFabClick: () -> Unit = {},
     pagerOffset: Float? = null
 ) {
-    val context = LocalContext.current
     val chatColors = LocalChatColors.current
 
     val items = listOf(
@@ -61,17 +86,12 @@ fun ResponsiveFloatingDock(
         items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     }
 
-    fun openActivity(target: Class<*>) {
-        context.startActivity(Intent(context, target))
-    }
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
         color = chatColors.secondaryBackground,
         tonalElevation = 0.dp
     ) {
         Column(modifier = Modifier.navigationBarsPadding()) {
-            // Linha ultra-fina estilo Apple
             HorizontalDivider(
                 thickness = 0.5.dp,
                 color = chatColors.separator.copy(alpha = 0.4f)
@@ -85,7 +105,6 @@ fun ResponsiveFloatingDock(
                 val maxWidth = maxWidth
                 val itemWidth = maxWidth / items.size
                 
-                // Cápsula de seleção que desliza
                 val animatedIndicatorOffset by animateDpAsState(
                     targetValue = itemWidth * selectedIndex,
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
@@ -138,7 +157,7 @@ fun ResponsiveFloatingDock(
                                 verticalArrangement = Arrangement.Center
                             ) {
                                 Icon(
-                                    imageVector = screen.icon,
+                                    imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
                                     contentDescription = screen.title,
                                     modifier = Modifier.size(26.dp),
                                     tint = tint

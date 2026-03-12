@@ -36,6 +36,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.net.URL
 import java.util.UUID
+import java.util.regex.Pattern
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 
@@ -104,6 +105,14 @@ class ChatViewModel : ViewModel() {
         private const val FOLDER_FEEDS = "feeds"
     }
 
+    val myLongitude: Any
+        get() {
+            TODO()
+        }
+    val myLatitude: Any
+        get() {
+            TODO()
+        }
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseDatabase.getInstance().reference
     private val storage = FirebaseStorage.getInstance().reference
@@ -569,9 +578,17 @@ class ChatViewModel : ViewModel() {
         releaseRecorderSafely()
     }
 
-    // ---------------------------\
+    fun fetchUserProfile(userId: String, onResult: (UserProfile?) -> Unit) {
+        db.child("users").child(userId).get()
+            .addOnSuccessListener { snapshot ->
+                onResult(snapshot.getValue(UserProfile::class.java))
+            }
+            .addOnFailureListener { onResult(null) }
+    }
+
+    // ---------------------------
     // Target
-    // ---------------------------\
+    // ---------------------------
     fun setTargetId(id: String) {
         val me = safeMe()
         if (me.isEmpty() && id.isNotEmpty()) {
@@ -1738,8 +1755,7 @@ class ChatViewModel : ViewModel() {
             override fun onDataChange(s: DataSnapshot) {
                 val list = s.children.mapNotNull { it.getValue(UserStatus::class.java) }
                 _rawStatuses.value = list
-            }
-            override fun onCancelled(e: DatabaseError) {
+            } override fun onCancelled(e: DatabaseError) {
                 logE("Status listener cancelled: ${e.message}")
             }
         }
@@ -1750,6 +1766,17 @@ class ChatViewModel : ViewModel() {
     // ---------------------------\
     // Feed
     // ---------------------------\
+    private fun extractMentions(text: String): List<String> {
+        val mentions = mutableListOf<String>()
+        val pattern = Pattern.compile("@([a-zA-Z0-9_.-]+)")
+        val matcher = pattern.matcher(text)
+        while (matcher.find()) {
+            val username = matcher.group(1)?.uppercase()?.trim()
+            if (username != null) mentions.add(username)
+        }
+        return mentions.distinct()
+    }
+
     fun postToFeed(text: String, imageUri: Uri? = null, animatedEmoji: String? = null, isPublic: Boolean = true) {
         val uid = safeMe()
         val username = _myUsername.value
@@ -1758,6 +1785,12 @@ class ChatViewModel : ViewModel() {
             logE("Cannot post: uid or username is empty")
             return
         }
+
+        val allMentions = extractMentions(text)
+        val friends = _mutualContactIds.value
+
+        // Filtrar apenas amigos mútuos para as notificações
+        val validMentions = allMentions.filter { friends.contains(it) }
 
         viewModelScope.launch(errorHandler) {
             try {
@@ -1777,9 +1810,29 @@ class ChatViewModel : ViewModel() {
                     mediaType = if (imageUrl != null) "IMAGE_FEED" else null,
                     animatedEmoji = animatedEmoji,
                     timestamp = System.currentTimeMillis(),
-                    isPublic = isPublic
+                    isPublic = isPublic,
+                    mentions = allMentions // Mantemos todas no texto para clique, mas só notificamos amigos
                 )
-                db.child("feeds").child(postId).setValue(post)
+                db.child("feeds").child(postId).setValue(post).await()
+
+                // Enviar notificações apenas para amigos mútuos
+                validMentions.forEach { mentionedUser ->
+                    if (mentionedUser != username) { // Não notificar a si mesmo
+                        val notificationId = db.child("notifications").child(mentionedUser).push().key ?: return@forEach
+                        val notification = FeedNotification(
+                            id = notificationId,
+                            type = "MENTION",
+                            fromId = username,
+                            fromName = _myName.value.ifBlank { username },
+                            fromPhotoUrl = _myPhotoUrl.value,
+                            postId = postId,
+                            postPreviewText = text.take(50),
+                            timestamp = System.currentTimeMillis()
+                        )
+                        db.child("notifications").child(mentionedUser).child(notificationId).setValue(notification)
+                    }
+                }
+
             } catch (e: Exception) {
                 logE("Error posting to feed: ${e.message}", e)
             }
@@ -1834,6 +1887,10 @@ class ChatViewModel : ViewModel() {
     fun addFeedComment(postId: String, text: String) {
         val username = _myUsername.value
         if (username.isEmpty() || text.isBlank()) return
+
+        val allMentions = extractMentions(text)
+        val friends = _mutualContactIds.value
+        val validMentions = allMentions.filter { friends.contains(it) }
         
         viewModelScope.launch {
             try {
@@ -1867,6 +1924,24 @@ class ChatViewModel : ViewModel() {
                         timestamp = System.currentTimeMillis()
                     )
                     db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
+                }
+
+                // Enviar notificações de menção no comentário (apenas amigos)
+                validMentions.forEach { mentionedUser ->
+                    if (mentionedUser != username && mentionedUser != post.authorId) { // Não notificar o autor duas vezes
+                        val notificationId = db.child("notifications").child(mentionedUser).push().key ?: return@forEach
+                        val notification = FeedNotification(
+                            id = notificationId,
+                            type = "MENTION",
+                            fromId = username,
+                            fromName = _myName.value.ifBlank { username },
+                            fromPhotoUrl = _myPhotoUrl.value,
+                            postId = postId,
+                            postPreviewText = text.take(50),
+                            timestamp = System.currentTimeMillis()
+                        )
+                        db.child("notifications").child(mentionedUser).child(notificationId).setValue(notification)
+                    }
                 }
             } catch (e: Exception) {
                 logE("Error adding comment: ${e.message}")
@@ -1942,7 +2017,7 @@ class ChatViewModel : ViewModel() {
                             it.fromId != newest.fromId 
                         }
                         
-                        if (similar.isNotEmpty() && newest.type != "COMMENT") {
+                        if (similar.isNotEmpty() && newest.type != "COMMENT" && newest.type != "MENTION") {
                             val aggregated = newest.copy(
                                 fromName = "${newest.fromName} e ${similar.size} outras pessoas"
                             )
@@ -2466,5 +2541,34 @@ class ChatViewModel : ViewModel() {
 
         db.child(messagePath(me, target)).child(msgId).setValue(msg)
         // updateChatSummary(msg) REMOVIDO: Evita que apareça na lista de chats
+    }
+
+    /**
+     * Compartilha uma postagem do feed para um chat específico.
+     */
+    fun shareFeedPost(post: FeedPost, targetId: String, tempDurationMillis: Long = 0) {
+        val me = safeMe()
+        if (me.isEmpty() || targetId.isEmpty()) return
+        if (_blockedUsers.value.contains(targetId)) return
+
+        viewModelScope.launch(errorHandler) {
+            val msgId = db.push().key ?: return@launch
+            
+            // Texto formatado com o ID para detecção automática de clique no bubble
+            val shareText = "Confira esta postagem no Wappi Messenger!\n\n${post.text}\n\nEnviado por @${post.authorId}\nPOST_ID:${post.id}"
+            
+            val msg = Message(
+                id = msgId,
+                senderId = me,
+                receiverId = targetId,
+                text = shareText,
+                imageUrl = post.photoUrl, // ✅ Prévia com foto
+                timestamp = System.currentTimeMillis(),
+                senderName = _myName.value,
+                tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
+            )
+            
+            sendMessageObject(msg)
+        }
     }
 }

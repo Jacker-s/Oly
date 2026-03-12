@@ -137,7 +137,10 @@ data class FeedPost(
     var isPublic: Boolean = true,
     var comments: Map<String, FeedComment> = emptyMap(),
     var reactions: Map<String, String> = emptyMap(), // userId -> emoji
-    var animatedEmoji: String? = null
+    var animatedEmoji: String? = null,
+    var mentions: List<String> = emptyList(), // ✅ Novo: Lista de usernames mencionados (@User)
+    var isAd: Boolean = false,
+    var adLink: String? = null
 )
 
 @IgnoreExtraProperties
@@ -153,7 +156,7 @@ data class FeedComment(
 @IgnoreExtraProperties
 data class FeedNotification(
     var id: String = "",
-    var type: String = "LIKE", // LIKE, COMMENT, REACTION
+    var type: String = "LIKE", // LIKE, COMMENT, REACTION, MENTION
     var fromId: String = "",
     var fromName: String = "",
     var fromPhotoUrl: String? = null,
