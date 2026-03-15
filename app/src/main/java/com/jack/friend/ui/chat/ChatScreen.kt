@@ -93,7 +93,11 @@ import kotlin.math.roundToInt
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ChatScreen(viewModel: ChatViewModel) {
+fun ChatScreen(
+    viewModel: ChatViewModel, 
+    billingManager: BillingManager? = null,
+    activity: Activity? = null
+) {
     val myUsername by viewModel.myUsername.collectAsStateWithLifecycle("")
     val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
     val targetId by viewModel.targetId.collectAsStateWithLifecycle("")
@@ -186,8 +190,8 @@ fun ChatScreen(viewModel: ChatViewModel) {
 
     // Ensure screenshots are always allowed
     LaunchedEffect(Unit) {
-        val activity = context as? Activity ?: return@LaunchedEffect
-        activity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        val currentActivity = context as? Activity ?: return@LaunchedEffect
+        currentActivity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     LaunchedEffect(currentBottomRoute) {
@@ -530,6 +534,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             BottomBarScreen.Feed -> {
                                 FeedScreen(
                                     viewModel = viewModel,
+                                    billingManager = billingManager,
                                     onAuthorClick = { user ->
                                         if (user.id == myUsername) {
                                             context.startActivity(Intent(context, ProfileActivity::class.java))
@@ -575,7 +580,9 @@ fun ChatScreen(viewModel: ChatViewModel) {
                             BottomBarScreen.Settings -> {
                                 SettingsScreen(
                                     viewModel = viewModel,
-                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route }
+                                    billingManager = billingManager,
+                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route },
+                                    activity = activity
                                 )
                             }
                             else -> {}
@@ -1327,7 +1334,7 @@ fun StatusViewer(
             }
         }
 
-        val context = LocalContext.current
+        val currentContext = LocalContext.current
         if (currentStatus.userId != myUsername) {
             Column(
                 modifier = Modifier
@@ -1358,7 +1365,7 @@ fun StatusViewer(
                                     videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
                                 )
                                 viewModel.sendMessage(emoji, replyingTo = mockStatusReply)
-                                android.widget.Toast.makeText(context, "Reação Enviada", android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(currentContext, "Reação Enviada", android.widget.Toast.LENGTH_SHORT).show()
                             }
                         )
                     }
@@ -1411,7 +1418,7 @@ fun StatusViewer(
                                     if (replyText.isNotBlank()) {
                                         viewModel.setTargetId(currentStatus.userId)
                                         viewModel.sendMessage(replyText.trim(), replyingTo = mockStatusReply)
-                                        android.widget.Toast.makeText(context, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
+                                        android.widget.Toast.makeText(currentContext, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
                                         replyText = ""
                                         isReplying = false
                                         focusManager.clearFocus()
@@ -1428,7 +1435,7 @@ fun StatusViewer(
                                         onClick = {
                                             viewModel.setTargetId(currentStatus.userId)
                                             viewModel.sendMessage(replyText.trim(), replyingTo = mockStatusReply)
-                                            android.widget.Toast.makeText(context, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
+                                            android.widget.Toast.makeText(currentContext, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
                                             replyText = ""
                                             isReplying = false
                                             focusManager.clearFocus()
@@ -1539,9 +1546,9 @@ fun StatusViewer(
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoStatusPlayer(url: String, onComplete: () -> Unit, isPaused: Boolean, onProgress: (Float) -> Unit = {}) {
-    val context = LocalContext.current
+    val currentContext = LocalContext.current
     val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
+        ExoPlayer.Builder(currentContext).build().apply {
             setMediaItem(MediaItem.fromUri(Uri.parse(url)))
             prepare()
             playWhenReady = true
@@ -1575,7 +1582,7 @@ fun VideoStatusPlayer(url: String, onComplete: () -> Unit, isPaused: Boolean, on
 
     AndroidView(
         factory = {
-            PlayerView(context).apply {
+            PlayerView(currentContext).apply {
                 player = exoPlayer
                 useController = false
                 resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -1651,52 +1658,6 @@ fun ChatPopUpMenu(
                     }
                 }
 
-                HorizontalDivider(color = chatColors.separator.copy(alpha = 0.3f), thickness = 0.5.dp)
-
-                ChatPopOptionItem(
-                    text = "Abrir Conversa",
-                    icon = Icons.AutoMirrored.Rounded.Chat,
-                    onClick = { onOpen(summary); onDismiss() }
-                )
-
-                ChatPopOptionItem(
-                    text = if (summary.isPinned) "Desafixar" else "Fixar Conversa",
-                    icon = Icons.Rounded.PushPin,
-                    iconColor = if (summary.isPinned) MessengerBlue else null,
-                    onClick = { onTogglePin(summary.friendId, summary.isPinned); onDismiss() }
-                )
-
-                ChatPopOptionItem(
-                    text = if (summary.isMuted) "Ativar Sons" else "Silenciar",
-                    icon = if (summary.isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
-                    onClick = { onToggleMute(summary.friendId, summary.isMuted); onDismiss() }
-                )
-
-                ChatPopOptionItem(
-                    text = "Limpar Histórico",
-                    icon = Icons.Rounded.DeleteSweep,
-                    textColor = iOSRed,
-                    iconColor = iOSRed,
-                    onClick = { onClear(summary); onDismiss() }
-                )
-
-                ChatPopOptionItem(
-                    text = "Excluir Chat",
-                    icon = Icons.Rounded.DeleteOutline,
-                    textColor = iOSRed,
-                    iconColor = iOSRed,
-                    onClick = { onDelete(summary); onDismiss() }
-                )
-
-                ChatPopOptionItem(
-                    text = if (isBlocked) "Desbloquear" else "Bloquear",
-                    icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
-                    textColor = if (isBlocked) null else iOSRed,
-                    iconColor = if (isBlocked) null else iOSRed,
-                    onClick = { onBlockToggle(summary.friendId); onDismiss() }
-                )
-
-                HorizontalDivider(color = chatColors.separator.copy(alpha = 0.3f), thickness = 0.5.dp)
 
                 ChatPopOptionItem(
                     text = "Abrir Conversa",

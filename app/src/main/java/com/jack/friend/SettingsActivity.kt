@@ -1,8 +1,11 @@
 package com.jack.friend
 
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -53,14 +56,23 @@ import com.jack.friend.ui.components.*
 import com.jack.friend.ui.theme.*
 
 class SettingsActivity : ComponentActivity() {
+    
+    private lateinit var billingManager: BillingManager
+
     @OptIn(ExperimentalMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        billingManager = BillingManager(this)
         setContent {
             FriendTheme {
                 val viewModel: ChatViewModel = viewModel()
-                SettingsScreen(viewModel = viewModel, onBack = { finish() })
+                SettingsScreen(
+                    viewModel = viewModel, 
+                    billingManager = billingManager, 
+                    onBack = { finish() },
+                    activity = this@SettingsActivity
+                )
             }
         }
     }
@@ -68,15 +80,21 @@ class SettingsActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
+fun SettingsScreen(
+    viewModel: ChatViewModel, 
+    billingManager: BillingManager? = null, 
+    onBack: () -> Unit,
+    activity: Activity? = null
+) {
     val context = LocalContext.current
+    
     val uiPrefs = remember { context.getSharedPreferences("ui_prefs", Context.MODE_PRIVATE) }
     var isDarkMode by remember { mutableStateOf(uiPrefs.getBoolean("dark_mode", false)) }
     var selectedThemeName by remember { mutableStateOf(uiPrefs.getString("app_theme", AppTheme.DEFAULT.name) ?: AppTheme.DEFAULT.name) }
 
+    val isPremium by (billingManager?.isPremiumPurchased?.collectAsStateWithLifecycle(false) ?: remember { mutableStateOf(false) })
+
     FriendTheme(isDarkModeOverride = isDarkMode) {
-                val viewModel: ChatViewModel = viewModel()
-                
                 val myName by viewModel.myName.collectAsStateWithLifecycle("")
                 val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
                 val myStatus by viewModel.myStatus.collectAsStateWithLifecycle("")
@@ -135,6 +153,26 @@ fun SettingsScreen(viewModel: ChatViewModel, onBack: () -> Unit) {
                                     Text(text = myStatus, style = MaterialTheme.typography.bodyMedium, color = WarmTextSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 }
                                 Icon(Icons.Default.ChevronRight, null, tint = Color.LightGray)
+                            }
+                        }
+
+                        if (!isPremium) {
+                            MetaSettingsSection {
+                                MetaSettingsItem(
+                                    title = "Remover Anúncios",
+                                    icon = Icons.Default.Star,
+                                    iconColor = Color(0xFFFFD700),
+                                    subtitle = "Torne-se Premium",
+                                    onClick = { 
+                                        Log.d("SettingsScreen", "Botão Remover Anúncios clicado. Activity: $activity")
+                                        if (activity != null) {
+                                            billingManager?.launchPurchaseFlow(activity)
+                                        } else {
+                                            Log.e("SettingsScreen", "Activity nula ao tentar iniciar compra")
+                                            Toast.makeText(context, "Erro ao iniciar compra. Tente novamente.", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
                             }
                         }
 

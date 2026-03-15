@@ -58,7 +58,13 @@ data class UserProfile(
     // Mensagem de solicitação
     // =========================
     var pendingMessageRequests: MutableMap<String, Long> = mutableMapOf(),
-    var acceptedContacts: MutableMap<String, Long> = mutableMapOf()
+    var acceptedContacts: MutableMap<String, Long> = mutableMapOf(),
+
+    // =========================
+    // Localização (km)
+    // =========================
+    var latitude: Double? = null,
+    var longitude: Double? = null
 
 ) {
 

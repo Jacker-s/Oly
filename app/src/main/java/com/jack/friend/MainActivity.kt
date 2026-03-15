@@ -26,6 +26,9 @@ import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import com.google.android.gms.location.FusedLocationProviderClient
+import com.google.android.gms.location.LocationServices
+import androidx.core.app.ActivityCompat
 import com.jack.friend.ui.chat.ChatScreen
 import com.jack.friend.ui.chat.SecurityWrapper
 import com.jack.friend.ui.theme.FriendTheme
@@ -34,25 +37,30 @@ class MainActivity : FragmentActivity() {
     private lateinit var mainViewModel: ChatViewModel
     private lateinit var appUpdateManager: AppUpdateManager
     private val updateType = AppUpdateType.FLEXIBLE
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var billingManager: BillingManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         WebRTCManager.initialize(applicationContext)
         appUpdateManager = AppUpdateManagerFactory.create(this)
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+        billingManager = BillingManager(this)
         checkForAppUpdate()
 
         setContent {
             FriendTheme {
                 mainViewModel = viewModel()
                 val isUserLoggedIn by mainViewModel.isUserLoggedIn.collectAsStateWithLifecycle()
+                val isPremium by billingManager.isPremiumPurchased.collectAsStateWithLifecycle()
 
                 var showAdNoticeDialog by remember { mutableStateOf(false) }
 
                 LaunchedEffect(Unit) {
                     val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
                     val adNoticeShown = prefs.getBoolean("ad_notice_shown", false)
-                    if (!adNoticeShown) {
+                    if (!adNoticeShown && !isPremium) {
                         showAdNoticeDialog = true
                     }
                 }
@@ -61,7 +69,7 @@ class MainActivity : FragmentActivity() {
                     AlertDialog(
                         onDismissRequest = { /* Não permite fechar fora */ },
                         title = { Text("Aviso de Anúncios") },
-                        text = { Text("Para manter o Wappi Messenger gratuito e com servidores ativos, poderemos exibir alguns anúncios durante o uso do chat. Agradecemos a compreensão!") },
+                        text = { Text("Para manter o Wappi Messenger gratuito e com servidores ativos, poderemos exibir alguns anúncios durante o uso do chat. Você pode remover os anúncios comprando o pacote Premium!") },
                         confirmButton = {
                             Button(onClick = {
                                 val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -69,6 +77,14 @@ class MainActivity : FragmentActivity() {
                                 showAdNoticeDialog = false
                             }) {
                                 Text("Entendi")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                billingManager.launchPurchaseFlow(this@MainActivity)
+                                showAdNoticeDialog = false
+                            }) {
+                                Text("Seja Premium")
                             }
                         }
                     )
@@ -81,13 +97,17 @@ class MainActivity : FragmentActivity() {
                         Manifest.permission.POST_NOTIFICATIONS,
                         Manifest.permission.READ_MEDIA_IMAGES,
                         Manifest.permission.READ_MEDIA_VIDEO,
-                        Manifest.permission.READ_MEDIA_AUDIO
+                        Manifest.permission.READ_MEDIA_AUDIO,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
                     )
                 } else {
                     arrayOf(
                         Manifest.permission.CAMERA,
                         Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.READ_EXTERNAL_STORAGE
+                        Manifest.permission.READ_EXTERNAL_STORAGE,
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
                     )
                 }
 
@@ -106,6 +126,8 @@ class MainActivity : FragmentActivity() {
                     }
                     if (!allPermissionsGranted) {
                         multiplePermissionResultLauncher.launch(permissionsToRequest)
+                    } else {
+                        requestLocation()
                     }
                 }
 
@@ -115,7 +137,12 @@ class MainActivity : FragmentActivity() {
                         finish()
                     }
                 } else {
-                    SecurityWrapper(isUserLoggedIn = true, viewModel = mainViewModel)
+                    SecurityWrapper(
+                        isUserLoggedIn = true, 
+                        viewModel = mainViewModel, 
+                        billingManager = billingManager,
+                        activity = this@MainActivity
+                    )
                 }
 
                 var showOverlayDialog by remember { mutableStateOf(false) }
@@ -185,6 +212,9 @@ class MainActivity : FragmentActivity() {
         appUpdateManager.appUpdateInfo.addOnSuccessListener { info ->
             if (info.installStatus() == InstallStatus.DOWNLOADED) appUpdateManager.completeUpdate()
         }
+        if (::billingManager.isInitialized) {
+            billingManager.queryPurchases()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -226,6 +256,18 @@ class MainActivity : FragmentActivity() {
                 mainViewModel.setOpenFeed(true)
                 if (!postId.isNullOrEmpty()) {
                     mainViewModel.setOpenPostId(postId)
+                }
+            }
+        }
+    }
+
+    private fun requestLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
+            fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+                location?.let {
+                    if (::mainViewModel.isInitialized) {
+                        mainViewModel.updateUserLocation(it.latitude, it.longitude)
+                    }
                 }
             }
         }

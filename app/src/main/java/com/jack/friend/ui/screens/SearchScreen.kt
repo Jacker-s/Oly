@@ -9,13 +9,14 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.LocationOn
+import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -41,12 +42,14 @@ fun SearchScreen(
 ) {
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle()
     val contacts by viewModel.contacts.collectAsStateWithLifecycle()
+    val nearbyUsers by viewModel.nearbyUsers.collectAsStateWithLifecycle()
+    val suggestedUsers by viewModel.suggestedUsers.collectAsStateWithLifecycle()
     val chatColors = LocalChatColors.current
 
-    // Mocking suggestions and nearby for now
-    val suggestedUsers = remember(searchResults, contacts) {
-        searchResults.filter { res -> contacts.none { it.id == res.id } }.take(10)
+    LaunchedEffect(Unit) {
+        viewModel.fetchSuggestedUsers()
     }
+
 
     Column(
         modifier = Modifier
@@ -68,7 +71,7 @@ fun SearchScreen(
                     )
 
                     NearbyUsersRow(
-                        users = suggestedUsers.shuffled().take(5),
+                        users = nearbyUsers,
                         onUserClick = onUserClick
                     )
 
@@ -129,48 +132,75 @@ fun SearchScreen(
 fun NearbyUsersRow(users: List<UserProfile>, onUserClick: (UserProfile) -> Unit) {
     val chatColors = LocalChatColors.current
     LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        modifier = Modifier.padding(vertical = 8.dp)
     ) {
         items(users) { user ->
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
+            Surface(
                 modifier = Modifier
-                    .width(80.dp)
+                    .width(100.dp)
                     .clickable { onUserClick(user) }
+                    .shadow(4.dp, RoundedCornerShape(20.dp)),
+                shape = RoundedCornerShape(20.dp),
+                color = chatColors.secondaryBackground,
+                tonalElevation = 2.dp
             ) {
-                Box(contentAlignment = Alignment.BottomEnd) {
-                    AsyncImage(
-                        model = user.photoUrl,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(64.dp)
-                            .clip(CircleShape)
-                            .background(chatColors.separator),
-                        contentScale = ContentScale.Crop
-                    )
-                    Box(
-                        modifier = Modifier
-                            .size(14.dp)
-                            .clip(CircleShape)
-                            .background(Color.White)
-                            .padding(2.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(iOSGreen))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(12.dp)
+                ) {
+                    Box(contentAlignment = Alignment.BottomEnd) {
+                        AsyncImage(
+                            model = user.photoUrl,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clip(CircleShape)
+                                .background(chatColors.separator),
+                            contentScale = ContentScale.Crop
+                        )
+                        if (user.isOnline && user.isVisibleOnline) {
+                            Box(
+                                modifier = Modifier
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White)
+                                    .padding(2.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(Modifier.size(12.dp).clip(CircleShape).background(iOSGreen))
+                            }
+                        }
                     }
-                }
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    user.name,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = chatColors.textPrimary
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.LocationOn, null, tint = MessengerBlue, modifier = Modifier.size(10.dp))
-                    Text("2km", fontSize = 10.sp, color = MessengerBlue)
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        user.name,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = chatColors.textPrimary,
+                        textAlign = TextAlign.Center
+                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(top = 2.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.LocationOn,
+                            null,
+                            tint = MessengerBlue,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(Modifier.width(2.dp))
+                        Text(
+                            user.status.ifBlank { "Perto" },
+                            fontSize = 11.sp,
+                            color = MessengerBlue,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -184,37 +214,53 @@ fun SuggestionItem(
     onAddClick: () -> Unit
 ) {
     val chatColors = LocalChatColors.current
-    Row(
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onUserClick() }
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(vertical = 6.dp)
+            .clickable { onUserClick() },
+        shape = RoundedCornerShape(16.dp),
+        color = chatColors.secondaryBackground,
+        tonalElevation = 1.dp
     ) {
-        AsyncImage(
-            model = user.photoUrl,
-            contentDescription = null,
-            modifier = Modifier
-                .size(52.dp)
-                .clip(CircleShape)
-                .background(chatColors.separator),
-            contentScale = ContentScale.Crop
-        )
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Text(user.name, fontWeight = FontWeight.Bold, color = chatColors.textPrimary)
-            Text("@${user.id}", fontSize = 13.sp, color = chatColors.textSecondary)
-        }
-        Button(
-            onClick = onAddClick,
-            shape = RoundedCornerShape(12.dp),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
-            modifier = Modifier.height(32.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Rounded.Add, null, modifier = Modifier.size(16.dp))
-            Spacer(Modifier.width(4.dp))
-            Text("Adicionar", fontSize = 13.sp)
+            AsyncImage(
+                model = user.photoUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(chatColors.separator),
+                contentScale = ContentScale.Crop
+            )
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    user.name,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = chatColors.textPrimary
+                )
+                Text(
+                    "@${user.id.lowercase()}",
+                    fontSize = 13.sp,
+                    color = chatColors.textSecondary
+                )
+            }
+            Button(
+                onClick = onAddClick,
+                shape = RoundedCornerShape(14.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
+                modifier = Modifier.height(36.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+            ) {
+                Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text("Adicionar", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.jack.friend.ui.chat
 
+import android.app.Activity
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -11,10 +12,16 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import com.jack.friend.BillingManager
 import com.jack.friend.ChatViewModel
 
 @Composable
-fun SecurityWrapper(isUserLoggedIn: Boolean, viewModel: ChatViewModel) {
+fun SecurityWrapper(
+    isUserLoggedIn: Boolean, 
+    viewModel: ChatViewModel, 
+    billingManager: BillingManager? = null,
+    activity: Activity? = null
+) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val prefs = remember { context.getSharedPreferences("security_prefs", Context.MODE_PRIVATE) }
@@ -45,7 +52,7 @@ fun SecurityWrapper(isUserLoggedIn: Boolean, viewModel: ChatViewModel) {
         when {
             !isUserLoggedIn -> LoginScreen(viewModel)
             !isUnlocked -> PinLockScreen(correctPin, isBiometricEnabled) { isUnlocked = true }
-            else -> ChatScreen(viewModel)
+            else -> ChatScreen(viewModel, billingManager, activity)
         }
     }
 }

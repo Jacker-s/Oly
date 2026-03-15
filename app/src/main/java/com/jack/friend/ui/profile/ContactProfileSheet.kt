@@ -268,7 +268,7 @@ fun IOS17ContactProfileSheet(
                             shape = RoundedCornerShape(8.dp),
                             contentPadding = PaddingValues(0.dp)
                         ) {
-                            Text("Seguir+", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text("Adicionar", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                         Button(
                             onClick = { onMessage(user) },

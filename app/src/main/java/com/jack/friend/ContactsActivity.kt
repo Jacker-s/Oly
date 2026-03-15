@@ -292,64 +292,78 @@ private fun FriendRow(
     onLongClick: () -> Unit,
     onMessageClick: () -> Unit
 ) {
-    Row(
+    val chatColors = LocalChatColors.current
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 4.dp)
             .combinedClickable(
                 onClick = onClick,
                 onLongClick = onLongClick
-            )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+            ),
+        shape = RoundedCornerShape(16.dp),
+        color = chatColors.secondaryBackground,
+        tonalElevation = 1.dp
     ) {
-        Box {
-            AsyncImage(
-                model = contact.photoUrl,
-                contentDescription = null,
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(CircleShape)
-                    .background(LocalChatColors.current.separator),
-                contentScale = ContentScale.Crop
-            )
-            if (contact.isOnline && contact.isVisibleOnline) {
-                Box(
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box {
+                AsyncImage(
+                    model = contact.photoUrl,
+                    contentDescription = null,
                     modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .size(16.dp)
-                        .background(Color.White, CircleShape)
-                        .padding(2.dp)
-                        .background(iOSGreen, CircleShape)
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(chatColors.separator),
+                    contentScale = ContentScale.Crop
+                )
+                if (contact.isOnline && contact.isVisibleOnline) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(16.dp)
+                            .background(Color.White, CircleShape)
+                            .padding(2.dp)
+                            .background(iOSGreen, CircleShape)
+                    )
+                }
+            }
+
+            Spacer(Modifier.width(12.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = contact.displayName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = chatColors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = contact.status.takeIf { it.isNotBlank() } ?: "Disponível",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (isBlocked) iOSRed else chatColors.textSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
-        }
-
-        Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = contact.displayName,
-                style = MaterialTheme.typography.bodyLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Text(
-                text = contact.status.takeIf { it.isNotBlank() } ?: "Amigo(a)",
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isBlocked) iOSRed else MetaGray4,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-        }
-        
-        IconButton(
-            onClick = onMessageClick,
-            modifier = Modifier
-                .size(36.dp)
-                .background(LocalChatColors.current.secondaryBackground, CircleShape)
-        ) {
-            Icon(Icons.Rounded.ChatBubble, contentDescription = "Mensagem", tint = MessengerBlue, modifier = Modifier.size(18.dp))
+            
+            IconButton(
+                onClick = onMessageClick,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(chatColors.primaryBackground, CircleShape)
+            ) {
+                Icon(
+                    Icons.Rounded.ChatBubble, 
+                    contentDescription = "Mensagem", 
+                    tint = MessengerBlue, 
+                    modifier = Modifier.size(20.dp)
+                )
+            }
         }
     }
 }
@@ -410,21 +424,51 @@ private fun ActionItem(label: String, icon: ImageVector, color: Color, onClick: 
 
 @Composable
 private fun EmptyContactsState(onAddClick: () -> Unit) {
+    val chatColors = LocalChatColors.current
     Column(
-        modifier = Modifier.fillMaxWidth().padding(40.dp),
+        modifier = Modifier.fillMaxWidth().padding(48.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Icon(Icons.Rounded.People, null, modifier = Modifier.size(80.dp), tint = MetaGray4.copy(alpha = 0.3f))
-        Spacer(Modifier.height(16.dp))
-        Text("Sua lista está vazia", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("Adicione amigos para começar a conversar.", color = MetaGray4, textAlign = TextAlign.Center)
+        Surface(
+            modifier = Modifier.size(120.dp),
+            shape = CircleShape,
+            color = chatColors.secondaryBackground,
+            tonalElevation = 4.dp
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.People, 
+                    null, 
+                    modifier = Modifier.size(56.dp), 
+                    tint = MessengerBlue.copy(alpha = 0.6f)
+                )
+            }
+        }
         Spacer(Modifier.height(24.dp))
+        Text(
+            "Sua lista está vazia", 
+            fontWeight = FontWeight.ExtraBold, 
+            fontSize = 20.sp,
+            color = chatColors.textPrimary
+        )
+        Text(
+            "Adicione seus amigos para começar a conversar e compartilhar momentos.", 
+            color = chatColors.textSecondary, 
+            textAlign = TextAlign.Center,
+            fontSize = 15.sp,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+        )
+        Spacer(Modifier.height(32.dp))
         Button(
             onClick = onAddClick,
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+            modifier = Modifier.height(48.dp).fillMaxWidth(0.8f),
+            shape = RoundedCornerShape(16.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue),
+            elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
-            Text("Adicionar Agora", fontWeight = FontWeight.Bold)
+            Icon(Icons.Rounded.PersonAdd, null)
+            Spacer(Modifier.width(8.dp))
+            Text("Adicionar Amigos", fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
     }
 }

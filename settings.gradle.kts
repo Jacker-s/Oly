@@ -25,5 +25,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Friend"
+rootProject.name = "Wappi"
 include(":app")

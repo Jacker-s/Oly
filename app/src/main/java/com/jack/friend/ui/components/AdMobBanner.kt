@@ -13,7 +13,7 @@ import com.google.android.gms.ads.AdView
 @Composable
 fun AdMobBanner(
     modifier: Modifier = Modifier,
-    adUnitId: String = "ca-app-pub-3940256099942544/6300978111" // ID de teste
+    adUnitId: String = "ca-app-pub-7931782163570852/1286931706"
 ) {
     AndroidView(
         modifier = modifier

@@ -12,17 +12,16 @@ android {
         applicationId = "com.jack.friend"
         minSdk = 24
         targetSdk = 35
-        versionCode = 30
-        versionName = "2.0"
+         versionCode = 37
+        versionName = "2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
-            // ✅ Ativado novamente com proteções extras no proguard-rules.pro
             isMinifyEnabled = true
             isShrinkResources = true
-            
+
             ndk {
                 debugSymbolLevel = "full"
             }
@@ -32,6 +31,7 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("debug")
+            // REMOVIDO: signingConfig debug (Isto bloqueia o faturamento em produção)
         }
     }
 
@@ -75,6 +75,7 @@ dependencies {
 
     // AdMob
     implementation("com.google.android.gms:play-services-ads:23.6.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     // Google Auth
     implementation(libs.play.services.auth)
@@ -124,6 +125,9 @@ dependencies {
 
     // Jsoup for Link Preview
     implementation(libs.jsoup)
+
+    // Google Play Billing
+    implementation(libs.billing.ktx)
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

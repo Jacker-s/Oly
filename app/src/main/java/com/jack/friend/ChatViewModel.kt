@@ -105,14 +105,14 @@ class ChatViewModel : ViewModel() {
         private const val FOLDER_FEEDS = "feeds"
     }
 
-    val myLongitude: Any
-        get() {
-            TODO()
-        }
-    val myLatitude: Any
-        get() {
-            TODO()
-        }
+    private val _myLocation = MutableStateFlow<Pair<Double, Double>?>(null)
+    val myLocation: StateFlow<Pair<Double, Double>?> = _myLocation
+
+    private val _nearbyUsers = MutableStateFlow<List<UserProfile>>(emptyList())
+    val nearbyUsers: StateFlow<List<UserProfile>> = _nearbyUsers
+
+    private val _suggestedUsers = MutableStateFlow<List<UserProfile>>(emptyList())
+    val suggestedUsers: StateFlow<List<UserProfile>> = _suggestedUsers
     private val auth = FirebaseAuth.getInstance()
     private val db = FirebaseDatabase.getInstance().reference
     private val storage = FirebaseStorage.getInstance().reference
@@ -2129,6 +2129,68 @@ class ChatViewModel : ViewModel() {
                 _searchResults.value = users
             } catch (e: Exception) {
                 logE("Search error: ${e.message}", e)
+            }
+        }
+    }
+
+    fun updateUserLocation(lat: Double, lng: Double) {
+        val me = _myUsername.value
+        if (me.isEmpty()) return
+        _myLocation.value = Pair(lat, lng)
+        db.child("users").child(me).child("latitude").setValue(lat)
+        db.child("users").child(me).child("longitude").setValue(lng)
+        fetchNearbyUsers()
+    }
+
+    private fun calculateDistance(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371 // km
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2)
+        val c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+        return r * c
+    }
+
+    fun fetchNearbyUsers() {
+        val me = _myUsername.value
+        val loc = _myLocation.value ?: return
+        viewModelScope.launch(errorHandler) {
+            try {
+                val snapshot = db.child("users").get().await()
+                val users = snapshot.children.mapNotNull { it.getValue(UserProfile::class.java) }
+                    .filter { it.id != me && !it.isHiddenFromSearch }
+                    .mapNotNull { user ->
+                        val uLat = user.latitude
+                        val uLng = user.longitude
+                        if (uLat != null && uLng != null) {
+                            val dist = calculateDistance(loc.first, loc.second, uLat, uLng)
+                            if (dist <= 50.0) {
+                                // Usamos o campo 'status' temporariamente para exibir a distância no SearchScreen
+                                user.copy(status = "${"%.1f".format(dist)}km")
+                            } else null
+                        } else null
+                    }
+                _nearbyUsers.value = users
+            } catch (e: Exception) {
+                logE("Nearby users error: ${e.message}")
+            }
+        }
+    }
+
+    fun fetchSuggestedUsers() {
+        val me = _myUsername.value
+        viewModelScope.launch(errorHandler) {
+            try {
+                val snapshot = db.child("users").limitToLast(100).get().await()
+                val users = snapshot.children.mapNotNull { it.getValue(UserProfile::class.java) }
+                    .filter { it.id != me && !it.isHiddenFromSearch }
+                    .shuffled()
+                    .take(20)
+                _suggestedUsers.value = users
+            } catch (e: Exception) {
+                logE("Suggested users error: ${e.message}")
             }
         }
     }

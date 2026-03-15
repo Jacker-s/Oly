@@ -27,6 +27,7 @@ uiUnit = "1.10.3"
 material3 = "1.4.0"
 jsoup = "1.18.3"
 fresco = "3.6.0"
+billing = "7.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -70,6 +71,7 @@ androidx-compose-ui-unit = { group = "androidx.compose.ui", name = "ui-unit", ve
 androidx-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 fresco = { group = "com.facebook.fresco", name = "fresco", version.ref = "fresco" }
+billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
