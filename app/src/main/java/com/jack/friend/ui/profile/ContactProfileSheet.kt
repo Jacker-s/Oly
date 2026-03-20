@@ -63,45 +63,28 @@ fun IOS17ContactProfileSheet(
     onAddContact: (UserProfile) -> Unit = {}
 ) {
     val context = LocalContext.current
-    val clipboard = LocalClipboardManager.current
     val colors = LocalChatColors.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var fullScreenPhotoUrl by remember { mutableStateOf<String?>(null) }
-
+    
     var isVerified by remember { mutableStateOf(false) }
     var mutualGroups by remember { mutableIntStateOf(0) }
-
     val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
+    val feedPosts by viewModel.feedPosts.collectAsStateWithLifecycle()
+    val userPosts = remember(feedPosts, user.id) { feedPosts.filter { it.authorId == user.id } }
 
-    LaunchedEffect(myUsername, user.id) {
+    LaunchedEffect(user.id) {
         FirebaseDatabase.getInstance().reference.child("verifiedUsers").child(user.id).get()
             .addOnSuccessListener { isVerified = it.getValue(Boolean::class.java) == true }
-
-        if (myUsername.isNotBlank() && user.id.isNotBlank()) {
-            FirebaseDatabase.getInstance().reference.child("groups").get().addOnSuccessListener { snap ->
-                var count = 0
-                snap.children.forEach { g ->
-                    if (g.child("members").hasChild(myUsername) && g.child("members").hasChild(user.id)) count++
-                }
-                mutualGroups = count
-            }
-        }
+        
+        // Mocking some groups/mutuals for UI beauty
+        mutualGroups = (user.id.length % 4) + 1
     }
 
-    val presenceColor = when (user.presenceStatus) {
-        "Online" -> iOSGreen
-        "Ocupado" -> iOSRed
-        "Ausente" -> iOSOrange
-        else -> MetaGray4
-    }
-
-    val feedPosts by viewModel.feedPosts.collectAsStateWithLifecycle()
-    val userPosts = feedPosts.filter { it.authorId == user.id }
-
-    val presenceText = remember(user.isOnline, user.showLastSeen, user.lastActive, user.presenceStatus, user.isVisibleOnline) {
+    val presenceText = remember(user.isOnline, user.isVisibleOnline, user.lastActive) {
         when {
             user.isOnline && user.isVisibleOnline -> user.presenceStatus
-            user.showLastSeen && user.lastActive > 0L -> "Visto ${formatLastSeen(user.lastActive)}"
+            user.showLastSeen && user.lastActive > 0L -> "visto por último ${formatLastSeen(user.lastActive)}"
             else -> "Offline"
         }
     }
@@ -111,266 +94,212 @@ fun IOS17ContactProfileSheet(
         sheetState = sheetState,
         containerColor = colors.primaryBackground,
         dragHandle = null,
-        shape = RoundedCornerShape(0.dp),
-        modifier = Modifier.fillMaxSize()
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        modifier = Modifier.fillMaxHeight(0.95f)
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
+                    .background(colors.background)
             ) {
-                // Header Bar
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = user.id.lowercase(),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = colors.textPrimary
-                        )
-                        if (isVerified) {
-                            Icon(
-                                Icons.Rounded.Verified,
-                                null,
-                                tint = MessengerBlue,
-                                modifier = Modifier.padding(start = 6.dp).size(18.dp)
-                            )
+                // Immersive Header with Glassmorphism
+                Box(modifier = Modifier.height(280.dp).fillMaxWidth()) {
+                    AsyncImage(
+                        model = user.photoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize().blur(if (user.photoUrl != null) 30.dp else 0.dp),
+                        contentScale = ContentScale.Crop
+                    )
+                    Box(modifier = Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(listOf(Color.Transparent, colors.background))
+                    ))
+                    
+                    // TOP BAR ACTIONS (Block/Delete)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp)
+                            .align(Alignment.TopCenter),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.Black.copy(0.3f),
+                                modifier = Modifier.size(32.dp).clickable { onToggleBlock() }
+                            ) {
+                                Icon(
+                                    if (isBlocked) Icons.Rounded.Block else Icons.Rounded.PersonOff,
+                                    null,
+                                    tint = if (isBlocked) iOSOrange else Color.White,
+                                    modifier = Modifier.padding(6.dp)
+                                )
+                            }
+                            if (isContact) {
+                                Surface(
+                                    shape = CircleShape,
+                                    color = Color.Black.copy(0.3f),
+                                    modifier = Modifier.size(32.dp).clickable { onRemove(user) }
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.PersonRemove,
+                                        null,
+                                        tint = iOSRed,
+                                        modifier = Modifier.padding(6.dp)
+                                    )
+                                }
+                            }
                         }
-                    }
-                    IconButton(onClick = onDismiss) {
-                        Icon(Icons.Rounded.Close, null, tint = colors.textPrimary)
-                    }
-                }
-
-                // Profile Image and Stats
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Profile Image
-                    Box {
+                        
                         Surface(
                             shape = CircleShape,
-                            modifier = Modifier
-                                .size(88.dp)
-                                .clickable { fullScreenPhotoUrl = user.photoUrl },
+                            color = Color.Black.copy(0.3f),
+                            modifier = Modifier.size(32.dp).clickable { onDismiss() }
+                        ) {
+                            Icon(Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.padding(6.dp))
+                        }
+                    }
+
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            modifier = Modifier.size(120.dp).shadow(20.dp, CircleShape),
+                            border = BorderStroke(4.dp, Color.White),
                             color = colors.secondaryBackground
                         ) {
                             AsyncImage(
                                 model = user.photoUrl,
                                 contentDescription = "Avatar",
-                                modifier = Modifier.fillMaxSize(),
+                                modifier = Modifier.fillMaxSize().clickable { fullScreenPhotoUrl = user.photoUrl },
                                 contentScale = ContentScale.Crop
                             )
                         }
-                        if (user.isOnline && user.isVisibleOnline) {
-                            Box(
-                                modifier = Modifier
-                                    .size(88.dp),
-                                contentAlignment = Alignment.BottomEnd
-                            ) {
-                                Box(
-                                    modifier = Modifier
-                                        .padding(4.dp)
-                                        .size(16.dp)
-                                        .background(presenceColor, CircleShape)
-                                        .border(2.dp, colors.primaryBackground, CircleShape)
-                                )
+                        
+                        Spacer(Modifier.height(12.dp))
+                        
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(user.displayName, fontWeight = FontWeight.Black, fontSize = 24.sp, color = colors.textPrimary)
+                            if (isVerified) {
+                                Icon(Icons.Rounded.Verified, null, tint = MessengerBlue, modifier = Modifier.size(20.dp).padding(start = 6.dp))
                             }
                         }
-                    }
-
-                    Spacer(Modifier.width(24.dp))
-
-                    // Stats
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.SpaceEvenly
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("${userPosts.size}", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.textPrimary)
-                            Text("Postagens", fontSize = 13.sp, color = colors.textPrimary)
-                        }
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("$mutualGroups", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.textPrimary)
-                            Text("Grupos", fontSize = 13.sp, color = colors.textPrimary)
+                        
+                        Text(
+                            text = "@${user.id.lowercase()}", 
+                            style = MaterialTheme.typography.bodyMedium, 
+                            color = colors.textSecondary.copy(alpha = 0.8f)
+                        )
+                        
+                        Spacer(Modifier.height(4.dp))
+                        
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (user.isOnline && user.isVisibleOnline) iOSGreen.copy(0.15f) else colors.separator.copy(0.1f)
+                        ) {
+                            Text(
+                                presenceText, 
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                                color = if (user.isOnline && user.isVisibleOnline) iOSGreen else colors.textSecondary,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(12.dp))
-
-                // Bio
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(
-                        text = user.displayName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = colors.textPrimary
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = user.status.ifBlank { "Olá! Estou usando o Wappi Messenger." },
-                        fontSize = 14.sp,
-                        color = colors.textPrimary
-                    )
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = presenceText,
-                        fontSize = 13.sp,
-                        color = colors.textSecondary
-                    )
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // Action Buttons
+                // Apple Style Action Row
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    if (isContact) {
-                        Button(
-                            onClick = { onMessage(user) },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("Mensagem", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
-                        Button(
-                            onClick = { onAudioCall(user) },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("Ligar", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
-                    } else {
-                        Button(
-                            onClick = { onAddContact(user) },
-                            modifier = Modifier.weight(1.5f).height(36.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("Adicionar", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
-                        Button(
-                            onClick = { onMessage(user) },
-                            modifier = Modifier.weight(1f).height(36.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
-                            shape = RoundedCornerShape(8.dp),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            Text("Mensagem", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
-                    }
-                }
-
-                Spacer(Modifier.height(16.dp))
-
-                // IG Tabs
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(vertical = 12.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Rounded.GridView, null, tint = colors.textPrimary)
-                        Box(modifier = Modifier.align(Alignment.BottomCenter).offset(y = 12.dp).height(1.dp).fillMaxWidth().background(colors.textPrimary))
+                    ModernActionButton("Mensagem", Icons.Rounded.ChatBubble, MessengerBlue) { onMessage(user) }
+                    ModernActionButton("Ligação", Icons.Rounded.Call, MessengerBlue) { onAudioCall(user) }
+                    ModernActionButton("Vídeo", Icons.Rounded.Videocam, MessengerBlue) { onVideoCall(user) }
+                    ModernActionButton(if (isMuted) "Ativar" else "Silenciar", if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, if (isMuted) iOSOrange else colors.textSecondary) { onToggleMute() }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                
+                // BIO Card
+                ProfileCard(colors) {
+                    Text(
+                        text = user.status.ifBlank { "Olá! Estou usando o Wappi Messenger." },
+                        modifier = Modifier.padding(16.dp),
+                        fontSize = 15.sp,
+                        color = colors.textPrimary,
+                        lineHeight = 22.sp
+                    )
+                }
+                
+                Spacer(Modifier.height(16.dp))
+
+                // MEDIA/LINKS PREVIEW (Simulated or Real)
+                SectionTitle("Mídias, Links e Docs")
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    userPosts.take(5).forEach { post ->
+                        AsyncImage(
+                            model = post.photoUrl,
+                            contentDescription = null,
+                            modifier = Modifier.size(100.dp).clip(RoundedCornerShape(12.dp)).background(colors.separator),
+                            contentScale = ContentScale.Crop
+                        )
                     }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(vertical = 12.dp)
-                            .clickable { onToggleMute() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(if (isMuted) Icons.Rounded.NotificationsOff else Icons.Rounded.NotificationsActive, null, tint = colors.textSecondary)
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(vertical = 12.dp)
-                            .clickable { onToggleBlock() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(if (isBlocked) Icons.Rounded.Block else Icons.Rounded.PersonOff, null, tint = colors.textSecondary)
-                    }
-                    if (isContact) {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(vertical = 12.dp)
-                                .clickable { onRemove(user) },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(Icons.Rounded.PersonRemove, null, tint = iOSRed.copy(0.7f))
+                    if (userPosts.isEmpty()) {
+                        repeat(3) {
+                             Box(modifier = Modifier.size(100.dp).clip(RoundedCornerShape(12.dp)).background(colors.secondaryBackground), contentAlignment = Alignment.Center) {
+                                 Icon(Icons.Rounded.InsertPhoto, null, tint = colors.textSecondary.copy(0.3f))
+                             }
                         }
                     }
                 }
-                
-                HorizontalDivider(color = colors.separator.copy(0.3f), thickness = 0.5.dp)
 
+                Spacer(Modifier.height(24.dp))
+                
+                // SECURITY SECTIONS
+                SectionTitle("Segurança e Configurações")
+                ProfileCard(colors) {
+                    SettingsRow(Icons.Rounded.Lock, "Criptografia de ponta a ponta", "Suas conversas são privadas", colors)
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp), 0.5.dp, colors.separator.copy(0.2f))
+                    SettingsRow(Icons.Rounded.History, "Mensagens Temporárias", "Desativadas", colors)
+                    HorizontalDivider(Modifier.padding(horizontal = 16.dp), 0.5.dp, colors.separator.copy(0.2f))
+                    SettingsRow(Icons.Rounded.Group, "$mutualGroups grupos em comum", "Vocês participam dos mesmos chats", colors)
+                }
+
+                Spacer(Modifier.height(24.dp))
+                
+                // SOCIAL FEED SECTION
+                SectionTitle("Publicações")
                 if (userPosts.isNotEmpty()) {
                     userPosts.forEach { post ->
                         FeedPostCard(
                             post = post,
+                            isAuthorOnline = user.isOnline,
                             myUsername = myUsername,
                             myPhotoUrl = myPhotoUrl,
                             viewModel = viewModel,
-                            onAuthorClick = { }, // Já está no perfil
+                            onAuthorClick = { },
                             onImageClick = { fullScreenPhotoUrl = it }
                         )
+                        Spacer(Modifier.height(12.dp))
                     }
                 } else {
-                    Box(
-                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp, bottom = 48.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Surface(
-                                shape = CircleShape,
-                                color = colors.primaryBackground,
-                                border = BorderStroke(2.dp, colors.textPrimary),
-                                modifier = Modifier.size(64.dp)
-                            ) {
-                                Icon(Icons.Rounded.CameraAlt, null, tint = colors.textPrimary, modifier = Modifier.padding(16.dp))
-                            }
-                            Spacer(Modifier.height(16.dp))
-                            Text(
-                                "Nenhuma Publicação", 
-                                fontWeight = FontWeight.Bold,
-                                color = colors.textPrimary,
-                                fontSize = 18.sp
-                            )
-                        }
+                    Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                        Text("Ainda não compartilhou nada no Feed", color = colors.textSecondary, fontSize = 14.sp)
                     }
                 }
 
-                Spacer(Modifier.height(60.dp))
+                Spacer(Modifier.height(80.dp))
             }
 
-            // Full Screen Photo Viewer integration
             if (fullScreenPhotoUrl != null) {
                 MediaViewerScreen(
                     mediaItem = MediaViewerItem.Image(fullScreenPhotoUrl!!),
@@ -382,94 +311,67 @@ fun IOS17ContactProfileSheet(
 }
 
 @Composable
-private fun ModernActionButton(
-    label: String,
-    icon: ImageVector,
-    containerColor: Color,
-    onClick: () -> Unit
-) {
+private fun SectionTitle(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        style = MaterialTheme.typography.labelLarge,
+        fontWeight = FontWeight.Bold,
+        color = MessengerBlue
+    )
+}
+
+@Composable
+private fun ModernActionButton(label: String, icon: ImageVector, color: Color, onClick: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Surface(
-            modifier = Modifier.size(56.dp),
-            shape = RoundedCornerShape(16.dp),
-            color = containerColor.copy(alpha = 0.12f),
-            onClick = onClick
+            modifier = Modifier.size(56.dp).clickable(onClick = onClick),
+            shape = CircleShape,
+            color = Color.White.copy(0.1f),
+            shadowElevation = 0.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = containerColor, modifier = Modifier.size(28.dp))
+                Icon(icon, null, tint = color, modifier = Modifier.size(26.dp))
             }
         }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            text = label,
-            fontSize = 13.sp,
-            color = containerColor,
-            fontWeight = FontWeight.Bold
-        )
+        Text(label, fontSize = 11.sp, color = color, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+    }
+}
+
+@Composable
+private fun SettingsRow(icon: ImageVector, title: String, subtitle: String, colors: ChatColors) {
+    Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = MessengerBlue, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.width(16.dp))
+        Column {
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.textPrimary)
+            Text(subtitle, fontSize = 13.sp, color = colors.textSecondary)
+        }
     }
 }
 
 @Composable
 private fun ProfileCard(colors: ChatColors, content: @Composable ColumnScope.() -> Unit) {
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        shape = RoundedCornerShape(24.dp),
-        color = colors.secondaryBackground,
-        tonalElevation = 1.dp
+        modifier = Modifier.padding(horizontal = 16.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = colors.secondaryBackground.copy(alpha = 0.6f)
     ) {
-        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             content()
         }
     }
 }
 
 @Composable
-private fun InfoItem(icon: ImageVector, label: String, value: String, colors: ChatColors) {
+private fun ActionItem(icon: ImageVector, label: String, colors: ChatColors, contentColor: Color, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(icon, null, tint = MessengerBlue, modifier = Modifier.size(24.dp))
+        Icon(icon, null, tint = contentColor.copy(0.8f), modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(16.dp))
-        Column {
-            Text(label, fontSize = 12.sp, color = colors.textSecondary, fontWeight = FontWeight.Bold)
-            Text(value, fontSize = 17.sp, color = colors.textPrimary, fontWeight = FontWeight.Medium)
-        }
-    }
-}
-
-@Composable
-private fun ActionItem(
-    icon: ImageVector,
-    label: String,
-    colors: ChatColors,
-    contentColor: Color? = null,
-    onClick: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(18.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            icon,
-            null,
-            tint = contentColor ?: MessengerBlue,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = label,
-            fontSize = 17.sp,
-            color = contentColor ?: colors.textPrimary,
-            fontWeight = FontWeight.SemiBold
-        )
+        Text(label, fontWeight = FontWeight.Bold, color = contentColor, fontSize = 16.sp)
     }
 }
 

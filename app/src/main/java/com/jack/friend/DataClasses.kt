@@ -132,6 +132,7 @@ data class FeedPost(
     var text: String = "",
     var timestamp: Long = 0L,
     var photoUrl: String? = null,
+    var photoUrls: List<String> = emptyList(), // ✅ Novo: Lista de fotos para posts múltiplos
     var mediaType: String? = null,
     var likes: Map<String, Boolean> = emptyMap(),
     var isPublic: Boolean = true,

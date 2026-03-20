@@ -73,8 +73,8 @@ fun ResponsiveFloatingDock(
     val chatColors = LocalChatColors.current
 
     val items = listOf(
-        BottomBarScreen.Home,
         BottomBarScreen.Feed,
+        BottomBarScreen.Home,
         BottomBarScreen.Contacts,
         BottomBarScreen.Calls,
         BottomBarScreen.Settings

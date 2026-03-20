@@ -1372,7 +1372,7 @@ class ChatViewModel : ViewModel() {
         }
 
         db.child(path).addValueEventListener(messagesListener!!)
-        
+
         startEphemeralCleanup(target)
     }
 
@@ -1777,7 +1777,7 @@ class ChatViewModel : ViewModel() {
         return mentions.distinct()
     }
 
-    fun postToFeed(text: String, imageUri: Uri? = null, animatedEmoji: String? = null, isPublic: Boolean = true) {
+    fun postToFeed(text: String, imageUris: List<Uri> = emptyList(), animatedEmoji: String? = null, isPublic: Boolean = true) {
         val uid = safeMe()
         val username = _myUsername.value
         logD("Attempting to post to feed: uid=$uid, username=$username")
@@ -1794,9 +1794,10 @@ class ChatViewModel : ViewModel() {
 
         viewModelScope.launch(errorHandler) {
             try {
-                var imageUrl: String? = null
-                if (imageUri != null) {
-                    imageUrl = uploadToCloudinary(imageUri, FOLDER_FEEDS)
+                val imageUrls = mutableListOf<String>()
+                imageUris.forEach { uri ->
+                    val url = uploadToCloudinary(uri, FOLDER_FEEDS)
+                    if (url != null) imageUrls.add(url)
                 }
 
                 val postId = db.push().key ?: return@launch
@@ -1806,8 +1807,9 @@ class ChatViewModel : ViewModel() {
                     authorName = _myName.value.ifBlank { username },
                     authorPhotoUrl = _myPhotoUrl.value,
                     text = text,
-                    photoUrl = imageUrl,
-                    mediaType = if (imageUrl != null) "IMAGE_FEED" else null,
+                    photoUrl = imageUrls.firstOrNull(),
+                    photoUrls = imageUrls, // ✅ Nova lista de fotos
+                    mediaType = if (imageUrls.isNotEmpty()) "IMAGE_FEED" else null,
                     animatedEmoji = animatedEmoji,
                     timestamp = System.currentTimeMillis(),
                     isPublic = isPublic,
@@ -1852,12 +1854,12 @@ class ChatViewModel : ViewModel() {
     fun toggleFeedLike(postId: String, like: Boolean) {
         val username = _myUsername.value
         if (username.isEmpty()) return
-        
+
         val ref = db.child("feeds").child(postId)
-        
+
         if (like) {
             ref.child("likes").child(username).setValue(true)
-            
+
             // Enviar notificação para o autor
             viewModelScope.launch {
                 try {
@@ -1904,11 +1906,11 @@ class ChatViewModel : ViewModel() {
                     text = text,
                     timestamp = System.currentTimeMillis()
                 )
-                
+
                 logD("Adding comment to post $postId: $text")
                 ref.child("comments").child(commentId).setValue(comment).await()
                 logD("Comment added successfully")
-                
+
                 // Notificar o autor do post
                 val post = ref.get().await().getValue(FeedPost::class.java) ?: return@launch
                 if (post.authorId != username) {
@@ -1962,7 +1964,7 @@ class ChatViewModel : ViewModel() {
     fun setFeedReaction(postId: String, emoji: String?) {
         val username = _myUsername.value
         if (username.isEmpty()) return
-        
+
         val ref = db.child("feeds").child(postId)
         viewModelScope.launch {
             try {
@@ -1970,7 +1972,7 @@ class ChatViewModel : ViewModel() {
                     ref.child("reactions").child(username).removeValue().await()
                 } else {
                     ref.child("reactions").child(username).setValue(emoji).await()
-                    
+
                     // Notificar o autor do post
                     val post = ref.get().await().getValue(FeedPost::class.java) ?: return@launch
                     if (post.authorId != username) {
@@ -2001,7 +2003,7 @@ class ChatViewModel : ViewModel() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val newList = snapshot.children.mapNotNull { it.getValue(FeedNotification::class.java) }
                     .sortedByDescending { it.timestamp }
-                
+
                 val oldList = _feedNotifications.value
                 val newest = newList.firstOrNull { !it.isRead }
 
@@ -2010,13 +2012,13 @@ class ChatViewModel : ViewModel() {
                     val previouslyHadThis = oldList.any { it.id == newest.id }
                     if (!previouslyHadThis) {
                         // Agrupar se houver mais notificações do mesmo tipo para o mesmo post
-                        val similar = newList.filter { 
-                            it.postId == newest.postId && 
-                            it.type == newest.type && 
-                            !it.isRead && 
-                            it.fromId != newest.fromId 
+                        val similar = newList.filter {
+                            it.postId == newest.postId &&
+                            it.type == newest.type &&
+                            !it.isRead &&
+                            it.fromId != newest.fromId
                         }
-                        
+
                         if (similar.isNotEmpty() && newest.type != "COMMENT" && newest.type != "MENTION") {
                             val aggregated = newest.copy(
                                 fromName = "${newest.fromName} e ${similar.size} outras pessoas"
@@ -2041,12 +2043,12 @@ class ChatViewModel : ViewModel() {
     fun markNotificationsAsRead() {
         val username = _myUsername.value
         if (username.isEmpty()) return
-        
+
         viewModelScope.launch {
             try {
                 val snapshot = db.child("notifications").child(username).get().await()
                 val updates = mutableMapOf<String, Any?>()
-                snapshot.children.forEach { 
+                snapshot.children.forEach {
                     updates["${it.key}/isRead"] = true
                 }
                 db.child("notifications").child(username).updateChildren(updates)
@@ -2078,10 +2080,10 @@ class ChatViewModel : ViewModel() {
             }
         }
     }
-    
+
     private fun listenToFeeds() {
         feedsListener?.let { db.child("feeds").removeEventListener(it) }
-        
+
         feedsListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 logD("Feed data received: ${snapshot.childrenCount} items")
@@ -2092,7 +2094,7 @@ class ChatViewModel : ViewModel() {
                 logE("Feed listener cancelled: ${error.message}")
             }
         }
-        
+
         db.child("feeds").limitToLast(100).addValueEventListener(feedsListener!!)
     }
 
@@ -2615,10 +2617,10 @@ class ChatViewModel : ViewModel() {
 
         viewModelScope.launch(errorHandler) {
             val msgId = db.push().key ?: return@launch
-            
+
             // Texto formatado com o ID para detecção automática de clique no bubble
             val shareText = "Confira esta postagem no Wappi Messenger!\n\n${post.text}\n\nEnviado por @${post.authorId}\nPOST_ID:${post.id}"
-            
+
             val msg = Message(
                 id = msgId,
                 senderId = me,
@@ -2629,7 +2631,7 @@ class ChatViewModel : ViewModel() {
                 senderName = _myName.value,
                 tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
             )
-            
+
             sendMessageObject(msg)
         }
     }

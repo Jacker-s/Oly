@@ -20,7 +20,7 @@ class BillingManager(private val context: Context) {
                 }
             }
         }
-        .enablePendingPurchases()
+        .enablePendingPurchases(PendingPurchasesParams.newBuilder().enableOneTimeProducts().build())
         .build()
 
     private val _isPremiumPurchased = MutableStateFlow(false)
@@ -63,7 +63,7 @@ class BillingManager(private val context: Context) {
         billingClient.queryPurchasesAsync(params) { billingResult, purchases ->
             if (billingResult.responseCode == BillingClient.BillingResponseCode.OK) {
                 val hasPremium = purchases.any { purchase ->
-                    purchase.products.contains("com.wappi.messenger.remove_ads") && purchase.purchaseState == Purchase.PurchaseState.PURCHASED
+                    purchase.products.contains("com.wappi.remove_ads") && purchase.purchaseState == Purchase.PurchaseState.PURCHASED
                 }
                 _isPremiumPurchased.value = hasPremium
                 Log.d(TAG, "Status Premium consultado: $hasPremium")
@@ -92,7 +92,7 @@ class BillingManager(private val context: Context) {
         }
     }
 
-    fun launchPurchaseFlow(activity: Activity, productId: String = "com.wappi.messenger.remove_ads") {
+    fun launchPurchaseFlow(activity: Activity, productId: String = "com.wappi.remove_ads") {
         Log.d(TAG, "launchPurchaseFlow chamado para o produto: $productId")
         
         if (!billingClient.isReady) {

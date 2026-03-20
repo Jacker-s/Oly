@@ -54,7 +54,6 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.net.toUri
-import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.google.android.gms.ads.AdRequest
 import com.google.android.gms.ads.AdSize
@@ -91,7 +90,6 @@ fun MetaMessageBubble(
     onAudioPlayed: () -> Unit = {}
 ) {
     val chatColors = LocalChatColors.current
-    val viewModel: ChatViewModel = viewModel()
 
     // Se for um anúncio, renderizar o AdMob
     if (message.isAd) {
@@ -134,17 +132,6 @@ fun MetaMessageBubble(
         bottomEnd = 22.dp,
         bottomStart = if (isLastInGroup) 22.dp else 6.dp
     )
-
-    // Helper para detectar se é um post compartilhado
-    val isSharedPost = message.text.contains("POST_ID:")
-    val handlePostClick = {
-        if (isSharedPost) {
-            val postId = message.text.substringAfterLast("POST_ID:").trim()
-            viewModel.setOpenPostId(postId)
-            viewModel.setOpenFeed(true)
-            viewModel.setTargetId("") // Fecha o chat para mostrar o feed
-        }
-    }
 
     Box(
         modifier = Modifier
@@ -258,8 +245,7 @@ fun MetaMessageBubble(
                         shadowElevation = 1.dp,
                         modifier = Modifier.widthIn(max = 300.dp).combinedClickable(
                             onClick = {
-                                if (isSharedPost) handlePostClick()
-                                else if (message.imageUrl != null) onImageClick(message.imageUrl!!)
+                                if (message.imageUrl != null) onImageClick(message.imageUrl!!)
                                 else if (message.videoUrl != null) onVideoClick(message.videoUrl!!)
                             },
                             onLongClick = {
@@ -277,18 +263,10 @@ fun MetaMessageBubble(
                                 ) {
                                     Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Box(modifier = Modifier.width(3.dp).height(32.dp).background(if (isMe) textColor.copy(0.6f) else chatColors.primary, RoundedCornerShape(2.dp)))
-                                        Column(modifier = Modifier.weight(1f).padding(start = 10.dp)) {
+                                        Column(modifier = Modifier.padding(start = 10.dp)) {
                                             Text(message.replyToName ?: "", color = if (isMe) textColor.copy(0.9f) else chatColors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
                                             val replyText = message.replyToText ?: if (message.imageUrl != null) "📷 Imagem" else if (message.audioUrl != null) "🎤 Áudio" else if (message.videoUrl != null) "📹 Vídeo" else ""
                                             Text(replyText, color = textColor.copy(0.8f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                        }
-                                        if (message.replyToImageUrl != null) {
-                                            AsyncImage(
-                                                model = message.replyToImageUrl,
-                                                contentDescription = null,
-                                                modifier = Modifier.size(36.dp).clip(RoundedCornerShape(6.dp)),
-                                                contentScale = ContentScale.Crop
-                                            )
                                         }
                                     }
                                 }
@@ -296,11 +274,7 @@ fun MetaMessageBubble(
 
                             if (message.imageUrl != null) {
                                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                                    MessageImageItem(
-                                        imageUrl = message.imageUrl!!, 
-                                        onImageClick = { if (isSharedPost) handlePostClick() else onImageClick(it) }, 
-                                        modifier = Modifier.fillMaxWidth()
-                                    )
+                                    MessageImageItem(imageUrl = message.imageUrl!!, onImageClick = onImageClick, modifier = Modifier.fillMaxWidth())
                                 }
                             }
 
@@ -777,7 +751,7 @@ fun AudioPlayerBubble(
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             AudioVisualizer(isPlaying = isPlaying, color = if (isPlayed && !isMe) playedColor else textColor)
-            Spacer(Modifier.height(6.6.dp))
+            Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier.fillMaxWidth().height(3.dp).clip(CircleShape),

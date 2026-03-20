@@ -94,7 +94,7 @@ import kotlin.math.roundToInt
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    viewModel: ChatViewModel, 
+    viewModel: ChatViewModel,
     billingManager: BillingManager? = null,
     activity: Activity? = null
 ) {
@@ -143,8 +143,8 @@ fun ChatScreen(
     var viewingStatuses by remember { mutableStateOf<List<UserStatus>?>(null) }
     var selectedFilter by remember { mutableStateOf("Tudo") }
     var selectedChatForOptions by remember { mutableStateOf<ChatSummary?>(null) }
-    val bottomScreens = remember { listOf(BottomBarScreen.Home, BottomBarScreen.Feed, BottomBarScreen.Contacts, BottomBarScreen.Calls, BottomBarScreen.Settings) }
-    var currentBottomRoute by remember { mutableStateOf(BottomBarScreen.Home.route) }
+    val bottomScreens = remember { listOf(BottomBarScreen.Feed, BottomBarScreen.Home, BottomBarScreen.Contacts, BottomBarScreen.Calls, BottomBarScreen.Settings) }
+    var currentBottomRoute by remember { mutableStateOf(BottomBarScreen.Feed.route) }
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { bottomScreens.size })
 
     val openFeed by viewModel.openFeed.collectAsStateWithLifecycle(false)
@@ -258,7 +258,7 @@ fun ChatScreen(
         })
     }
 
-    BackHandler(enabled = targetId.isNotEmpty() || isSearching || mediaViewerItem != null || currentBottomRoute != BottomBarScreen.Home.route || viewingStatuses != null || showEmojiPicker || showStickerPicker || showChatInfo || showInAppCamera || showModernGallery || showAttachmentMenu || searchingUserProfile != null || showTempMessageSelector || statusItemsToCompose != null || showInAppStatusCamera || showInAppStatusGallery) {
+    BackHandler(enabled = targetId.isNotEmpty() || isSearching || mediaViewerItem != null || currentBottomRoute != BottomBarScreen.Feed.route || viewingStatuses != null || showEmojiPicker || showStickerPicker || showChatInfo || showInAppCamera || showModernGallery || showAttachmentMenu || searchingUserProfile != null || showTempMessageSelector || statusItemsToCompose != null || showInAppStatusCamera || showInAppStatusGallery) {
         when {
             statusItemsToCompose != null -> statusItemsToCompose = null
             showInAppStatusCamera -> showInAppStatusCamera = false
@@ -278,10 +278,10 @@ fun ChatScreen(
                 isSearching = false
                 searchInput = ""
                 viewModel.searchUsers("")
-                currentBottomRoute = BottomBarScreen.Home.route
+                currentBottomRoute = BottomBarScreen.Feed.route
             }
-            currentBottomRoute != BottomBarScreen.Home.route -> {
-                currentBottomRoute = BottomBarScreen.Home.route
+            currentBottomRoute != BottomBarScreen.Feed.route -> {
+                currentBottomRoute = BottomBarScreen.Feed.route
                 selectedFilter = "Tudo"
             }
         }
@@ -295,9 +295,9 @@ fun ChatScreen(
                     ChatTopBar(
                         targetId = targetId, targetProfile = targetProfileState, activeChats = activeChats, myPhotoUrl = myPhotoUrl,
                         isTargetTyping = isTargetTyping, showContacts = false, isSearching = isSearching, searchInput = searchInput,
-                        onBack = { if (targetId.isNotEmpty()) viewModel.setTargetId("") else { isSearching = false; currentBottomRoute = BottomBarScreen.Home.route } },
+                        onBack = { if (targetId.isNotEmpty()) viewModel.setTargetId("") else { isSearching = false; currentBottomRoute = BottomBarScreen.Feed.route } },
                         onSearchChange = { searchInput = it; viewModel.searchUsers(it) },
-                        onSearchActiveChange = { isSearching = it; if (!it) currentBottomRoute = BottomBarScreen.Home.route },
+                        onSearchActiveChange = { isSearching = it; if (!it) currentBottomRoute = BottomBarScreen.Feed.route },
                         onCallClick = { callLogic(false) }, onVideoCallClick = { callLogic(true) },
                         onOptionClick = { showOptionsMenu = true },
                         onAddContact = { showAddContactDialog = true },
@@ -554,7 +554,7 @@ fun ChatScreen(
                             BottomBarScreen.Contacts -> {
                                 ContactsScreenIOS17(
                                     viewModel = viewModel,
-                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route },
+                                    onBack = { currentBottomRoute = BottomBarScreen.Feed.route },
                                     onOpenChat = { user -> viewModel.setTargetId(user.id) },
                                     onStartCall = { user, isVideo ->
                                         viewModel.setTargetId(user.id)
@@ -565,7 +565,7 @@ fun ChatScreen(
                             BottomBarScreen.Calls -> {
                                 CallsScreen(
                                     viewModel = viewModel,
-                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route },
+                                    onBack = { currentBottomRoute = BottomBarScreen.Feed.route },
                                     onOpenCall = { roomId, targetIdCall, targetPhotoUrl, isOutgoing, isVideo ->
                                         context.startActivity(Intent(context, CallActivity::class.java).apply {
                                             putExtra("roomId", roomId)
@@ -581,7 +581,7 @@ fun ChatScreen(
                                 SettingsScreen(
                                     viewModel = viewModel,
                                     billingManager = billingManager,
-                                    onBack = { currentBottomRoute = BottomBarScreen.Home.route },
+                                    onBack = { currentBottomRoute = BottomBarScreen.Feed.route },
                                     activity = activity
                                 )
                             }
@@ -615,7 +615,20 @@ fun ChatScreen(
             MediaViewerScreen(mediaItem = mediaViewerItem, onDismiss = { mediaViewerItem = null })
 
             if (showClearChatDialog) AlertDialog(onDismissRequest = { showClearChatDialog = false }, title = { Text("Limpar Conversa") }, text = { Text("Isso apagará todas as mensagens para ambos.") }, confirmButton = { TextButton(onClick = { viewModel.clearChat(targetId); showClearChatDialog = false }) { Text("Limpar", color = iOSRed) } }, dismissButton = { TextButton(onClick = { showClearChatDialog = false }) { Text("Cancelar") } })
-            if (showAddContactDialog) AddContactDialog(icon = Icons.Default.Person, onDismiss = { showAddContactDialog = false }, onAdd = { u -> viewModel.addContact(u) { s, e -> if (s) showAddContactDialog = false else Toast.makeText(context, e ?: "Erro", Toast.LENGTH_SHORT).show() } })
+            if (showAddContactDialog) {
+                AddContactDialog(
+                    icon = Icons.Default.Person,
+                    searchResults = searchResults,
+                    onSearch = { viewModel.searchUsers(it) },
+                    onDismiss = { showAddContactDialog = false },
+                    onAdd = { u ->
+                        viewModel.addContact(u) { s, e ->
+                            if (s) showAddContactDialog = false
+                            else Toast.makeText(context, e ?: "Erro", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            }
 
             val currentSelectedChat = selectedChatForOptions
             if (currentSelectedChat != null) {

@@ -12,7 +12,7 @@ android {
         applicationId = "com.jack.friend"
         minSdk = 24
         targetSdk = 35
-         versionCode = 37
+         versionCode = 39
         versionName = "2.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -31,7 +31,6 @@ android {
                 "proguard-rules.pro"
             )
             signingConfig = signingConfigs.getByName("debug")
-            // REMOVIDO: signingConfig debug (Isto bloqueia o faturamento em produção)
         }
     }
 
@@ -113,6 +112,7 @@ dependencies {
     // Video Player (Media3)
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
+    implementation(libs.play.services.mlkit.barcode.scanning)
 
     // CameraX
     val camerax_version = "1.4.1"
@@ -138,4 +138,8 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation("androidx.emoji2:emoji2:1.5.0")
     implementation("androidx.emoji2:emoji2-bundled:1.5.0")
+
+    // QR Code Functionality
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    implementation("com.google.zxing:core:3.5.3")
 }

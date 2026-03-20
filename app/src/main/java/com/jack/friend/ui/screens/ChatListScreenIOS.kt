@@ -47,19 +47,6 @@ fun ChatListScreenIOS(
             .fillMaxSize()
             .background(chatColors.background) // Usar a cor de fundo do tema
     ) {
-        if (!isSearching) {
-            Spacer(Modifier.height(6.dp))
-            MetaStatusRow(
-                statuses = statuses,
-                myPhotoUrl = myPhotoUrl,
-                myUsername = myUsername,
-                contacts = contacts,
-                onAdd = onStatusAdd,
-                onViewUserStatuses = onStatusView
-            )
-            Spacer(Modifier.height(6.dp))
-        }
-
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 14.dp)

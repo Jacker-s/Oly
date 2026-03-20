@@ -351,6 +351,7 @@ class ProfileActivity : ComponentActivity() {
                                         items(myPosts.size) { index ->
                                             FeedPostCard(
                                                 post = myPosts[index],
+                                                isAuthorOnline = true,
                                                 myUsername = myUsername,
                                                 myPhotoUrl = myPhotoUrl,
                                                 viewModel = viewModel,
