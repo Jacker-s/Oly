@@ -14,6 +14,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -25,7 +27,6 @@ import coil.compose.AsyncImage
 import com.jack.friend.ChatViewModel
 import com.jack.friend.LocalMedia
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,11 +36,15 @@ fun MediaAttachmentSheet(
     onOpenCamera: () -> Unit,
     onOpenGallery: () -> Unit,
     onOpenFile: () -> Unit,
-    onMediaSelected: (List<Uri>) -> Unit // ✅ Alterado para receber lista de Uris
+    onShareLocation: () -> Unit,
+    isStatus: Boolean = false,
+    onMediaSelected: (List<Uri>) -> Unit
 ) {
     val context = LocalContext.current
     val localMedia by viewModel.localMedia.collectAsState()
     val selectedUris = remember { mutableStateListOf<Uri>() }
+    val colors = LocalChatColors.current
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     LaunchedEffect(Unit) {
         viewModel.fetchLocalMedia(context)
@@ -47,53 +52,75 @@ fun MediaAttachmentSheet(
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        containerColor = LocalChatColors.current.secondaryBackground,
-        dragHandle = { BottomSheetDefaults.DragHandle() },
-        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        sheetState = sheetState,
+        containerColor = colors.secondaryBackground.copy(alpha = 0.98f),
+        dragHandle = {
+            Surface(
+                modifier = Modifier.padding(top = 12.dp).width(36.dp).height(4.dp),
+                color = colors.textSecondary.copy(alpha = 0.2f),
+                shape = CircleShape
+            ) {}
+        },
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        tonalElevation = 8.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 40.dp)
+                .navigationBarsPadding()
+                .padding(bottom = 24.dp)
         ) {
-            // Header com botão de enviar se houver seleção múltipla
+            // Header Section
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Recentes",
-                    style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.Bold
+                    text = if (isStatus) "Publicar no Status" else "Compartilhar Mídia",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = colors.textPrimary,
+                    letterSpacing = (-0.5).sp
                 )
+                
                 if (selectedUris.isNotEmpty()) {
-                    TextButton(onClick = {
-                        onMediaSelected(selectedUris.toList())
-                        onDismiss()
-                    }) {
-                        Text("ENVIAR (${selectedUris.size})", fontWeight = FontWeight.Bold, color = MessengerBlue)
+                    Button(
+                        onClick = {
+                            onMediaSelected(selectedUris.toList())
+                            onDismiss()
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = colors.primary),
+                        shape = RoundedCornerShape(16.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text("Enviar (${selectedUris.size})", fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
 
+            // Recent Media Horizontal List
             if (localMedia.isNotEmpty()) {
                 LazyRow(
-                    contentPadding = PaddingValues(horizontal = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.height(120.dp)
+                    contentPadding = PaddingValues(horizontal = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.height(160.dp)
                 ) {
-                    items(localMedia.take(20)) { media ->
+                    items(localMedia.take(15)) { media ->
                         val isSelected = selectedUris.contains(media.uri)
                         
                         Box(
                             modifier = Modifier
-                                .size(100.dp, 120.dp)
-                                .clip(RoundedCornerShape(12.dp))
+                                .width(120.dp)
+                                .fillMaxHeight()
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(colors.separator.copy(0.3f))
                                 .border(
                                     width = if (isSelected) 3.dp else 0.dp,
-                                    color = if (isSelected) MessengerBlue else Color.Transparent,
-                                    shape = RoundedCornerShape(12.dp)
+                                    color = if (isSelected) colors.primary else Color.Transparent,
+                                    shape = RoundedCornerShape(20.dp)
                                 )
                                 .clickable {
                                     if (isSelected) selectedUris.remove(media.uri)
@@ -107,81 +134,139 @@ fun MediaAttachmentSheet(
                                 contentScale = ContentScale.Crop
                             )
                             
+                            // Glass Overlay for selection
                             if (isSelected) {
-                                Box(modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.3f)))
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(colors.primary.copy(alpha = 0.25f))
+                                )
                                 Icon(
-                                    Icons.Rounded.CheckCircle,
-                                    null,
-                                    tint = MessengerBlue,
-                                    modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(20.dp).background(Color.White, CircleShape)
+                                    imageVector = Icons.Rounded.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier
+                                        .align(Alignment.Center)
+                                        .size(36.dp)
                                 )
                             }
 
                             if (media.isVideo) {
-                                Icon(
-                                    Icons.Rounded.PlayCircle,
-                                    null,
-                                    tint = Color.White.copy(alpha = 0.8f),
-                                    modifier = Modifier.align(Alignment.Center).size(32.dp)
-                                )
+                                Surface(
+                                    modifier = Modifier.align(Alignment.BottomStart).padding(8.dp),
+                                    color = Color.Black.copy(0.5f),
+                                    shape = RoundedCornerShape(6.dp)
+                                ) {
+                                    Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(10.dp))
+                                        Text("VÍDEO", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                    }
+                                }
                             }
                         }
                     }
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(32.dp))
             }
 
-            // Ações principais
-            Row(
+            // High-Tech Action Grid
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                MediaActionItem(
-                    icon = Icons.Rounded.PhotoCamera,
-                    label = "Câmera",
-                    color = Color(0xFFE91E63),
-                    onClick = { onOpenCamera(); onDismiss() }
-                )
-                MediaActionItem(
-                    icon = Icons.Rounded.Image,
-                    label = "Galeria",
-                    color = Color(0xFF9C27B0),
-                    onClick = { onOpenGallery(); onDismiss() }
-                )
-                MediaActionItem(
-                    icon = Icons.Rounded.Description,
-                    label = "Arquivo",
-                    color = Color(0xFF5E5EDD),
-                    onClick = { onOpenFile(); onDismiss() }
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    PremiumActionCard(
+                        icon = Icons.Rounded.PhotoCamera,
+                        label = "Câmera",
+                        gradient = Brush.linearGradient(listOf(Color(0xFF6200EE), Color(0xFF3700B3))),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onOpenCamera(); onDismiss() }
+                    )
+                    PremiumActionCard(
+                        icon = Icons.Rounded.Image,
+                        label = "Galeria",
+                        gradient = Brush.linearGradient(listOf(Color(0xFF03DAC6), Color(0xFF018786))),
+                        modifier = Modifier.weight(1f),
+                        onClick = { onOpenGallery(); onDismiss() }
+                    )
+                }
+                if (!isStatus) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        PremiumActionCard(
+                            icon = Icons.Rounded.AttachFile,
+                            label = "Documento",
+                            gradient = Brush.linearGradient(listOf(Color(0xFFFF9800), Color(0xFFF57C00))),
+                            modifier = Modifier.weight(1f),
+                            onClick = { onDismiss(); onOpenFile() }
+                        )
+                        PremiumActionCard(
+                            icon = Icons.Rounded.LocationOn,
+                            label = "Localização",
+                            gradient = Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF388E3C))),
+                            modifier = Modifier.weight(1f),
+                            onClick = { onDismiss(); onShareLocation() }
+                        )
+                    }
+                }
             }
         }
     }
 }
 
 @Composable
-private fun MediaActionItem(
+private fun PremiumActionCard(
     icon: ImageVector,
     label: String,
-    color: Color,
+    gradient: Brush,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable { onClick() }
+    val colors = LocalChatColors.current
+    
+    Surface(
+        modifier = modifier
+            .height(84.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        color = colors.tertiaryBackground.copy(alpha = 0.5f),
+        border = BorderStroke(1.dp, colors.separator.copy(0.2f))
     ) {
-        Surface(
-            modifier = Modifier.size(60.dp),
-            shape = CircleShape,
-            color = color.copy(alpha = 0.15f)
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = color, modifier = Modifier.size(28.dp))
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(gradient),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(26.dp)
+                )
             }
+            Spacer(Modifier.width(16.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = colors.textPrimary
+            )
         }
-        Spacer(Modifier.height(8.dp))
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Medium)
     }
 }

@@ -2,7 +2,9 @@ package com.jack.friend.ui.chat
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -36,6 +38,7 @@ fun MessageListContent(
     onReact: (Message, String) -> Unit,
     onEdit: (Message) -> Unit,
     onPin: (Message) -> Unit,
+    onStar: (Message) -> Unit,
     onAudioPlayed: (Message) -> Unit
 ) {
     // Injetar anúncios aleatoriamente de forma estável e individual para cada pessoa
@@ -100,6 +103,10 @@ fun MessageListContent(
                     }
                 }
                 
+                if (isFirstInGroup && index > 0) {
+                    Spacer(Modifier.height(12.dp))
+                }
+
                 MetaMessageBubble(
                     message = message,
                     isMe = isMe,
@@ -114,8 +121,13 @@ fun MessageListContent(
                     onReact = { onReact(message, it) },
                     onEdit = { onEdit(message) },
                     onPin = { onPin(message) },
+                    onStar = { onStar(message) },
                     onAudioPlayed = { onAudioPlayed(message) }
                 )
+
+                if (isLastInGroup) {
+                    Spacer(Modifier.height(6.dp))
+                }
             }
         }
     }

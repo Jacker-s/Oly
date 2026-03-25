@@ -38,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -87,6 +88,7 @@ fun MetaMessageBubble(
     onReact: (String) -> Unit,
     onEdit: () -> Unit,
     onPin: () -> Unit,
+    onStar: () -> Unit,
     onAudioPlayed: () -> Unit = {}
 ) {
     val chatColors = LocalChatColors.current
@@ -122,15 +124,22 @@ fun MetaMessageBubble(
     var isReplyTriggered by remember { mutableStateOf(false) }
 
     val shape = if (isMe) RoundedCornerShape(
-        topStart = 22.dp,
-        topEnd = if (isFirstInGroup) 22.dp else 6.dp,
-        bottomEnd = if (isLastInGroup) 22.dp else 6.dp,
-        bottomStart = 22.dp
+        topStart = 24.dp,
+        topEnd = if (isFirstInGroup) 24.dp else 4.dp,
+        bottomEnd = if (isLastInGroup) 24.dp else 4.dp,
+        bottomStart = 24.dp
     ) else RoundedCornerShape(
-        topStart = if (isFirstInGroup) 22.dp else 6.dp,
-        topEnd = 22.dp,
-        bottomEnd = 22.dp,
-        bottomStart = if (isLastInGroup) 22.dp else 6.dp
+        topStart = if (isFirstInGroup) 24.dp else 4.dp,
+        topEnd = 24.dp,
+        bottomEnd = 24.dp,
+        bottomStart = if (isLastInGroup) 24.dp else 4.dp
+    )
+
+    val messengerGradient = Brush.linearGradient(
+        colors = listOf(
+            chatColors.primary,
+            chatColors.primary.copy(alpha = 0.85f)
+        )
     )
 
     Box(
@@ -238,35 +247,36 @@ fun MetaMessageBubble(
                         }
                     }
                 } else {
-                    Surface(
-                        color = bubbleColor,
-                        shape = shape,
-                        tonalElevation = if (isMe) 2.dp else 0.dp,
-                        shadowElevation = 1.dp,
-                        modifier = Modifier.widthIn(max = 300.dp).combinedClickable(
-                            onClick = {
-                                if (message.imageUrl != null) onImageClick(message.imageUrl!!)
-                                else if (message.videoUrl != null) onVideoClick(message.videoUrl!!)
-                            },
-                            onLongClick = {
-                                view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                                showContext = true
-                            }
-                        )
+                    Box(
+                        modifier = Modifier
+                            .widthIn(max = 300.dp)
+                            .shadow(1.dp, shape)
+                            .clip(shape)
+                            .background(if (isMe) messengerGradient else SolidColor(bubbleColor))
+                            .combinedClickable(
+                                onClick = {
+                                    if (message.imageUrl != null) onImageClick(message.imageUrl!!)
+                                    else if (message.videoUrl != null) onVideoClick(message.videoUrl!!)
+                                },
+                                onLongClick = {
+                                    view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                                    showContext = true
+                                }
+                            )
                     ) {
                         Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
                             if (message.replyToId != null) {
                                 Surface(
-                                    color = if (isMe) textColor.copy(0.15f) else Color.Black.copy(0.05f),
-                                    shape = RoundedCornerShape(10.dp),
+                                    color = if (isMe) Color.White.copy(0.12f) else Color.Black.copy(0.04f),
+                                    shape = RoundedCornerShape(12.dp),
                                     modifier = Modifier.padding(bottom = 6.dp).fillMaxWidth()
                                 ) {
-                                    Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                        Box(modifier = Modifier.width(3.dp).height(32.dp).background(if (isMe) textColor.copy(0.6f) else chatColors.primary, RoundedCornerShape(2.dp)))
-                                        Column(modifier = Modifier.padding(start = 10.dp)) {
-                                            Text(message.replyToName ?: "", color = if (isMe) textColor.copy(0.9f) else chatColors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 11.sp)
+                                    Row(modifier = Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Box(modifier = Modifier.width(3.dp).height(36.dp).background(if (isMe) Color.White.copy(0.7f) else chatColors.primary, RoundedCornerShape(2.dp)))
+                                        Column(modifier = Modifier.padding(start = 12.dp)) {
+                                            Text(message.replyToName ?: "", color = if (isMe) Color.White.copy(0.9f) else chatColors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
                                             val replyText = message.replyToText ?: if (message.imageUrl != null) "📷 Imagem" else if (message.audioUrl != null) "🎤 Áudio" else if (message.videoUrl != null) "📹 Vídeo" else ""
-                                            Text(replyText, color = textColor.copy(0.8f), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                            Text(replyText, color = (if (isMe) Color.White else textColor).copy(0.8f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
                                 }
@@ -282,6 +292,14 @@ fun MetaMessageBubble(
                                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(vertical = 4.dp)) {
                                     MessageVideoItem(videoUrl = message.videoUrl!!, onVideoClick = onVideoClick, modifier = Modifier.fillMaxWidth())
                                 }
+                            }
+
+                            if (message.isFile) {
+                                FileBubble(message = message, isMe = isMe)
+                            }
+
+                            if (message.isLocation) {
+                                LocationBubble(message = message, isMe = isMe)
                             }
 
                             if (message.audioUrl != null) AudioPlayerBubble(
@@ -313,6 +331,14 @@ fun MetaMessageBubble(
                                             style = MaterialTheme.typography.labelSmall,
                                             color = textColor.copy(alpha = 0.5f),
                                             modifier = Modifier.padding(end = 4.dp)
+                                        )
+                                    }
+                                    if (message.isStarred) {
+                                        Icon(
+                                            Icons.Rounded.Star,
+                                            null,
+                                            tint = if (isMe) Color.White.copy(0.7f) else chatColors.primary,
+                                            modifier = Modifier.size(12.dp).padding(end = 4.dp)
                                         )
                                     }
                                     Text(
@@ -373,10 +399,12 @@ fun MetaMessageBubble(
     if (showContext) {
         SwiftUIMessageMenu(
             isMe = isMe,
+            isStarred = message.isStarred,
             onDismiss = { showContext = false },
             onReply = { onReply(); showContext = false },
             onEdit = { onEdit(); showContext = false },
             onPin = { onPin(); showContext = false },
+            onStar = { onStar(); showContext = false },
             onCopy = { clipboardManager?.setText(AnnotatedString(message.text)); showContext = false },
             onDelete = { onDelete(message.id); showContext = false },
             onReact = { onReact(it); showContext = false }
@@ -477,6 +505,131 @@ fun AdMobBubble() {
     }
 }
 
+@Composable
+fun FileBubble(message: Message, isMe: Boolean) {
+    val colors = LocalChatColors.current
+    val contentColor = if (isMe) Color.White else colors.textPrimary
+    val context = LocalContext.current
+
+    val isDownloaded = remember(message.fileUrl) { FileDownloader.isDownloaded(context, message.fileName ?: "") }
+
+    Surface(
+        color = if (isMe) Color.White.copy(0.15f) else colors.separator.copy(0.3f),
+        shape = RoundedCornerShape(16.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clickable {
+                if (FileDownloader.isDownloaded(context, message.fileName ?: "")) {
+                    FileDownloader.openFile(context, message.fileName ?: "")
+                } else {
+                    FileDownloader.downloadFile(context, message.fileUrl ?: "", message.fileName ?: "Arquivo")
+                }
+            }
+    ) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (isMe) Color.White.copy(0.2f) else colors.primary.copy(0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Rounded.InsertDriveFile,
+                    null,
+                    tint = if (isMe) Color.White else colors.primary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    message.fileName ?: "Arquivo",
+                    color = contentColor,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    formatFileSize(message.fileSize ?: 0),
+                    color = contentColor.copy(0.7f),
+                    fontSize = 12.sp
+                )
+            }
+            Icon(
+                if (isDownloaded) Icons.Rounded.OpenInNew else Icons.Rounded.Download,
+                null,
+                tint = contentColor.copy(0.5f),
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun LocationBubble(message: Message, isMe: Boolean) {
+    val colors = LocalChatColors.current
+    val contentColor = if (isMe) Color.White else colors.textPrimary
+    val context = LocalContext.current
+
+    // Yandex Static Maps (works without key for this traffic level)
+    val mapUrl = "https://static-maps.yandex.ru/1.x/?ll=${message.longitude},${message.latitude}&z=13&l=map&size=450,200&pt=${message.longitude},${message.latitude},pm2rdl"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (isMe) Color.White.copy(0.15f) else colors.separator.copy(0.3f))
+            .clickable {
+                val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}(${message.locationName ?: "Localização"})")
+                val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
+                mapIntent.setPackage("com.google.android.apps.maps")
+                try { context.startActivity(mapIntent) } catch (e: Exception) {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, gmmIntentUri))
+                }
+            }
+    ) {
+        // Mapa Preview
+        AsyncImage(
+            model = mapUrl,
+            contentDescription = "Mapa",
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp),
+            contentScale = ContentScale.Crop
+        )
+
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Rounded.LocationOn, null, tint = colors.primary, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(
+                message.locationName ?: "Localização compartilhada",
+                color = contentColor,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+private fun formatFileSize(size: Long): String {
+    if (size <= 0) return "0 B"
+    val units = listOf("B", "KB", "MB", "GB", "TB")
+    val digitGroups = (Math.log10(size.toDouble()) / Math.log10(1024.0)).toInt()
+    return String.format(Locale.getDefault(), "%.1f %s", size / Math.pow(1024.0, digitGroups.toDouble()), units[digitGroups])
+}
+
 private fun isColorDark(color: Color): Boolean {
     val luminance = 0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue
     return luminance < 0.5
@@ -563,7 +716,7 @@ fun LinkPreviewCard(preview: LinkPreview, isMe: Boolean) {
 }
 
 @Composable
-fun SwiftUIMessageMenu(isMe: Boolean, onDismiss: () -> Unit, onReply: () -> Unit, onEdit: () -> Unit, onPin: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onReact: (String) -> Unit) {
+fun SwiftUIMessageMenu(isMe: Boolean, isStarred: Boolean = false, onDismiss: () -> Unit, onReply: () -> Unit, onEdit: () -> Unit, onPin: () -> Unit, onStar: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit, onReact: (String) -> Unit) {
     val chatColors = LocalChatColors.current
     val recentEmojis = RecentEmojiStore.get().take(6).ifEmpty { listOf("❤️", "😂", "😮", "😢", "🙏", "👍") }
     var showFullEmojiPicker by remember { mutableStateOf(false) }
@@ -626,24 +779,35 @@ fun SwiftUIMessageMenu(isMe: Boolean, onDismiss: () -> Unit, onReply: () -> Unit
 
                 if (!showFullEmojiPicker) {
                     Surface(
-                        shape = RoundedCornerShape(24.dp),
+                        shape = RoundedCornerShape(26.dp),
                         color = chatColors.secondaryBackground,
-                        tonalElevation = 4.dp,
-                        modifier = Modifier.fillMaxWidth().shadow(8.dp, RoundedCornerShape(24.dp))
+                        tonalElevation = 6.dp,
+                        modifier = Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(26.dp))
                     ) {
                         Column {
                             SwiftUIMenuItem("Responder", Icons.AutoMirrored.Rounded.Reply, onClick = onReply)
                             SwiftUIDivider()
-                            if (isMe) { SwiftUIMenuItem("Editar", Icons.Rounded.Edit, onClick = onEdit); SwiftUIDivider() }
+                            if (isMe) {
+                                SwiftUIMenuItem("Editar", Icons.Rounded.Edit, onClick = onEdit)
+                                SwiftUIDivider()
+                            }
                             SwiftUIMenuItem("Fixar", Icons.Rounded.PushPin, onClick = onPin)
                             SwiftUIDivider()
                             SwiftUIMenuItem("Copiar", Icons.Rounded.ContentCopy, onClick = onCopy)
+                            SwiftUIDivider()
+                            SwiftUIMenuItem(if (isStarred) "Desfavoritar" else "Favoritar", if (isStarred) Icons.Rounded.StarOutline else Icons.Rounded.Star, onClick = onStar)
+                            SwiftUIDivider()
+                            SwiftUIMenuItem("Traduzir", Icons.Rounded.Translate, onClick = { /* TODO */ })
                             SwiftUIDivider()
                             SwiftUIMenuItem("Remover", Icons.Rounded.Delete, color = iOSRed, onClick = onDelete)
                         }
                     }
                 } else {
-                    Card(shape = RoundedCornerShape(28.dp), modifier = Modifier.shadow(16.dp, RoundedCornerShape(28.dp))) {
+                    Card(
+                        shape = RoundedCornerShape(28.dp),
+                        modifier = Modifier.shadow(16.dp, RoundedCornerShape(28.dp)),
+                        colors = CardDefaults.cardColors(containerColor = chatColors.secondaryBackground)
+                    ) {
                         MetaEmojiPickerPro(onEmojiSelected = { onReact(it) }, heightDp = 380)
                     }
                 }

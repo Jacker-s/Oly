@@ -49,6 +49,8 @@ class WebRTCManager(
             .setUseHardwareAcousticEchoCanceler(true)
             .setUseHardwareNoiseSuppressor(true)
             .setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
+            .setUseStereoInput(true)
+            .setUseStereoOutput(true)
             .createAudioDeviceModule()
 
         peerConnectionFactory = PeerConnectionFactory.builder()
@@ -70,11 +72,12 @@ class WebRTCManager(
         
         peerConnection?.createOffer(object : SimpleSdpObserver() {
             override fun onCreateSuccess(sdp: SessionDescription?) {
+                val modifiedSdp = sdp?.let { SessionDescription(it.type, modifySdp(it.description)) }
                 peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                     override fun onSetSuccess() {
-                        database.child("offer").setValue(mapOf("type" to sdp?.type?.canonicalForm(), "sdp" to sdp?.description))
+                        database.child("offer").setValue(mapOf("type" to modifiedSdp?.type?.canonicalForm(), "sdp" to modifiedSdp?.description))
                     }
-                }, sdp)
+                }, modifiedSdp)
             }
         }, constraints)
         
@@ -101,12 +104,13 @@ class WebRTCManager(
                             }
                             peerConnection?.createAnswer(object : SimpleSdpObserver() {
                                 override fun onCreateSuccess(answerDescription: SessionDescription?) {
+                                    val modifiedSdp = answerDescription?.let { SessionDescription(it.type, modifySdp(it.description)) }
                                     peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                                         override fun onSetSuccess() {
-                                            database.child("answer").setValue(mapOf("type" to answerDescription?.type?.canonicalForm(), "sdp" to answerDescription?.description))
+                                            database.child("answer").setValue(mapOf("type" to modifiedSdp?.type?.canonicalForm(), "sdp" to modifiedSdp?.description))
                                             database.child("status").setValue("CONNECTED")
                                         }
-                                    }, answerDescription)
+                                    }, modifiedSdp)
                                 }
                             }, constraints)
                         }
@@ -255,6 +259,31 @@ class WebRTCManager(
         pendingIceCandidates.clear()
     }
 
+    // ✅ Melhora a qualidade alterando o SDP para bitrates maiores
+    private fun modifySdp(sdp: String): String {
+        var modified = sdp
+        // Áudio HD (Opus 128kbps)
+        modified = modified.replace("useinbandfec=1", "useinbandfec=1;stereo=1;maxaveragebitrate=128000")
+        
+        // Vídeo HD (Aumenta o limite de banda se houver vídeo)
+        if (isVideo) {
+            // Insere b=AS:2500 após m=video (2.5 Mbps para HD)
+            val lines = modified.split("\r\n").toMutableList()
+            var videoLineIndex = -1
+            for (i in lines.indices) {
+                if (lines[i].startsWith("m=video")) {
+                    videoLineIndex = i
+                    break
+                }
+            }
+            if (videoLineIndex != -1) {
+                lines.add(videoLineIndex + 1, "b=AS:2500")
+            }
+            modified = lines.joinToString("\r\n")
+        }
+        return modified
+    }
+
     // ✅ Alterna o áudio local
     fun toggleMute(isMuted: Boolean) {
         Log.d(TAG, "toggleMute: $isMuted")
@@ -265,6 +294,16 @@ class WebRTCManager(
     fun toggleVideo(isCameraOff: Boolean) {
         Log.d(TAG, "toggleVideo: isCameraOff=$isCameraOff")
         localVideoTrack?.setEnabled(!isCameraOff)
+    }
+
+    // ✅ Troca entre câmera frontal e traseira
+    fun switchCamera() {
+        Log.d(TAG, "switchCamera")
+        (videoCapturer as? VideoCapturer)?.let { capturer ->
+            if (capturer is CameraVideoCapturer) {
+                capturer.switchCamera(null)
+            }
+        }
     }
 
     fun onDestroy() {

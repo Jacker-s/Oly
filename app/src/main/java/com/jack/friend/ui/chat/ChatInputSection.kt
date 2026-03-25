@@ -35,7 +35,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jack.friend.Message
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.MetaGray4
 import com.jack.friend.ui.theme.iOSRed
 import kotlin.math.roundToInt
@@ -95,13 +94,13 @@ fun PinnedHeader(message: Message, onUnpin: () -> Unit, onClick: (Message) -> Un
                 modifier = Modifier
                     .width(2.dp)
                     .height(30.dp)
-                    .background(MessengerBlue)
+                    .background(LocalChatColors.current.primary)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     "Mensagem Fixada",
-                    color = MessengerBlue,
+                    color = LocalChatColors.current.primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
@@ -131,21 +130,38 @@ fun PinnedHeader(message: Message, onUnpin: () -> Unit, onClick: (Message) -> Un
 @Composable
 fun ReplyHeader(replyingTo: Message?, editingMessage: Message?, onCancel: () -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-        color = LocalChatColors.current.secondaryBackground.copy(alpha = 0.9f),
-        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        color = LocalChatColors.current.secondaryBackground.copy(alpha = 0.95f),
+        shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
+        tonalElevation = 4.dp
     ) {
         Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.width(4.dp).height(40.dp).background(MessengerBlue, RoundedCornerShape(2.dp))){
-                Icon(Icons.AutoMirrored.Filled.Reply, null, tint = Color.White, modifier = Modifier.size(20.dp).align(Alignment.Center))
-            }
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(36.dp)
+                    .background(LocalChatColors.current.primary, RoundedCornerShape(2.dp))
+            )
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(if (editingMessage != null) "Editar mensagem" else (replyingTo?.senderName ?: ""), color = MessengerBlue, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                Text(
+                    text = if (editingMessage != null) "Editar mensagem" else (replyingTo?.senderName ?: ""),
+                    color = LocalChatColors.current.primary,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 12.sp
+                )
                 val text = editingMessage?.text ?: replyingTo?.text ?: if (replyingTo?.imageUrl != null) "📷 Imagem" else if (replyingTo?.audioUrl != null) "🎤 Áudio" else if (replyingTo?.videoUrl != null) "📹 Vídeo" else if (replyingTo?.isSticker == true) "Sticker" else ""
-                Text(text, maxLines = 1, overflow = TextOverflow.Ellipsis, fontSize = 14.sp)
+                Text(
+                    text = text,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    fontSize = 14.sp,
+                    color = LocalChatColors.current.textSecondary
+                )
             }
-            IconButton(onClick = onCancel) { Icon(Icons.Default.Close, null, modifier = Modifier.size(18.dp)) }
+            IconButton(onClick = onCancel, modifier = Modifier.size(28.dp).background(LocalChatColors.current.separator.copy(0.3f), CircleShape)) {
+                Icon(Icons.Default.Close, null, modifier = Modifier.size(14.dp), tint = LocalChatColors.current.textSecondary)
+            }
         }
     }
 }
@@ -175,7 +191,7 @@ fun MetaInput(
     val dotAlpha by infiniteTransition.animateFloat(initialValue = 0.4f, targetValue = 1f, animationSpec = infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "dot_alpha")
     val pulseScale by infiniteTransition.animateFloat(initialValue = 1f, targetValue = 1.25f, animationSpec = infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "pulse")
 
-    val color by animateColorAsState(if (isCancelled) Color.Gray else if (isRecording) iOSRed else MessengerBlue, label = "button_color")
+    val color by animateColorAsState(if (isCancelled) Color.Gray else if (isRecording) iOSRed else LocalChatColors.current.primary, label = "button_color")
     val view = LocalView.current
 
     Surface(color = LocalChatColors.current.topBar.copy(alpha = 0.9f), modifier = Modifier.fillMaxWidth().imePadding()) {
@@ -187,7 +203,7 @@ fun MetaInput(
         ) {
             if (!isRecording) {
                 IconButton(onClick = onAddClick) {
-                    Icon(Icons.Default.Add, null, tint = MessengerBlue, modifier = Modifier.size(32.dp))
+                    Icon(Icons.Default.Add, null, tint = LocalChatColors.current.primary, modifier = Modifier.size(32.dp))
                 }
             }
 
@@ -235,7 +251,7 @@ fun MetaInput(
                             }
                         } else {
                             if (text.isEmpty()) Text("Mensagem", color = MetaGray4, style = MaterialTheme.typography.bodyLarge)
-                            BasicTextField(value = text, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(MessengerBlue))
+                            BasicTextField(value = text, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(LocalChatColors.current.primary))
                         }
                     }
 
@@ -253,18 +269,31 @@ fun MetaInput(
                 }
             }
 
-            Box(modifier = Modifier.width(48.dp), contentAlignment = Alignment.Center) {
+            Box(modifier = Modifier.width(52.dp), contentAlignment = Alignment.Center) {
                 if (text.isNotEmpty() && !isRecording) {
-                    IconButton(onClick = onSend) { Icon(Icons.AutoMirrored.Filled.Send, null, tint = MessengerBlue) }
+                    IconButton(
+                        onClick = onSend,
+                        modifier = Modifier.size(40.dp).background(LocalChatColors.current.primary, CircleShape)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                    }
                 } else if (isLocked) {
-                    IconButton(onClick = { onAudioStop(false); isRecording = false; isLocked = false; dragX = 0f; dragY = 0f }) {
-                        Box(modifier = Modifier.size(40.dp).background(MessengerBlue, CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(20.dp))
-                        }
+                    IconButton(
+                        onClick = {
+                            onAudioStop(false)
+                            isRecording = false
+                            isLocked = false
+                            dragX = 0f
+                            dragY = 0f
+                        },
+                        modifier = Modifier.size(44.dp).background(LocalChatColors.current.primary, CircleShape)
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White, modifier = Modifier.size(22.dp))
                     }
                 } else {
                     Box(
-                        modifier = Modifier.offset { IntOffset(0, dragY.roundToInt().coerceAtMost(0)) }
+                        modifier = Modifier
+                            .offset { IntOffset(0, dragY.roundToInt().coerceAtMost(0)) }
                             .scale(if (isRecording) pulseScale else 1f)
                             .pointerInput(Unit) {
                                 detectDragGesturesAfterLongPress(

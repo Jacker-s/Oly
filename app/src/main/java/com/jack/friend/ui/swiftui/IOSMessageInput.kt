@@ -30,7 +30,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.MetaGray4
 
 /**
@@ -65,11 +64,11 @@ fun IOSMessageInput(
             verticalAlignment = Alignment.Bottom
         ) {
             IconButton(onClick = onPlus) {
-                Icon(Icons.Rounded.Add, contentDescription = null, tint = MessengerBlue)
+                Icon(Icons.Rounded.Add, contentDescription = null, tint = colors.primary)
             }
 
             IconButton(onClick = onEmoji) {
-                Icon(Icons.Rounded.EmojiEmotions, contentDescription = null, tint = MessengerBlue)
+                Icon(Icons.Rounded.EmojiEmotions, contentDescription = null, tint = colors.primary)
             }
 
             val minHeight = 40.dp
@@ -109,7 +108,7 @@ fun IOSMessageInput(
                         color = MaterialTheme.colorScheme.onSurface,
                         fontWeight = FontWeight.Normal
                     ),
-                    cursorBrush = SolidColor(MessengerBlue),
+                    cursorBrush = SolidColor(colors.primary),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -129,7 +128,7 @@ fun IOSMessageInput(
                         Box(
                             modifier = Modifier
                                 .size(40.dp)
-                                .background(MessengerBlue, CircleShape),
+                                .background(colors.primary, CircleShape),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
@@ -145,7 +144,7 @@ fun IOSMessageInput(
                             // clique simples; segurar/arrastar dá pra colocar depois
                         }
                     ) {
-                        Icon(Icons.Rounded.Mic, contentDescription = null, tint = MessengerBlue)
+                        Icon(Icons.Rounded.Mic, contentDescription = null, tint = colors.primary)
                     }
                 }
             }

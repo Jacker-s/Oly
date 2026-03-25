@@ -4,6 +4,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
@@ -32,28 +33,40 @@ fun MetaTextField(
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text
 ) {
-    TextField(
+    val chatColors = LocalChatColors.current
+    
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        placeholder = { Text(placeholder, color = MetaGray4) },
+        placeholder = { Text(placeholder, color = chatColors.textSecondary.copy(alpha = 0.5f), fontSize = 15.sp) },
         modifier = Modifier.fillMaxWidth(),
-        leadingIcon = { Icon(icon, null, tint = MetaGray4, modifier = Modifier.size(20.dp)) },
+        leadingIcon = { 
+            Icon(
+                icon, 
+                null, 
+                tint = if (value.isNotEmpty()) chatColors.primary else chatColors.textSecondary.copy(alpha = 0.4f), 
+                modifier = Modifier.size(22.dp)
+            ) 
+        },
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboardType),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(18.dp),
         singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge,
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = LocalChatColors.current.tertiaryBackground,
-            unfocusedContainerColor = LocalChatColors.current.tertiaryBackground,
-            focusedIndicatorColor = Color.Transparent,
-            unfocusedIndicatorColor = Color.Transparent,
-            cursorColor = MessengerBlue,
-            focusedTextColor = MaterialTheme.colorScheme.onSurface,
-            unfocusedTextColor = MaterialTheme.colorScheme.onSurface
+        textStyle = MaterialTheme.typography.bodyLarge.copy(color = chatColors.textPrimary, fontWeight = FontWeight.Medium),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = chatColors.tertiaryBackground.copy(alpha = 0.5f),
+            unfocusedContainerColor = chatColors.tertiaryBackground.copy(alpha = 0.3f),
+            focusedBorderColor = chatColors.primary.copy(alpha = 0.5f),
+            unfocusedBorderColor = Color.Transparent,
+            cursorColor = chatColors.primary,
+            selectionColors = TextSelectionColors(
+                handleColor = chatColors.primary,
+                backgroundColor = chatColors.primary.copy(alpha = 0.2f)
+            )
         )
     )
 }
+
 
 @Composable
 fun AddContactDialog(
@@ -81,8 +94,8 @@ fun AddContactDialog(
         onDismissRequest = onDismiss,
         title = {
             Column {
-                Text("Encontrar Amigos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
-                Text("Adicione pelo @id ou encontre na lista", style = MaterialTheme.typography.labelSmall, color = MetaGray4)
+                Text("Encontrar Amigos", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = chatColors.textPrimary)
+                Text("Adicione pelo @id ou encontre na lista", style = MaterialTheme.typography.labelSmall, color = chatColors.textSecondary)
             }
         },
         text = {
@@ -91,7 +104,7 @@ fun AddContactDialog(
                 Spacer(Modifier.height(16.dp))
                 
                 if (searchResults.isNotEmpty()) {
-                    Text("Sugestões", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = MessengerBlue)
+                    Text("Sugestões", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = chatColors.primary)
                     Spacer(Modifier.height(8.dp))
                     LazyColumn(
                         modifier = Modifier.weight(1f, fill = false),
@@ -117,18 +130,18 @@ fun AddContactDialog(
                                     )
                                     Spacer(Modifier.width(12.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Text(user.displayName, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                        Text("@${user.id}", fontSize = 12.sp, color = MetaGray4)
+                                        Text(user.displayName, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = chatColors.textPrimary)
+                                        Text("@${user.id}", fontSize = 12.sp, color = chatColors.textSecondary)
                                     }
                                     TextButton(onClick = { onAdd(user.id) }) {
-                                        Text("Add", fontSize = 12.sp, color = MessengerBlue, fontWeight = FontWeight.ExtraBold)
+                                        Text("Add", fontSize = 12.sp, color = chatColors.primary, fontWeight = FontWeight.ExtraBold)
                                     }
                                 }
                             }
                         }
                     }
                 } else if (username.length > 2) {
-                    Text("Nenhum usuário encontrado", style = MaterialTheme.typography.bodySmall, color = MetaGray4)
+                    Text("Nenhum usuário encontrado", style = MaterialTheme.typography.bodySmall, color = chatColors.textSecondary)
                 }
             }
         },
@@ -136,14 +149,14 @@ fun AddContactDialog(
             Button(
                 onClick = { if (username.length > 1) onAdd(username.removePrefix("@")) },
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary, contentColor = Color.White)
             ) {
                 Text("Confirmar", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancelar", color = MetaGray4)
+                Text("Cancelar", color = chatColors.textSecondary)
             }
         },
         shape = RoundedCornerShape(24.dp),

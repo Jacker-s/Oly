@@ -13,7 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.jack.friend.ui.theme.MessengerBlue
+import com.jack.friend.ui.theme.LocalChatColors
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -24,7 +24,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                 title = { Text("Política de Privacidade", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = MessengerBlue)
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = LocalChatColors.current.primary)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = MaterialTheme.colorScheme.background)
@@ -43,7 +43,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
             
             PrivacySection(
                 title = "1. Introdução",
-                content = "Bem-vindo ao Friend (Wappi Messenger). Valorizamos sua privacidade e estamos comprometidos em proteger seus dados pessoais. Esta política explica como coletamos, usamos e protegemos suas informações."
+                content = "Bem-vindo ao Oly: Feed e Chats. Valorizamos sua privacidade e estamos comprometidos em proteger seus dados pessoais. Esta política explica como coletamos, usamos e protegemos suas informações."
             )
 
             PrivacySection(

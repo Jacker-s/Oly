@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.LockOpen
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -37,7 +38,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.iOSRed
 
 @Composable
@@ -53,6 +53,7 @@ fun ChatOptionsMenuSheet(
     onToggleTempMessages: () -> Unit,
     onClearChat: () -> Unit,
     onBlockToggle: () -> Unit,
+    onStarredMessages: () -> Unit = {},
     onSendTestAd: () -> Unit = {}
 ) {
     val colors = LocalChatColors.current
@@ -105,6 +106,11 @@ fun ChatOptionsMenuSheet(
             trailingText = durationText,
             onClick = { onDismiss(); onToggleTempMessages() }
         )
+        SheetOption(
+            icon = Icons.Rounded.Star,
+            text = "Mensagens Favoritas",
+            onClick = { onDismiss(); onStarredMessages() }
+        )
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.separator.copy(alpha = 0.5f))
 
@@ -154,7 +160,7 @@ private fun SheetOption(
         if (trailingText != null) {
             Text(
                 text = trailingText,
-                color = MessengerBlue,
+                color = LocalChatColors.current.primary,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold
             )

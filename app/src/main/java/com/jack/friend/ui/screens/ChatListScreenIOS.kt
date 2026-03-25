@@ -49,7 +49,7 @@ fun ChatListScreenIOS(
     ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 14.dp)
+            contentPadding = PaddingValues(bottom = 130.dp)
         ) {
             if (isSearching && searchInput.isNotEmpty()) {
                 itemsIndexed(searchResults, key = { _, u -> u.id }) { index, user ->

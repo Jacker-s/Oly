@@ -32,6 +32,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.Cameraswitch
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.animation.core.*
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -76,8 +82,8 @@ class CallActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         
-        // Mantém a tela ligada durante a chamada
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        // Mantém a tela ligada durante a chamada e bloqueia captura de tela
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_SECURE)
         
         audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
@@ -129,7 +135,8 @@ class CallActivity : ComponentActivity() {
                     onHangUp = { endCall() },
                     onMute = { muted -> toggleMute(muted) },
                     onSpeakerToggle = { speakerOn -> setSpeakerphoneOn(speakerOn) },
-                    onCameraToggle = { isOff -> toggleCamera(isOff) }
+                    onCameraToggle = { isOff -> toggleCamera(isOff) },
+                    onCameraFlip = { webRTCManager?.switchCamera() }
                 )
             }
         }
@@ -373,8 +380,10 @@ fun MetaCallScreen(
     onHangUp: () -> Unit, 
     onMute: (Boolean) -> Unit,
     onSpeakerToggle: (Boolean) -> Unit,
-    onCameraToggle: (Boolean) -> Unit
+    onCameraToggle: (Boolean) -> Unit,
+    onCameraFlip: () -> Unit = {}
 ) {
+    val chatColors = LocalChatColors.current
     var isMuted by remember { mutableStateOf(false) }
     var isSpeakerOn by remember { mutableStateOf(isVideo) }
     var isCameraOff by remember { mutableStateOf(!isVideo) }
@@ -403,20 +412,22 @@ fun MetaCallScreen(
         }
     }
     
-    Box(modifier = Modifier.fillMaxSize().background(MetaBlack)) {
+    Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
         if (isVideo && status == "CONNECTED") {
+            // Video Call UI
             AndroidView(
                 factory = { remoteVideoView!! },
                 modifier = Modifier.fillMaxSize()
             )
 
+            // Local Video (PiP)
             if (!isCameraOff) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .padding(top = 60.dp, end = 20.dp)
-                        .size(120.dp, 180.dp)
-                        .clip(RoundedCornerShape(12.dp))
+                        .size(110.dp, 160.dp)
+                        .clip(RoundedCornerShape(22.dp))
                         .background(Color.Black)
                 ) {
                     AndroidView(
@@ -425,81 +436,158 @@ fun MetaCallScreen(
                     )
                 }
             }
-            
-            // Timer for Video Call
-            Text(
-                text = formattedDuration,
-                color = Color.White,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = 60.dp)
-                    .background(Color.Black.copy(alpha = 0.5f), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            )
+
+            // Top Info
+            Column(
+                modifier = Modifier.align(Alignment.TopStart).padding(top = 60.dp, start = 20.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(targetId, color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
+                Surface(
+                    color = Color.Black.copy(0.3f),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(
+                        formattedDuration, 
+                        color = Color.White, 
+                        fontSize = 14.sp, 
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    )
+                }
+            }
             
         } else {
-            Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(MetaBlack, MetaDarkSurface, MetaBlack))))
-            Column(modifier = Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Box(modifier = Modifier.size(160.dp), contentAlignment = Alignment.Center) {
-                    if (targetPhotoUrl != null) {
-                        AsyncImage(
-                            model = targetPhotoUrl,
-                            contentDescription = null,
-                            modifier = Modifier.size(160.dp).clip(CircleShape).background(MetaDarkSurface.copy(0.5f)),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        Box(modifier = Modifier.size(160.dp).clip(CircleShape).background(MetaDarkSurface.copy(0.5f)))
-                        Icon(Icons.Default.Person, null, modifier = Modifier.size(80.dp), tint = MetaGray4)
+            // Audio Call UI / Ringing UI
+            val infiniteTransition = rememberInfiniteTransition(label = "audio")
+            val pulse1 by infiniteTransition.animateFloat(
+                initialValue = 1f, targetValue = 1.3f,
+                animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Restart), label = "p1"
+            )
+            val alpha1 by infiniteTransition.animateFloat(
+                initialValue = 0.5f, targetValue = 0f,
+                animationSpec = infiniteRepeatable(tween(2000), RepeatMode.Restart), label = "a1"
+            )
+
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                // Animated Rings
+                if (status == "CONNECTED" || status == "RINGING") {
+                    Box(Modifier.size(240.dp).scale(pulse1).clip(CircleShape).background(chatColors.primary.copy(alpha = alpha1)))
+                }
+
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(160.dp), contentAlignment = Alignment.Center) {
+                        Surface(
+                            modifier = Modifier.fillMaxSize(),
+                            shape = CircleShape,
+                            color = chatColors.primary.copy(0.1f),
+                            border = BorderStroke(2.dp, chatColors.primary.copy(0.3f))
+                        ) {
+                            if (!targetPhotoUrl.isNullOrBlank()) {
+                                AsyncImage(
+                                    model = targetPhotoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier.fillMaxSize().clip(CircleShape),
+                                    contentScale = ContentScale.Crop
+                                )
+                            } else {
+                                Icon(Icons.Default.Person, null, modifier = Modifier.size(80.dp), tint = Color.White.copy(0.7f))
+                            }
+                        }
                     }
+                    
+                    Spacer(Modifier.height(32.dp))
+                    Text(targetId, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(Modifier.height(12.dp))
+                    
+                    val statusText = when (status) {
+                        "RINGING" -> if (isOutgoing) "Chamando..." else "Recebendo..."
+                        "CONNECTED" -> formattedDuration
+                        "MUTED" -> "Silenciado"
+                        else -> "Conectando..."
+                    }
+                    Text(statusText, color = Color.White.copy(0.6f), fontSize = 17.sp, fontWeight = FontWeight.Medium)
                 }
-                Spacer(Modifier.height(40.dp))
-                Text(targetId, color = Color.White, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                Spacer(Modifier.height(12.dp))
-                val statusText = when (status) {
-                    "RINGING" -> if (isOutgoing) "Chamando..." else "Recebendo chamada..."
-                    "CONNECTED" -> formattedDuration
-                    "MUTED" -> "Microfone silenciado"
-                    else -> if (isOutgoing) "Ligando..." else "Conectando..."
-                }
-                Text(statusText, color = MetaGray4, style = MaterialTheme.typography.bodyLarge)
             }
         }
 
+        // Bottom Controls (Glassmorphism inspired)
         Surface(
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 80.dp).padding(horizontal = 20.dp).fillMaxWidth(),
-            shape = RoundedCornerShape(35.dp),
-            color = MetaDarkSurface.copy(alpha = 0.8f)
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 50.dp, start = 20.dp, end = 20.dp)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(40.dp),
+            color = Color.Black.copy(0.6f),
+            border = BorderStroke(1.dp, Color.White.copy(0.1f))
         ) {
-            Row(modifier = Modifier.padding(16.dp), horizontalArrangement = Arrangement.SpaceEvenly, verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = {
-                    isMuted = !isMuted
-                    onMute(isMuted)
-                }, modifier = Modifier.size(50.dp).clip(CircleShape).background(if (isMuted) Color.White else Color.Transparent)) {
-                    Icon(if (isMuted) Icons.Default.MicOff else Icons.Default.Mic, null, tint = if (isMuted) Color.Black else Color.White, modifier = Modifier.size(24.dp))
-                }
+            Row(
+                modifier = Modifier.padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                CallControlButton(
+                    icon = if (isMuted) Icons.Default.MicOff else Icons.Default.Mic,
+                    isActive = isMuted,
+                    onClick = {
+                        isMuted = !isMuted
+                        onMute(isMuted)
+                    }
+                )
 
-                IconButton(onClick = {
-                    isSpeakerOn = !isSpeakerOn
-                    onSpeakerToggle(isSpeakerOn)
-                }, modifier = Modifier.size(50.dp).clip(CircleShape).background(if (isSpeakerOn) Color.White else Color.Transparent)) {
-                    Icon(if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeOff, null, tint = if (isSpeakerOn) Color.Black else Color.White, modifier = Modifier.size(24.dp))
-                }
+                CallControlButton(
+                    icon = if (isSpeakerOn) Icons.Default.VolumeUp else Icons.Default.VolumeOff,
+                    isActive = isSpeakerOn,
+                    onClick = {
+                        isSpeakerOn = !isSpeakerOn
+                        onSpeakerToggle(isSpeakerOn)
+                    }
+                )
 
                 if (isVideo) {
-                    IconButton(onClick = { 
-                        isCameraOff = !isCameraOff
-                        onCameraToggle(isCameraOff) 
-                    }, modifier = Modifier.size(50.dp).clip(CircleShape).background(if (isCameraOff) Color.White else Color.Transparent)) {
-                        Icon(if (isCameraOff) Icons.Default.VideocamOff else Icons.Default.Videocam, null, tint = if (isCameraOff) Color.Black else Color.White, modifier = Modifier.size(24.dp))
-                    }
+                    CallControlButton(
+                        icon = Icons.Default.Cameraswitch,
+                        isActive = false,
+                        onClick = onCameraFlip
+                    )
+                    
+                    CallControlButton(
+                        icon = if (isCameraOff) Icons.Default.VideocamOff else Icons.Default.Videocam,
+                        isActive = isCameraOff,
+                        onClick = {
+                            isCameraOff = !isCameraOff
+                            onCameraToggle(isCameraOff)
+                        }
+                    )
                 }
 
-                FloatingActionButton(onClick = onHangUp, containerColor = Color(0xFFFA3E3E), contentColor = Color.White, shape = CircleShape, modifier = Modifier.size(64.dp)) {
+                // Hang up button
+                FloatingActionButton(
+                    onClick = onHangUp,
+                    containerColor = Color(0xFFFA3939),
+                    contentColor = Color.White,
+                    shape = CircleShape,
+                    modifier = Modifier.size(64.dp)
+                ) {
                     Icon(Icons.Default.CallEnd, null, modifier = Modifier.size(32.dp))
                 }
             }
         }
+    }
+}
+
+@Composable
+fun CallControlButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(50.dp)
+            .clip(CircleShape)
+            .background(if (isActive) Color.White else Color.White.copy(0.12f))
+    ) {
+        Icon(icon, null, tint = if (isActive) Color.Black else Color.White, modifier = Modifier.size(24.dp))
     }
 }

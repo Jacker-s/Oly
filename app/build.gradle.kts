@@ -12,8 +12,8 @@ android {
         applicationId = "com.jack.friend"
         minSdk = 24
         targetSdk = 35
-         versionCode = 39
-        versionName = "2.2"
+         versionCode = 44
+        versionName = "2.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -52,12 +52,14 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
         jniLibs {
+            // Set to false to support 16 KB page alignment for uncompressed libraries
             useLegacyPackaging = false
         }
     }
 }
 
 dependencies {
+    implementation(libs.com.google.android.material)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -139,7 +141,7 @@ dependencies {
     implementation("androidx.emoji2:emoji2:1.5.0")
     implementation("androidx.emoji2:emoji2-bundled:1.5.0")
 
-    // QR Code Functionality
-    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+    // QR Code Functionality - Updated to 17.3.0 for 16 KB page size support
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("com.google.zxing:core:3.5.3")
 }

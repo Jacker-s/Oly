@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 
 @Composable
 fun PinLockScreen(correctPin: String, isBiometricEnabled: Boolean, onUnlock: () -> Unit) {
@@ -57,14 +56,14 @@ fun PinLockScreen(correctPin: String, isBiometricEnabled: Boolean, onUnlock: () 
     LaunchedEffect(Unit) { if (isBiometricEnabled) showBiometricPrompt() }
 
     Column(modifier = Modifier.fillMaxSize().background(Color.Transparent).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-        Icon(Icons.Rounded.Lock, null, modifier = Modifier.size(64.dp), tint = MessengerBlue)
+        Icon(Icons.Rounded.Lock, null, modifier = Modifier.size(64.dp), tint = LocalChatColors.current.primary)
         Spacer(modifier = Modifier.height(24.dp))
         Text("App Protegido", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         Spacer(modifier = Modifier.height(32.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             repeat(4) { index ->
-                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(if (pinInput.length > index) MessengerBlue else LocalChatColors.current.separator))
+                Box(modifier = Modifier.size(16.dp).clip(CircleShape).background(if (pinInput.length > index) LocalChatColors.current.primary else LocalChatColors.current.separator))
             }
         }
 
@@ -101,7 +100,7 @@ fun PinLockScreen(correctPin: String, isBiometricEnabled: Boolean, onUnlock: () 
 
         if (isBiometricEnabled) {
             IconButton(onClick = { showBiometricPrompt() }, modifier = Modifier.padding(top = 24.dp)) {
-                Icon(Icons.Rounded.Fingerprint, null, modifier = Modifier.size(40.dp), tint = MessengerBlue)
+                Icon(Icons.Rounded.Fingerprint, null, modifier = Modifier.size(40.dp), tint = LocalChatColors.current.primary)
             }
         }
     }

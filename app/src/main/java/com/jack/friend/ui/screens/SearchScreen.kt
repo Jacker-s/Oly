@@ -28,7 +28,6 @@ import com.jack.friend.ChatViewModel
 import com.jack.friend.UserProfile
 import com.jack.friend.ui.chat.MetaUserItem
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.iOSGreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
@@ -59,7 +58,7 @@ fun SearchScreen(
         if (searchInput.isEmpty()) {
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp)
+                contentPadding = PaddingValues(top = 16.dp, start = 16.dp, end = 16.dp, bottom = 130.dp)
             ) {
                 item {
                     Text(
@@ -106,7 +105,8 @@ fun SearchScreen(
             }
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 130.dp)
             ) {
                 items(searchResults) { user ->
                     val isContact = contacts.any { it.id == user.id }
@@ -189,14 +189,14 @@ fun NearbyUsersRow(users: List<UserProfile>, onUserClick: (UserProfile) -> Unit)
                         Icon(
                             Icons.Rounded.LocationOn,
                             null,
-                            tint = MessengerBlue,
+                            tint = chatColors.primary,
                             modifier = Modifier.size(12.dp)
                         )
                         Spacer(Modifier.width(2.dp))
                         Text(
                             user.status.ifBlank { "Perto" },
                             fontSize = 11.sp,
-                            color = MessengerBlue,
+                            color = chatColors.primary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -255,7 +255,7 @@ fun SuggestionItem(
                 shape = RoundedCornerShape(14.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp),
                 modifier = Modifier.height(36.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+                colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary)
             ) {
                 Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))

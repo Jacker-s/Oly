@@ -8,6 +8,7 @@ import androidx.activity.viewModels
 import androidx.compose.animation.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,10 +37,12 @@ import com.google.firebase.database.*
 import com.jack.friend.ui.theme.FriendTheme
 import com.jack.friend.ui.theme.LocalChatColors
 import com.jack.friend.ui.theme.MetaGray4
-import com.jack.friend.ui.theme.MessengerBlue
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.UUID
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.material.icons.rounded.*
 
 class CallsActivity : androidx.fragment.app.FragmentActivity() {
 
@@ -90,16 +93,19 @@ fun CallsScreen(
     onBack: () -> Unit,
     onOpenCall: (roomId: String, targetId: String, targetPhotoUrl: String?, isOutgoing: Boolean, isVideo: Boolean) -> Unit
 ) {
-    val myUsername by viewModel.myUsername.collectAsStateWithLifecycle("")
-    val contacts by viewModel.contacts.collectAsStateWithLifecycle(emptyList())
-    val activeChats by viewModel.activeChats.collectAsStateWithLifecycle(emptyList())
+    val myUsername by viewModel.myUsername.collectAsState("")
+    val contacts by viewModel.contacts.collectAsState(emptyList())
+    val activeChats by viewModel.activeChats.collectAsState(emptyList())
+    val chatColors = LocalChatColors.current
 
     var calls by remember { mutableStateOf<List<CallItemUi>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Todas, 1: Perdidas
-    var showMenu by remember { mutableStateOf(false) }
     var showDeleteAllDialog by remember { mutableStateOf(false) }
     var logToDelete by remember { mutableStateOf<CallItemUi?>(null) }
+    var showContactPicker by remember { mutableStateOf(false) }
+
+    val scope = rememberCoroutineScope()
 
     DisposableEffect(myUsername, contacts, activeChats) {
         if (myUsername.isBlank()) {
@@ -109,7 +115,7 @@ fun CallsScreen(
 
         val me = myUsername.uppercase().trim()
         val db = FirebaseDatabase.getInstance().reference
-        val ref = db.child("calls").limitToLast(300)
+        val ref = db.child("calls").limitToLast(100)
 
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -154,72 +160,26 @@ fun CallsScreen(
         }
     }
 
-    if (showDeleteAllDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteAllDialog = false },
-            title = { Text("Limpar Histórico") },
-            text = { Text("Deseja apagar todo o seu histórico de chamadas? Esta ação não pode ser desfeita.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    val db = FirebaseDatabase.getInstance().reference
-                    calls.forEach { db.child("calls").child(it.roomId).removeValue() }
-                    showDeleteAllDialog = false
-                }) {
-                    Text("Limpar Tudo", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteAllDialog = false }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
-
-    logToDelete?.let { log ->
-        AlertDialog(
-            onDismissRequest = { logToDelete = null },
-            title = { Text("Excluir Chamada") },
-            text = { Text("Deseja remover este registro de chamada?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    FirebaseDatabase.getInstance().reference.child("calls").child(log.roomId).removeValue()
-                    logToDelete = null
-                }) {
-                    Text("Excluir", color = Color.Red)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { logToDelete = null }) {
-                    Text("Cancelar")
-                }
-            }
-        )
-    }
-
     Scaffold(
         topBar = {
-            Column(modifier = Modifier.background(LocalChatColors.current.topBar)) {
+            Column(modifier = Modifier.background(chatColors.background)) {
                 CenterAlignedTopAppBar(
                     title = {
-                        Text("Chamadas", fontWeight = FontWeight.Black)
+                        SegmentedControl(
+                            items = listOf("Todas", "Perdidas"),
+                            selectedIndex = selectedTab,
+                            onItemSelection = { selectedTab = it },
+                            modifier = Modifier.width(180.dp)
+                        )
+                    },
+                    navigationIcon = {
+                        TextButton(onClick = { showDeleteAllDialog = true }) {
+                            Text("Limpar", color = chatColors.primary, fontWeight = FontWeight.Medium)
+                        }
                     },
                     actions = {
-                        IconButton(onClick = { showMenu = true }) {
-                            Icon(Icons.Default.MoreVert, "Mais", tint = MessengerBlue)
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text("Limpar histórico") },
-                                leadingIcon = { Icon(Icons.Default.DeleteSweep, null) },
-                                onClick = {
-                                    showMenu = false
-                                    showDeleteAllDialog = true
-                                }
-                            )
+                        IconButton(onClick = { showContactPicker = true }) {
+                            Icon(Icons.Rounded.Call, "Nova Chamada", tint = chatColors.primary)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -227,99 +187,154 @@ fun CallsScreen(
                     )
                 )
 
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = { searchQuery = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
-                    placeholder = { Text("Buscar contatos ou números") },
-                    leadingIcon = { Icon(Icons.Default.Search, null, tint = MetaGray4) },
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = { searchQuery = "" }) {
-                                Icon(Icons.Default.Close, null, tint = MetaGray4)
-                            }
-                        }
-                    },
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MessengerBlue,
-                        unfocusedBorderColor = Color.Transparent,
-                        focusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                    ),
-                    singleLine = true
+                Text(
+                    "Chamadas",
+                    style = MaterialTheme.typography.displaySmall,
+                    fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = chatColors.textPrimary
                 )
 
-                TabRow(
-                    selectedTabIndex = selectedTab,
-                    containerColor = Color.Transparent,
-                    contentColor = MessengerBlue,
-                    indicator = { tabPositions ->
-                        TabRowDefaults.SecondaryIndicator(
-                            Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                            color = MessengerBlue
-                        )
-                    },
-                    divider = {}
-                ) {
-                    Tab(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        text = { Text("Todas", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
-                    )
-                    Tab(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        text = { Text("Perdidas", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
-                    )
-                }
+                IOS17SearchPill(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    placeholder = "Busca",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
             }
         },
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = chatColors.background
     ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            if (filteredLogs.isEmpty()) {
+                EmptyCallsState(isSearch = searchQuery.isNotBlank() || selectedTab == 1)
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 100.dp)
+                ) {
+                    items(filteredLogs, key = { it.roomId }) { log ->
+                        CallRowItem(
+                            log = log,
+                            onDelete = { logToDelete = log },
+                            onClick = {
+                                onOpenCall(log.roomId, log.otherId, log.otherPhotoUrl, log.isOutgoing, log.isVideo)
+                            }
+                        )
+                    }
+                }
+            }
+        }
+    }
 
-        if (filteredLogs.isEmpty()) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        if (selectedTab == 1) Icons.AutoMirrored.Filled.CallMissed else Icons.Default.Call,
-                        contentDescription = null,
-                        modifier = Modifier.size(80.dp),
-                        tint = MetaGray4.copy(alpha = 0.5f)
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Text(
-                        if (searchQuery.isNotEmpty()) "Nenhum resultado encontrado"
-                        else if (selectedTab == 1) "Nenhuma chamada perdida"
-                        else "Seu histórico está vazio",
-                        color = MetaGray4,
-                        style = MaterialTheme.typography.bodyLarge
-                    )
+    // Dialogs & Sheets
+    if (showDeleteAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllDialog = false },
+            title = { Text("Limpar Histórico") },
+            text = { Text("Deseja apagar todo o seu histórico de chamadas?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val db = FirebaseDatabase.getInstance().reference
+                    calls.forEach { db.child("calls").child(it.roomId).removeValue() }
+                    showDeleteAllDialog = false
+                }) { Text("Limpar Tudo", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAllDialog = false }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    logToDelete?.let { log ->
+        AlertDialog(
+            onDismissRequest = { logToDelete = null },
+            title = { Text("Excluir") },
+            text = { Text("Remover esta chamada do histórico?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    FirebaseDatabase.getInstance().reference.child("calls").child(log.roomId).removeValue()
+                    logToDelete = null
+                }) { Text("Excluir", color = Color.Red) }
+            },
+            dismissButton = {
+                TextButton(onClick = { logToDelete = null }) { Text("Cancelar") }
+            }
+        )
+    }
+
+    if (showContactPicker) {
+        ModalBottomSheet(
+            onDismissRequest = { showContactPicker = false },
+            containerColor = chatColors.secondaryBackground,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+        ) {
+            ContactPickerForCall(
+                contacts = contacts,
+                onSelect = { user, isVideo ->
+                    showContactPicker = false
+                    val uniqueRoomId = "Call_${UUID.randomUUID().toString().take(8)}"
+                    viewModel.setTargetId(user.id)
+                    viewModel.startCall(isVideo = isVideo, customRoomId = uniqueRoomId)
+                    onOpenCall(uniqueRoomId, user.id, user.photoUrl, true, isVideo)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun SegmentedControl(
+    items: List<String>,
+    selectedIndex: Int,
+    onItemSelection: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val chatColors = LocalChatColors.current
+    Surface(
+        modifier = modifier.height(32.dp),
+        shape = RoundedCornerShape(8.dp),
+        color = chatColors.tertiaryBackground.copy(alpha = 0.5f)
+    ) {
+        Row(modifier = Modifier.fillMaxSize().padding(2.dp)) {
+            items.forEachIndexed { index, item ->
+                val isSelected = index == selectedIndex
+                Surface(
+                    modifier = Modifier.weight(1f).fillMaxHeight().clickable { onItemSelection(index) },
+                    shape = RoundedCornerShape(7.dp),
+                    color = if (isSelected) Color.White else Color.Transparent,
+                    shadowElevation = if (isSelected) 2.dp else 0.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = item,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) Color.Black else chatColors.textSecondary
+                        )
+                    }
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(bottom = 20.dp)
-            ) {
-                items(filteredLogs, key = { it.roomId }) { log ->
-                    CallRowItem(
-                        log = log,
-                        onDelete = { logToDelete = log },
-                        onClick = {
-                            onOpenCall(log.roomId, log.otherId, log.otherPhotoUrl, log.isOutgoing, log.isVideo)
-                        }
-                    )
-                    HorizontalDivider(
-                        modifier = Modifier.padding(start = 72.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
-                    )
-                }
-            }
+        }
+    }
+}
+
+@Composable
+fun EmptyCallsState(isSearch: Boolean) {
+    val chatColors = LocalChatColors.current
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
+            Icon(
+                Icons.Rounded.History, null,
+                modifier = Modifier.size(64.dp),
+                tint = chatColors.textSecondary.copy(alpha = 0.2f)
+            )
+            Spacer(Modifier.height(16.dp))
+            Text(
+                if (isSearch) "Nenhum resultado" else "Sem chamadas recentes",
+                style = MaterialTheme.typography.titleMedium,
+                color = chatColors.textSecondary
+            )
         }
     }
 }
@@ -331,83 +346,114 @@ private fun CallRowItem(
     onDelete: () -> Unit,
     onClick: () -> Unit
 ) {
+    val chatColors = LocalChatColors.current
     val isMissed = (log.status == "MISSED" || log.status == "REJECTED") && !log.isOutgoing
-    val isVideo = log.isVideo
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onDelete
-            )
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        AsyncImage(
-            model = log.otherPhotoUrl,
-            contentDescription = null,
+    Column {
+        Row(
             modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
-        )
-
-        Spacer(Modifier.width(12.dp))
-
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = log.otherName,
-                style = MaterialTheme.typography.bodyLarge.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    color = if (isMissed) Color.Red else MaterialTheme.colorScheme.onSurface
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                .fillMaxWidth()
+                .combinedClickable(onClick = onClick, onLongClick = onDelete)
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AsyncImage(
+                model = log.otherPhotoUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(chatColors.separator),
+                contentScale = ContentScale.Crop
             )
 
-            Spacer(Modifier.height(2.dp))
+            Spacer(Modifier.width(12.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = when {
-                        log.isOutgoing -> Icons.Default.CallMade
-                        isMissed -> Icons.AutoMirrored.Filled.CallMissed
-                        else -> Icons.AutoMirrored.Filled.CallReceived
-                    },
-                    contentDescription = null,
-                    tint = if (isMissed) Color.Red.copy(alpha = 0.7f) else MetaGray4,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(Modifier.width(4.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = buildString {
-                        if (log.isOutgoing) append("Efetuada") else append("Recebida")
-                        log.durationSec?.let {
-                            if (it > 0) {
-                                append(" • ${formatDuration(it)}")
-                            }
-                        }
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MetaGray4
+                    text = log.otherName,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isMissed) Color.Red else chatColors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = if (log.isVideo) Icons.Rounded.Videocam else Icons.Rounded.Call,
+                        contentDescription = null,
+                        tint = chatColors.textSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        text = if (log.isOutgoing) "Efetuada" else "Recebida",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = chatColors.textSecondary
+                    )
+                    log.durationSec?.let {
+                        if (it > 0) {
+                            Text(" • ${formatDuration(it)}", style = MaterialTheme.typography.bodySmall, color = chatColors.textSecondary)
+                        }
+                    }
+                }
             }
-        }
 
-        Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = formatCallTime(log.timeMs),
-                style = MaterialTheme.typography.labelSmall,
-                color = MetaGray4
+                style = MaterialTheme.typography.bodySmall,
+                color = chatColors.textSecondary
             )
-            Spacer(Modifier.height(4.dp))
+
+            Spacer(Modifier.width(12.dp))
+
             Icon(
-                imageVector = if (isVideo) Icons.Default.Videocam else Icons.Default.Call,
-                contentDescription = null,
-                tint = MessengerBlue.copy(alpha = 0.8f),
-                modifier = Modifier.size(20.dp)
+                Icons.Rounded.Info, null,
+                tint = chatColors.primary,
+                modifier = Modifier.size(22.dp).clickable { onDelete() } // Emula o botão de info, mas aqui deleta ou abre info se tivesse
             )
+        }
+        HorizontalDivider(modifier = Modifier.padding(start = 72.dp), color = chatColors.separator.copy(alpha = 0.2f), thickness = 0.5.dp)
+    }
+}
+
+@Composable
+fun ContactPickerForCall(
+    contacts: List<UserProfile>,
+    onSelect: (UserProfile, Boolean) -> Unit
+) {
+    val chatColors = LocalChatColors.current
+    Column(modifier = Modifier.fillMaxHeight(0.8f).padding(16.dp)) {
+        Text("Iniciar Chamada", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(16.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(contacts) { user ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(chatColors.tertiaryBackground.copy(alpha = 0.4f))
+                        .clickable { onSelect(user, false) }
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    AsyncImage(
+                        model = user.photoUrl,
+                        contentDescription = null,
+                        modifier = Modifier.size(40.dp).clip(CircleShape),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(user.displayName, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    
+                    IconButton(onClick = { onSelect(user, false) }) {
+                        Icon(Icons.Rounded.Call, null, tint = chatColors.primary)
+                    }
+                    IconButton(onClick = { onSelect(user, true) }) {
+                        Icon(Icons.Rounded.Videocam, null, tint = chatColors.primary)
+                    }
+                }
+            }
         }
     }
 }
@@ -431,3 +477,4 @@ private fun formatDuration(seconds: Long): String {
     val secs = seconds % 60
     return if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
 }
+

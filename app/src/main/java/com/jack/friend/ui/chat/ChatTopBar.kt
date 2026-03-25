@@ -41,7 +41,6 @@ import com.jack.friend.ProfileActivity
 import com.jack.friend.UserProfile
 import com.jack.friend.ui.components.MetaSearchBar
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.MetaGray4
 import com.jack.friend.ui.theme.iOSGreen
 import com.jack.friend.ui.theme.iOSOrange
@@ -108,7 +107,7 @@ fun ChatTopBar(
                 navigationIcon = {
                     if (targetId.isNotEmpty() || showContacts || isSearching) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = MessengerBlue, modifier = Modifier.size(22.dp))
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = colors.primary, modifier = Modifier.size(22.dp))
                         }
                     } else {
                         IconButton(
@@ -123,7 +122,7 @@ fun ChatTopBar(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .border(1.5.dp, MessengerBlue.copy(0.3f), CircleShape)
+                                    .border(1.5.dp, colors.primary.copy(0.3f), CircleShape)
                                     .background(colors.separator),
                                 contentScale = ContentScale.Crop
                             )
@@ -133,21 +132,21 @@ fun ChatTopBar(
                 actions = {
                     if (targetId.isNotEmpty()) {
                         IconButton(onClick = onCallClick) {
-                            Icon(Icons.Rounded.Phone, null, tint = MessengerBlue, modifier = Modifier.size(24.dp))
+                            Icon(Icons.Rounded.Phone, null, tint = colors.primary, modifier = Modifier.size(24.dp))
                         }
                         IconButton(onClick = onVideoCallClick) {
-                            Icon(Icons.Rounded.VideoCall, null, tint = MessengerBlue, modifier = Modifier.size(28.dp))
+                            Icon(Icons.Rounded.VideoCall, null, tint = colors.primary, modifier = Modifier.size(28.dp))
                         }
                         IconButton(onClick = onOptionClick) {
-                            Icon(Icons.Rounded.MoreHoriz, null, tint = MessengerBlue, modifier = Modifier.size(24.dp))
+                            Icon(Icons.Rounded.MoreHoriz, null, tint = colors.primary, modifier = Modifier.size(24.dp))
                         }
                     } else if (showContacts) {
                         IconButton(onClick = { onAddContact() }) {
-                            Icon(Icons.Rounded.PersonAdd, null, tint = MessengerBlue, modifier = Modifier.size(26.dp))
+                            Icon(Icons.Rounded.PersonAdd, null, tint = colors.primary, modifier = Modifier.size(26.dp))
                         }
                     } else if (!isSearching) {
                         IconButton(onClick = { onSearchActiveChange(true) }) {
-                            Icon(Icons.Rounded.Search, contentDescription = "Pesquisar", tint = MessengerBlue, modifier = Modifier.size(28.dp))
+                            Icon(Icons.Rounded.Search, contentDescription = "Pesquisar", tint = colors.primary, modifier = Modifier.size(28.dp))
                         }
                     }
                 },
@@ -177,7 +176,7 @@ fun ChatHeaderTitle(targetProfile: UserProfile?, currentChat: ChatSummary?, isTa
             modifier = Modifier
                 .size(38.dp)
                 .clip(CircleShape)
-                .border(1.dp, MessengerBlue.copy(0.2f), CircleShape)
+                .border(1.dp, LocalChatColors.current.primary.copy(0.2f), CircleShape)
                 .background(LocalChatColors.current.separator),
             contentScale = ContentScale.Crop
         )
@@ -194,7 +193,7 @@ fun ChatHeaderTitle(targetProfile: UserProfile?, currentChat: ChatSummary?, isTa
                 Text(
                     "Digitando...",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MessengerBlue,
+                    color = LocalChatColors.current.primary,
                     fontWeight = FontWeight.Medium
                 )
             } else {

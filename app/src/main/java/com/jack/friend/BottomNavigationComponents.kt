@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,6 +73,7 @@ fun ResponsiveFloatingDock(
 ) {
     val chatColors = LocalChatColors.current
 
+    // Reordered items to prioritize Feed and Chat at center
     val items = listOf(
         BottomBarScreen.Feed,
         BottomBarScreen.Home,
@@ -86,28 +88,30 @@ fun ResponsiveFloatingDock(
         items.indexOfFirst { it.route == currentRoute }.coerceAtLeast(0)
     }
 
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = chatColors.secondaryBackground,
-        tonalElevation = 0.dp
+    // Wrap in a transparent box to act as a floating dock
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.Transparent)
+            .padding(horizontal = 24.dp, vertical = 20.dp)
+            .navigationBarsPadding(),
+        contentAlignment = Alignment.BottomCenter
     ) {
-        Column(modifier = Modifier.navigationBarsPadding()) {
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = chatColors.separator.copy(alpha = 0.4f)
-            )
-            
-            BoxWithConstraints(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(72.dp) 
-            ) {
-                val maxWidth = maxWidth
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(68.dp),
+            color = chatColors.secondaryBackground.copy(alpha = 0.95f),
+            shape = RoundedCornerShape(34.dp),
+            shadowElevation = 12.dp,
+            tonalElevation = 8.dp
+        ) {
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
                 val itemWidth = maxWidth / items.size
                 
                 val animatedIndicatorOffset by animateDpAsState(
                     targetValue = itemWidth * selectedIndex,
-                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 350f),
+                    animationSpec = spring(dampingRatio = 0.6f, stiffness = 400f),
                     label = "pill"
                 )
                 
@@ -117,13 +121,13 @@ fun ResponsiveFloatingDock(
                     animatedIndicatorOffset
                 }
 
+                // Smooth glowing indicator circle behind the active icon
                 Box(
                     modifier = Modifier
-                        .offset(x = indicatorOffset + (itemWidth - 64.dp) / 2, y = 8.dp)
-                        .width(64.dp)
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(chatColors.primary.copy(alpha = 0.12f))
+                        .offset(x = indicatorOffset + (itemWidth - 48.dp) / 2, y = 10.dp)
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(chatColors.primary.copy(alpha = 0.15f))
                         .zIndex(0f)
                 )
 
@@ -135,8 +139,13 @@ fun ResponsiveFloatingDock(
                     items.forEachIndexed { index, screen ->
                         val isSelected = index == selectedIndex
                         val tint by animateColorAsState(
-                            targetValue = if (isSelected) chatColors.primary else chatColors.textSecondary.copy(alpha = 0.5f),
+                            targetValue = if (isSelected) chatColors.primary else chatColors.textSecondary.copy(alpha = 0.6f),
                             animationSpec = tween(300)
+                        )
+                        
+                        val iconScale by animateFloatAsState(
+                            targetValue = if (isSelected) 1.2f else 1.0f,
+                            animationSpec = spring(dampingRatio = 0.5f, stiffness = 400f)
                         )
 
                         Box(
@@ -146,31 +155,21 @@ fun ResponsiveFloatingDock(
                                 .clickable(
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null,
-                                    onClick = {
-                                        onNavigate(screen)
-                                    }
+                                    onClick = { onNavigate(screen) }
                                 ),
                             contentAlignment = Alignment.Center
                         ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally,
-                                verticalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
-                                    contentDescription = screen.title,
-                                    modifier = Modifier.size(26.dp),
-                                    tint = tint
-                                )
-                                Spacer(Modifier.height(4.dp))
-                                Text(
-                                    text = screen.title,
-                                    fontSize = 11.sp,
-                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                    color = tint,
-                                    letterSpacing = (-0.3).sp
-                                )
-                            }
+                            Icon(
+                                imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
+                                contentDescription = screen.title,
+                                modifier = Modifier
+                                    .size(26.dp)
+                                    .graphicsLayer {
+                                        scaleX = iconScale
+                                        scaleY = iconScale
+                                    },
+                                tint = tint
+                            )
                         }
                     }
                 }

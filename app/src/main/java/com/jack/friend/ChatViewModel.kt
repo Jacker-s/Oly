@@ -108,6 +108,11 @@ class ChatViewModel : ViewModel() {
     private val _myLocation = MutableStateFlow<Pair<Double, Double>?>(null)
     val myLocation: StateFlow<Pair<Double, Double>?> = _myLocation
 
+    private val _isSharingLocation = MutableStateFlow(false)
+    val isSharingLocation: StateFlow<Boolean> = _isSharingLocation
+
+    private var locationSharingJob: Job? = null
+
     private val _nearbyUsers = MutableStateFlow<List<UserProfile>>(emptyList())
     val nearbyUsers: StateFlow<List<UserProfile>> = _nearbyUsers
 
@@ -255,6 +260,21 @@ class ChatViewModel : ViewModel() {
 
     private val _feedNotifications = MutableStateFlow<List<FeedNotification>>(emptyList())
     val feedNotifications: StateFlow<List<FeedNotification>> = _feedNotifications
+
+    private val _mentionSuggestions = MutableStateFlow<List<UserProfile>>(emptyList())
+    val mentionSuggestions: StateFlow<List<UserProfile>> = _mentionSuggestions
+
+    fun updateMentionQuery(query: String) {
+        if (query.isBlank()) {
+            _mentionSuggestions.value = emptyList()
+            return
+        }
+        val cleanQuery = query.removePrefix("@").lowercase()
+        val filtered = _contacts.value.filter {
+            it.id.lowercase().contains(cleanQuery) || it.name.lowercase().contains(cleanQuery)
+        }.take(5)
+        _mentionSuggestions.value = filtered
+    }
 
     private val _latestNotification = kotlinx.coroutines.flow.MutableSharedFlow<FeedNotification>()
     val latestNotification: kotlinx.coroutines.flow.SharedFlow<FeedNotification> = _latestNotification
@@ -1103,6 +1123,128 @@ class ChatViewModel : ViewModel() {
         }
     }
 
+    fun uploadFile(uri: Uri, fileName: String, fileSize: Long, tempDurationMillis: Long = 0) {
+        val me = safeMe()
+        val target = safeTarget()
+        if (me.isEmpty() || target.isEmpty()) return
+
+        viewModelScope.launch(errorHandler) {
+            try {
+                // Cloudinary para arquivos genéricos
+                val url = uploadToCloudinary(uri, "chat_files", "raw")
+                if (url != null) {
+                    val msgId = db.push().key ?: return@launch
+                    sendMessageObject(
+                        Message(
+                            id = msgId,
+                            senderId = me,
+                            receiverId = target,
+                            fileUrl = url,
+                            fileName = fileName,
+                            fileSize = fileSize,
+                            timestamp = System.currentTimeMillis(),
+                            isGroup = false,
+                            senderName = _myName.value,
+                            tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
+                        )
+                    )
+                }
+            } catch (e: Exception) {
+                logE("uploadFile error: ${e.message}", e)
+            }
+        }
+    }
+
+    fun shareLocation(lat: Double, lng: Double, name: String? = null, tempDurationMillis: Long = 0) {
+        val me = safeMe()
+        val target = safeTarget()
+        if (me.isEmpty() || target.isEmpty()) return
+
+        val msgId = db.push().key ?: return
+        sendMessageObject(
+            Message(
+                id = msgId,
+                senderId = me,
+                receiverId = target,
+                latitude = lat,
+                longitude = lng,
+                locationName = name,
+                timestamp = System.currentTimeMillis(),
+                isGroup = false,
+                senderName = _myName.value,
+                tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
+            )
+        )
+    }
+
+    // ---------------------------
+    // Live Location Sharing
+    // ---------------------------
+
+    /** Called by the UI layer with real GPS coordinates from FusedLocationProviderClient. */
+    fun updateMyLocation(lat: Double, lng: Double) {
+        _myLocation.value = Pair(lat, lng)
+    }
+
+    /**
+     * Starts broadcasting the user's live location to Firebase under
+     * `live_locations/{chatKey}/{myId}` and sets an auto-stop timer.
+     *
+     * @param friendId    The chat partner's user ID.
+     * @param durationMs  How long (ms) to keep sharing. 0 = indefinite.
+     */
+    fun startLocationSharing(friendId: String, durationMs: Long = 0L) {
+        val me = safeMe()
+        if (me.isEmpty() || friendId.isEmpty()) return
+
+        locationSharingJob?.cancel()
+        _isSharingLocation.value = true
+
+        val liveRef = db.child("live_locations").child(chatKey(me, friendId)).child(me)
+
+        locationSharingJob = viewModelScope.launch(errorHandler) {
+            try {
+                val startMs = System.currentTimeMillis()
+
+                while (isActive) {
+                    val pos = _myLocation.value
+                    if (pos != null) {
+                        val data = mapOf(
+                            "lat" to pos.first,
+                            "lng" to pos.second,
+                            "ts" to System.currentTimeMillis(),
+                            "userId" to me
+                        )
+                        liveRef.setValue(data)
+                    }
+
+                    // Auto-stop when duration elapsed
+                    if (durationMs > 0 && System.currentTimeMillis() - startMs >= durationMs) {
+                        break
+                    }
+
+                    delay(10_000L) // update every 10s
+                }
+            } finally {
+                liveRef.removeValue()
+                _isSharingLocation.value = false
+            }
+        }
+    }
+
+    /**
+     * Stops the active live location sharing session for [friendId].
+     */
+    fun stopLocationSharing(friendId: String) {
+        val me = safeMe()
+        locationSharingJob?.cancel()
+        locationSharingJob = null
+        _isSharingLocation.value = false
+        if (me.isNotEmpty() && friendId.isNotEmpty()) {
+            db.child("live_locations").child(chatKey(me, friendId)).child(me).removeValue()
+        }
+    }
+
     // ---------------------------\\
     // Persist message + summaries
     // ---------------------------\\
@@ -1132,6 +1274,8 @@ class ChatViewModel : ViewModel() {
                     msg.imageUrl != null -> "📷 Imagem"
                     msg.videoUrl != null -> "📹 Vídeo"
                     msg.stickerUrl != null -> "Sticker"
+                    msg.fileUrl != null -> "📄 Arquivo"
+                    msg.latitude != null -> "📍 Localização"
                     else -> msg.text
                 }
 
@@ -1829,7 +1973,8 @@ class ChatViewModel : ViewModel() {
                             fromPhotoUrl = _myPhotoUrl.value,
                             postId = postId,
                             postPreviewText = text.take(50),
-                            timestamp = System.currentTimeMillis()
+                            timestamp = System.currentTimeMillis(),
+                            postPhotoUrl = imageUrls.firstOrNull()
                         )
                         db.child("notifications").child(mentionedUser).child(notificationId).setValue(notification)
                     }
@@ -1873,7 +2018,8 @@ class ChatViewModel : ViewModel() {
                             fromPhotoUrl = _myPhotoUrl.value,
                             postId = postId,
                             postPreviewText = post.text.take(50),
-                            timestamp = System.currentTimeMillis()
+                            timestamp = System.currentTimeMillis(),
+                            postPhotoUrl = post.photoUrl
                         )
                         db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
                     }
@@ -1883,6 +2029,12 @@ class ChatViewModel : ViewModel() {
             }
         } else {
             ref.child("likes").child(username).removeValue()
+        }
+    }
+    fun trackFeedShare(postId: String) {
+        val username = _myUsername.value
+        if (username.isNotEmpty()) {
+            db.child("feeds").child(postId).child("shares").child(username).setValue(true)
         }
     }
     
@@ -1904,7 +2056,8 @@ class ChatViewModel : ViewModel() {
                     authorName = _myName.value.ifBlank { username },
                     authorPhotoUrl = _myPhotoUrl.value,
                     text = text,
-                    timestamp = System.currentTimeMillis()
+                    timestamp = System.currentTimeMillis(),
+                    mentions = allMentions
                 )
 
                 logD("Adding comment to post $postId: $text")
@@ -1923,7 +2076,8 @@ class ChatViewModel : ViewModel() {
                         fromPhotoUrl = _myPhotoUrl.value,
                         postId = postId,
                         postPreviewText = text.take(50),
-                        timestamp = System.currentTimeMillis()
+                        timestamp = System.currentTimeMillis(),
+                        postPhotoUrl = post.photoUrl
                     )
                     db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
                 }
@@ -1940,7 +2094,8 @@ class ChatViewModel : ViewModel() {
                             fromPhotoUrl = _myPhotoUrl.value,
                             postId = postId,
                             postPreviewText = text.take(50),
-                            timestamp = System.currentTimeMillis()
+                            timestamp = System.currentTimeMillis(),
+                            postPhotoUrl = post.photoUrl
                         )
                         db.child("notifications").child(mentionedUser).child(notificationId).setValue(notification)
                     }
@@ -1958,6 +2113,18 @@ class ChatViewModel : ViewModel() {
             } catch (e: Exception) {
                 logE("Error deleting comment: ${e.message}")
             }
+        }
+    }
+
+    fun toggleFeedCommentLike(postId: String, commentId: String, like: Boolean) {
+        val username = _myUsername.value
+        if (username.isEmpty()) return
+
+        val ref = db.child("feeds").child(postId).child("comments").child(commentId)
+        if (like) {
+            ref.child("likes").child(username).setValue(true)
+        } else {
+            ref.child("likes").child(username).removeValue()
         }
     }
 
@@ -1986,7 +2153,8 @@ class ChatViewModel : ViewModel() {
                             postId = postId,
                             postPreviewText = post.text.take(50),
                             timestamp = System.currentTimeMillis(),
-                            reactionEmoji = emoji
+                            reactionEmoji = emoji,
+                            postPhotoUrl = post.photoUrl
                         )
                         db.child("notifications").child(post.authorId).child(notificationId).setValue(notification)
                     }
@@ -2041,18 +2209,38 @@ class ChatViewModel : ViewModel() {
     }
 
     fun markNotificationsAsRead() {
-        val username = _myUsername.value
-        if (username.isEmpty()) return
-
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             try {
-                val snapshot = db.child("notifications").child(username).get().await()
-                val updates = mutableMapOf<String, Any?>()
-                snapshot.children.forEach {
-                    updates["${it.key}/isRead"] = true
+                // Obter username de forma mais resiliente
+                var username = _myUsername.value
+                if (username.isEmpty()) {
+                    val uid = auth.currentUser?.uid ?: return@launch
+                    val snapshot = db.child("uid_to_username").child(uid).get().await()
+                    username = snapshot.getValue(String::class.java).orEmpty()
+                    if (username.isEmpty()) return@launch
                 }
-                db.child("notifications").child(username).updateChildren(updates)
-            } catch (e: Exception) {}
+
+                // Fetch the list directly. Filtering locally to avoid index dependency.
+                val snapshot = db.child("notifications").child(username).get().await()
+                
+                if (snapshot.exists()) {
+                    val updates = mutableMapOf<String, Any?>()
+                    snapshot.children.forEach { child ->
+                        if (child.child("isRead").getValue(Boolean::class.java) != true) {
+                            val key = child.key
+                            if (key != null) {
+                                updates["$key/isRead"] = true
+                            }
+                        }
+                    }
+                    if (updates.isNotEmpty()) {
+                        db.child("notifications").child(username).updateChildren(updates).await()
+                        logD("Successfully marked ${updates.size} unread notifications as read for $username")
+                    }
+                }
+            } catch (e: Exception) {
+                logE("Error marking notifications as read: ${e.message}", e)
+            }
         }
     }
 
@@ -2435,6 +2623,13 @@ class ChatViewModel : ViewModel() {
         }
     }
 
+    fun toggleStarredMessage(messageId: String, friendId: String, currentStatus: Boolean) {
+        val me = safeMe()
+        if (me.isEmpty() || friendId.isEmpty()) return
+        val path = "messages/${chatKey(me, friendId)}"
+        db.child(path).child(messageId).child("isStarred").setValue(!currentStatus)
+    }
+
 
     fun togglePinChat(friendId: String, currentStatus: Boolean) {
         val me = safeMe()
@@ -2596,7 +2791,7 @@ class ChatViewModel : ViewModel() {
             id = msgId,
             senderId = "SYSTEM_AD",
             receiverId = me,
-            text = "Confira as novas figurinhas exclusivas do Wappi Messenger!",
+            text = "Confira as novas figurinhas exclusivas do Oly!",
             imageUrl = "https://img.freepik.com/vetores-gratis/modelo-de-banner-de-venda-de-sexta-feira-negra-plana_23-2149111440.jpg",
             timestamp = System.currentTimeMillis(),
             isAd = true,
@@ -2619,7 +2814,7 @@ class ChatViewModel : ViewModel() {
             val msgId = db.push().key ?: return@launch
 
             // Texto formatado com o ID para detecção automática de clique no bubble
-            val shareText = "Confira esta postagem no Wappi Messenger!\n\n${post.text}\n\nEnviado por @${post.authorId}\nPOST_ID:${post.id}"
+            val shareText = "Confira esta postagem no Oly!\n\n${post.text}\n\nEnviado por @${post.authorId}\nPOST_ID:${post.id}"
 
             val msg = Message(
                 id = msgId,

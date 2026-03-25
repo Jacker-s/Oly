@@ -2,6 +2,8 @@ package com.jack.friend
 
 import android.app.KeyguardManager
 import android.app.NotificationManager
+import android.app.AlarmManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
@@ -10,6 +12,15 @@ import android.media.RingtoneManager
 import android.os.*
 import android.util.Log
 import android.view.WindowManager
+import android.provider.Settings
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -39,6 +50,15 @@ import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Message
+import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -114,13 +134,90 @@ class IncomingCallActivity : ComponentActivity() {
                     callerPhotoUrl = message.senderPhotoUrl,
                     isVideo = isVideoCall,
                     onAccept = { acceptCall(message) },
-                    onReject = { rejectCall() }
+                    onReject = { rejectCall() },
+                    onRemind = { scheduleReminder(message) },
+                    onMessage = { showQuickMessageDialog(message) }
                 )
             }
         }
     }
 
-    private fun getCallMessageOrFinish(): Message? {
+    private fun scheduleReminder(message: Message) {
+        val callerName = message.senderName ?: message.senderId
+        val alarmManager = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (!alarmManager.canScheduleExactAlarms()) {
+                val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM)
+                startActivity(intent)
+                return
+            }
+        }
+
+        val intent = Intent(this, ReminderReceiver::class.java).apply {
+            putExtra("callerName", callerName)
+            putExtra("callerId", message.senderId)
+        }
+
+        val pendingIntent = PendingIntent.getBroadcast(
+            this,
+            message.senderId.hashCode(),
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Lembrete em 15 minutos
+        val triggerTime = SystemClock.elapsedRealtime() + 15 * 60 * 1000L
+        
+        try {
+            alarmManager.setExactAndAllowWhileIdle(
+                AlarmManager.ELAPSED_REALTIME_WAKEUP,
+                triggerTime,
+                pendingIntent
+            )
+            android.widget.Toast.makeText(this, "Lembrete definido para 15 minutos", android.widget.Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao agendar alarme: ${e.message}")
+        }
+        
+        rejectCall()
+    }
+
+    private fun showQuickMessageDialog(message: Message) {
+        // Para simplificar no IncomingCallActivity (que é ComponentActivity),
+        // vamos lidar com o estado do BottomSheet via Compose
+        isQuickMessageVisible.value = true
+    }
+
+    val isQuickMessageVisible = mutableStateOf(false)
+
+    fun sendQuickMessage(message: Message, text: String) {
+        val me = message.receiverId
+        val target = message.senderId
+        val db = FirebaseDatabase.getInstance().reference
+        
+        val msgId = db.push().key ?: return
+        val msg = Message(
+            id = msgId,
+            senderId = me,
+            receiverId = target,
+            text = text,
+            timestamp = System.currentTimeMillis(),
+            isGroup = false
+        )
+        
+        // Caminho da mensagem (mesmo chatKey usado no ViewModel)
+        val a = me.uppercase().trim()
+        val b = target.uppercase().trim()
+        val chatKey = if (a < b) "${a}_$b" else "${b}_$a"
+        
+        db.child("messages").child(chatKey).child(msgId).setValue(msg)
+        
+        isQuickMessageVisible.value = false
+        rejectCall()
+    }
+
+    fun getCallMessageOrFinish(): Message? {
         val msg = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             intent.getSerializableExtra(EXTRA_CALL_MESSAGE, Message::class.java)
         } else {
@@ -150,7 +247,7 @@ class IncomingCallActivity : ComponentActivity() {
                         WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             )
         }
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_SECURE)
     }
 
     /**
@@ -360,7 +457,7 @@ class IncomingCallActivity : ComponentActivity() {
 }
 
 // ============================
-// UI
+// UI - Premium Redesign
 // ============================
 @Composable
 private fun IncomingCallScreen(
@@ -368,42 +465,84 @@ private fun IncomingCallScreen(
     callerPhotoUrl: String?,
     isVideo: Boolean,
     onAccept: () -> Unit,
-    onReject: () -> Unit
+    onReject: () -> Unit,
+    onRemind: () -> Unit,
+    onMessage: () -> Unit
 ) {
-    val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-    val pulseScale by infiniteTransition.animateFloat(
+    val activity = androidx.compose.ui.platform.LocalContext.current as IncomingCallActivity
+    val showQuickMessages by activity.isQuickMessageVisible
+    val message = activity.getCallMessageOrFinish()
+
+    if (showQuickMessages && message != null) {
+        QuickMessageBottomSheet(
+            onDismiss = { activity.isQuickMessageVisible.value = false },
+            onSelect = { activity.sendQuickMessage(message, it) }
+        )
+    }
+    val infiniteTransition = rememberInfiniteTransition(label = "ring")
+    val pulse by infiniteTransition.animateFloat(
         initialValue = 1f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(tween(900), RepeatMode.Reverse),
-        label = "scale"
+        targetValue = 1.15f,
+        animationSpec = infiniteRepeatable(tween(1200), RepeatMode.Reverse),
+        label = "pulse"
     )
 
     Box(modifier = Modifier.fillMaxSize().background(Color.Black)) {
-
+        // Full screen background image with blur
         if (!callerPhotoUrl.isNullOrBlank()) {
             AsyncImage(
                 model = callerPhotoUrl,
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().blur(50.dp).scale(1.5f),
+                modifier = Modifier.fillMaxSize().blur(60.dp).scale(1.4f),
                 contentScale = ContentScale.Crop,
-                alpha = 0.4f
+                alpha = 0.5f
             )
         }
 
-        Column(
+        // Overlay Gradient
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 100.dp, bottom = 24.dp),
+                .background(
+                    Brush.verticalGradient(
+                        listOf(Color.Transparent, Color.Black.copy(0.8f))
+                    )
+                )
+        )
+
+        Column(
+            modifier = Modifier.fillMaxSize().padding(horizontal = 30.dp, vertical = 60.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(Modifier.height(40.dp))
+            
+            // Header
+            Text(
+                if (isVideo) "CHAMADA DE VÍDEO" else "CHAMADA DE ÁUDIO",
+                color = Color.White.copy(0.5f),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 2.sp
+            )
+            
+            Spacer(Modifier.height(40.dp))
 
+            // Caller Card
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-
-                Box(contentAlignment = Alignment.Center, modifier = Modifier.scale(pulseScale)) {
+                Box(contentAlignment = Alignment.Center) {
+                    // Outer Ring
+                    Box(
+                        Modifier
+                            .size(170.dp)
+                            .scale(pulse)
+                            .border(1.dp, Color.White.copy(0.15f), CircleShape)
+                    )
+                    
                     Surface(
                         modifier = Modifier.size(140.dp),
                         shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.10f)
+                        color = Color.White.copy(0.05f),
+                        border = BorderStroke(2.dp, Color.White.copy(0.2f))
                     ) {
                         if (!callerPhotoUrl.isNullOrBlank()) {
                             AsyncImage(
@@ -416,148 +555,151 @@ private fun IncomingCallScreen(
                             Icon(
                                 imageVector = Icons.Default.Person,
                                 contentDescription = null,
-                                modifier = Modifier.size(80.dp).padding(30.dp),
+                                modifier = Modifier.size(70.dp).padding(30.dp),
                                 tint = Color.White
                             )
                         }
                     }
                 }
 
-                Spacer(Modifier.height(26.dp))
+                Spacer(Modifier.height(30.dp))
 
                 Text(
                     text = callerName,
                     color = Color.White,
-                    fontSize = 34.sp,
-                    fontWeight = FontWeight.Light
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-1).sp
                 )
-
+                
                 Text(
-                    text = if (isVideo) "Wappi Vídeo..." else "Wappi Áudio...",
-                    color = Color.White.copy(alpha = 0.65f),
-                    fontSize = 18.sp,
+                    text = "Brasil", // Example location or subtext
+                    color = Color.White.copy(alpha = 0.5f),
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
             }
 
             Spacer(modifier = Modifier.weight(1f))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 90.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 60.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                SlideToAction(
-                    text = "Deslize para atender",
-                    trackColor = Color.White.copy(alpha = 0.12f),
-                    accentColor = Color(0xFF34C759),
-                    icon = Icons.Rounded.Call,
-                    direction = SlideDirection.RIGHT,
-                    onTriggered = onAccept
-                )
+                QuickActionItem(icon = Icons.Default.Alarm, label = "Lembrar", onClick = onRemind)
+                QuickActionItem(icon = Icons.Default.Message, label = "Mensagem", onClick = onMessage)
+            }
 
-                Spacer(Modifier.height(16.dp))
+            // Main Actions
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(bottom = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Reject
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    FloatingActionButton(
+                        onClick = onReject,
+                        containerColor = Color(0xFFFF3B30),
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier.size(76.dp)
+                    ) {
+                        Icon(Icons.Rounded.CallEnd, null, modifier = Modifier.size(34.dp))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("Recusar", color = Color.White, fontSize = 14.sp)
+                }
 
-                SlideToAction(
-                    text = "Deslize para recusar",
-                    trackColor = Color.White.copy(alpha = 0.12f),
-                    accentColor = Color(0xFFFF3B30),
-                    icon = Icons.Rounded.CallEnd,
-                    direction = SlideDirection.LEFT,
-                    onTriggered = onReject
-                )
+                // Accept
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    FloatingActionButton(
+                        onClick = onAccept,
+                        containerColor = Color(0xFF34C759),
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                        modifier = Modifier.size(76.dp)
+                    ) {
+                        Icon(if (isVideo) Icons.Default.Videocam else Icons.Rounded.Call, null, modifier = Modifier.size(34.dp))
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("Atender", color = Color.White, fontSize = 14.sp)
+                }
             }
         }
     }
 }
 
-private enum class SlideDirection { LEFT, RIGHT }
-
 @Composable
-private fun SlideToAction(
-    text: String,
-    trackColor: Color,
-    accentColor: Color,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    direction: SlideDirection,
-    onTriggered: () -> Unit
+private fun QuickActionItem(
+    icon: ImageVector,
+    label: String,
+    onClick: () -> Unit
 ) {
-    val trackHeight = 56.dp
-    val knobSize = 48.dp
-    val shape = RoundedCornerShape(999.dp)
-
-    val density = LocalDensity.current
-    var widthPx by remember { mutableStateOf(0f) }
-
-    val knobPx = with(density) { knobSize.toPx() }
-    val paddingPx = with(density) { 6.dp.toPx() }
-
-    var offsetPx by remember { mutableStateOf(0f) }
-    var triggered by remember { mutableStateOf(false) }
-
-    val maxOffset = max(0f, widthPx - knobPx - paddingPx * 2)
-    val threshold = maxOffset * 0.72f
-
-    fun reset() {
-        offsetPx = 0f
-        triggered = false
-    }
-
-    val draggableState = rememberDraggableState { delta ->
-        if (triggered) return@rememberDraggableState
-
-        offsetPx = when (direction) {
-            SlideDirection.RIGHT -> offsetPx + delta
-            SlideDirection.LEFT -> offsetPx - delta
-        }.coerceIn(0f, maxOffset)
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 22.dp)
-            .height(trackHeight)
-            .clip(shape)
-            .background(trackColor)
-            .onSizeChanged { widthPx = it.width.toFloat() }
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
     ) {
-        Text(
-            text = text,
-            color = Color.White.copy(alpha = 0.75f),
-            modifier = Modifier.align(Alignment.Center),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(24.dp))
+        Spacer(Modifier.height(8.dp))
+        Text(label, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
 
-        Box(
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun QuickMessageBottomSheet(
+    onDismiss: () -> Unit,
+    onSelect: (String) -> Unit
+) {
+    val messages = listOf(
+        "Não posso falar agora.",
+        "Te ligo mais tarde.",
+        "Estou em reunião.",
+        "O que aconteceu?"
+    )
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        containerColor = Color(0xFF1C1C1E),
+        contentColor = Color.White
+    ) {
+        Column(
             modifier = Modifier
-                .padding(6.dp)
-                .offset {
-                    val x = when (direction) {
-                        SlideDirection.RIGHT -> offsetPx
-                        SlideDirection.LEFT -> (maxOffset - offsetPx)
-                    }
-                    IntOffset(x.roundToInt(), 0)
-                }
-                .size(knobSize)
-                .clip(CircleShape)
-                .background(accentColor)
-                .draggable(
-                    state = draggableState,
-                    orientation = Orientation.Horizontal,
-                    onDragStopped = {
-                        if (!triggered && offsetPx >= threshold) {
-                            triggered = true
-                            onTriggered()
-                        } else {
-                            reset()
-                        }
-                    }
-                ),
-            contentAlignment = Alignment.Center
+                .fillMaxWidth()
+                .padding(bottom = 40.dp)
         ) {
-            Icon(icon, contentDescription = null, tint = Color.White)
+            Text(
+                "ENVIAR MENSAGEM",
+                modifier = Modifier.padding(16.dp),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Gray
+            )
+            
+            messages.forEach { msg ->
+                Text(
+                    text = msg,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelect(msg) }
+                        .padding(16.dp),
+                    fontSize = 18.sp,
+                    color = Color.White
+                )
+                HorizontalDivider(color = Color.White.copy(0.1f))
+            }
+            
+            Button(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color.DarkGray)
+            ) {
+                Text("Cancelar")
+            }
         }
     }
 }

@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.jack.friend.ui.theme.MessengerBlue
+import com.jack.friend.ui.theme.LocalChatColors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -164,7 +164,7 @@ fun InAppCameraView(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(if (isSelected) MessengerBlue else Color.Transparent)
+                            .background(if (isSelected) LocalChatColors.current.primary else Color.Transparent)
                             .clickable { flashMode = mode },
                         contentAlignment = Alignment.Center
                     ) {
@@ -320,7 +320,7 @@ fun InAppCameraView(
                     .padding(end = 40.dp, bottom = 120.dp)
                     .size(56.dp)
                     .clip(CircleShape)
-                    .background(MessengerBlue)
+                    .background(LocalChatColors.current.primary)
                     .clickable { 
                         recording?.stop()
                         recording = null

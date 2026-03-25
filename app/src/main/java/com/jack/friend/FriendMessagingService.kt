@@ -186,83 +186,28 @@ class FriendMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(message: Message, myUsername: String?) {
-        val chatId = if (message.isGroup) message.receiverId else message.senderId
-        val senderName = message.senderName ?: "Wappi"
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        val senderName = message.senderName ?: "Oly"
+        var finalPhotoUrl = message.senderPhotoUrl
 
-        // Criar uma Intent que force a MainActivity a processar o targetId
-        val intent = Intent(this, MainActivity::class.java).apply {
-            action = "OPEN_CHAT_" + chatId
-            putExtra("targetId", chatId)
-            putExtra("isGroup", message.isGroup)
-            // IMPORTANTE: Flags para garantir que a atividade seja trazida para frente corretamente
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        if (finalPhotoUrl.isNullOrEmpty()) {
+            try {
+                val snapshot = com.google.android.gms.tasks.Tasks.await(
+                    FirebaseDatabase.getInstance().reference.child("users").child(message.senderId).get()
+                )
+                val profile = snapshot.getValue(UserProfile::class.java)
+                finalPhotoUrl = profile?.photoUrl
+            } catch (e: Exception) {
+                Log.e(TAG, "Erro ao buscar foto: ${e.message}")
+            }
         }
 
-        val pendingIntent = PendingIntent.getActivity(
-            this,
-            chatId.hashCode(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        NotificationHelper.showMessageNotification(
+            context = this,
+            message = message,
+            myUsername = myUsername ?: "Eu",
+            senderName = senderName,
+            senderPhotoUrl = finalPhotoUrl
         )
-
-        val userPerson = Person.Builder().setName(myUsername ?: "Eu").build()
-        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
-            .setColor(0xFF007AFF.toInt())
-            .setShortcutId(chatId)
-            .setLocusId(androidx.core.content.LocusIdCompat(chatId))
-
-        // Download da imagem do remetente
-        val senderBitmap = downloadBitmap(message.senderPhotoUrl)
-        val senderIcon = if (senderBitmap != null) IconCompat.createWithBitmap(senderBitmap) else null
-
-        val senderPerson = Person.Builder()
-            .setName(senderName)
-            .setIcon(senderIcon)
-            .build()
-
-        val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
-            .setConversationTitle(if (message.isGroup) senderName else null)
-            .setGroupConversation(message.isGroup)
-
-        val msgText = when {
-            message.isImage -> "📷 Imagem"
-            message.isAudio -> "🎤 Mensagem de áudio"
-            message.isVideo -> "📹 Vídeo"
-            message.isSticker -> "Sticker"
-            else -> message.text
-        }
-
-        val notificationMessage = NotificationCompat.MessagingStyle.Message(msgText, message.timestamp, senderPerson)
-
-        if (message.isImage && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            notificationMessage.setData("image/", Uri.parse(message.imageUrl))
-        }
-
-        messagingStyle.addMessage(notificationMessage)
-        builder.setStyle(messagingStyle)
-
-        if (senderBitmap != null) builder.setLargeIcon(senderBitmap)
-
-        // Resposta rápida
-        val remoteInput = RemoteInput.Builder(KEY_TEXT_REPLY).setLabel("Responder...").build()
-        val replyIntent = Intent(this, ReplyReceiver::class.java).apply {
-            putExtra("chatId", chatId)
-            putExtra("senderName", myUsername ?: "")
-            putExtra("isGroup", message.isGroup)
-        }
-        val replyPI = PendingIntent.getBroadcast(this, chatId.hashCode(), replyIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
-        builder.addAction(NotificationCompat.Action.Builder(android.R.drawable.ic_menu_send, "Responder", replyPI).addRemoteInput(remoteInput).build())
-
-        nm.notify(chatId.hashCode(), builder.build())
     }
 
     private fun createChannels() {

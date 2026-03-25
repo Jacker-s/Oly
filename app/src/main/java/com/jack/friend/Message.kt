@@ -33,7 +33,22 @@ data class Message(
     var videoThumbnailUrl: String? = null,
     var audioUrl: String? = null,
     var stickerUrl: String? = null,
-    var audioDurationSeconds: Long? = null, // ✅ Duração do áudio
+    var audioDurationSeconds: Long? = null,
+    
+    // =========================
+    // Arquivos (Documentos)
+    // =========================
+    var fileUrl: String? = null,
+    var fileName: String? = null,
+    var fileSize: Long? = null,
+    var fileExtension: String? = null,
+
+    // =========================
+    // Localização
+    // =========================
+    var latitude: Double? = null,
+    var longitude: Double? = null,
+    var locationName: String? = null,
 
     // Campo genérico de mídia (fallback futuro)
     var isMedia: Boolean = false,
@@ -57,12 +72,15 @@ data class Message(
     var isDeleted: Boolean = false,
     var isEdited: Boolean = false,
     var isForwarded: Boolean = false,
-    var isStarred: Boolean = false,
     var isViewOnce: Boolean = false,
 
     @get:PropertyName("audioPlayed")
     @set:PropertyName("audioPlayed")
     var audioPlayed: Boolean = false,
+
+    @get:PropertyName("isStarred")
+    @set:PropertyName("isStarred")
+    var isStarred: Boolean = false,
 
     // =========================
     // Reply (resposta)
@@ -129,8 +147,16 @@ data class Message(
         get() = text.isNotBlank()
 
     @get:Exclude
+    val isFile: Boolean
+        get() = !fileUrl.isNullOrEmpty()
+
+    @get:Exclude
+    val isLocation: Boolean
+        get() = latitude != null && longitude != null
+
+    @get:Exclude
     val hasMedia: Boolean
-        get() = isImage || isVideo || isAudio || !mediaUrl.isNullOrEmpty() || isSticker
+        get() = isImage || isVideo || isAudio || !mediaUrl.isNullOrEmpty() || isSticker || isFile || isLocation
 
     @get:Exclude
     val isExpired: Boolean
@@ -146,6 +172,8 @@ data class Message(
             isAudio -> "🎤 Áudio"
             isSticker -> "Sticker"
             isCall -> if (callType == "VIDEO") "📹 Chamada de vídeo" else "📞 Chamada de áudio"
+            isFile -> "📄 Arquivo: $fileName"
+            isLocation -> "📍 Localização"
             else -> text
         }
 

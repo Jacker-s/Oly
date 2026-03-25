@@ -127,9 +127,8 @@ class MessagingService : Service() {
         if (blockedUsers.contains(summary.friendId)) return
 
         if (!FriendApplication.isAppInForeground) {
-            if (summary.hasUnread && summary.lastSenderId != username) {
-                showNewMessageNotification(summary)
-            }
+            // A notificação de nova mensagem agora é tratada inteiramente pelo FriendMessagingService (FCM)
+            // para evitar notificações duplicadas e permitir notificações estilo WhatsApp.
         }
     }
 

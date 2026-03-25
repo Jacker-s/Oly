@@ -46,6 +46,7 @@ import coil.compose.AsyncImage
 import com.jack.friend.FeedPostCard
 import com.jack.friend.ui.chat.MediaViewerItem
 import com.jack.friend.ui.chat.MediaViewerScreen
+import com.jack.friend.ui.chat.StatusViewer
 import com.jack.friend.ui.profile.PrivacyPolicyScreen
 import com.jack.friend.ui.theme.*
 
@@ -74,6 +75,8 @@ class ProfileActivity : ComponentActivity() {
                 val myContacts by viewModel.contacts.collectAsStateWithLifecycle(emptyList())
                 val feedPosts by viewModel.feedPosts.collectAsStateWithLifecycle(emptyList())
                 val myPosts = feedPosts.filter { it.authorId == myUsername }
+                val statuses by viewModel.statuses.collectAsStateWithLifecycle(emptyList())
+                val myStatuses = statuses.filter { it.userId == myUsername }
 
                 var nameInput by remember { mutableStateOf("") }
                 var statusInput by remember { mutableStateOf("") }
@@ -86,8 +89,10 @@ class ProfileActivity : ComponentActivity() {
                 var fullScreenPhotoUrl by remember { mutableStateOf<String?>(null) }
                 var showSettingsMenu by remember { mutableStateOf(false) }
                 var selectedTab by remember { mutableIntStateOf(0) } // 0: Grid, 1: List
-                
                 var dataLoaded by remember { mutableStateOf(false) }
+                
+                var viewingMyStatuses by remember { mutableStateOf<List<UserStatus>?>(null) }
+                var showMyQRSheet by remember { mutableStateOf(false) }
 
                 LaunchedEffect(myName, myStatus, isHiddenFromSearch) {
                     if (!dataLoaded && (myName.isNotEmpty() || myStatus.isNotEmpty())) {
@@ -104,8 +109,10 @@ class ProfileActivity : ComponentActivity() {
                     selectedImageUri = uri
                 }
 
-                BackHandler(enabled = showPrivacyPolicy || fullScreenPhotoUrl != null || showSettingsMenu) {
+                BackHandler(enabled = showPrivacyPolicy || fullScreenPhotoUrl != null || showSettingsMenu || viewingMyStatuses != null || showMyQRSheet) {
                     if (fullScreenPhotoUrl != null) fullScreenPhotoUrl = null
+                    else if (viewingMyStatuses != null) viewingMyStatuses = null
+                    else if (showMyQRSheet) showMyQRSheet = false
                     else if (showSettingsMenu) showSettingsMenu = false
                     else if (showPrivacyPolicy) showPrivacyPolicy = false
                 }
@@ -135,7 +142,17 @@ class ProfileActivity : ComponentActivity() {
                                         color = colors.textPrimary
                                     )
                                     
-                                    Spacer(Modifier.width(48.dp)) // Spacer to keep title centered
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(onClick = { showMyQRSheet = true }) {
+                                            Icon(Icons.Rounded.QrCodeScanner, null, tint = colors.textPrimary, modifier = Modifier.size(24.dp))
+                                        }
+                                        IconButton(onClick = { 
+                                            context.startActivity(Intent(context, SettingsActivity::class.java))
+                                            finish() 
+                                        }) {
+                                            Icon(Icons.Rounded.Settings, null, tint = colors.textPrimary, modifier = Modifier.size(24.dp))
+                                        }
+                                    }
                                 }
                             }
                         },
@@ -157,8 +174,11 @@ class ProfileActivity : ComponentActivity() {
                                         Box(contentAlignment = Alignment.BottomEnd) {
                                             Surface(
                                                 shape = CircleShape,
-                                                border = BorderStroke(2.dp, colors.separator.copy(alpha = 0.5f)),
-                                                modifier = Modifier.size(90.dp).clickable { fullScreenPhotoUrl = (selectedImageUri ?: myPhotoUrl)?.toString() }
+                                                border = if (myStatuses.isNotEmpty()) BorderStroke(3.dp, Brush.linearGradient(listOf(Color(0xFF833AB4), Color(0xFFFD1D1D), Color(0xFFFCB045)))) else BorderStroke(2.dp, colors.separator.copy(alpha = 0.5f)),
+                                                modifier = Modifier.size(90.dp).clickable { 
+                                                    if (myStatuses.isNotEmpty()) viewingMyStatuses = myStatuses
+                                                    else fullScreenPhotoUrl = (selectedImageUri ?: myPhotoUrl)?.toString() 
+                                                }
                                             ) {
                                                 AsyncImage(
                                                     model = selectedImageUri ?: myPhotoUrl,
@@ -174,8 +194,8 @@ class ProfileActivity : ComponentActivity() {
                                             modifier = Modifier.weight(1f).padding(start = 24.dp),
                                             horizontalArrangement = Arrangement.SpaceEvenly
                                         ) {
-                                            StatItem(label = "Posts", count = "${myPosts.size}", colors = colors)
-                                            StatItem(label = "Amigos", count = "${myContacts.size}", colors = colors)
+                                            StatItem(label = "Posts", count = "${myPosts.size}", colors = colors, onClick = { selectedTab = 0 })
+                                            StatItem(label = "Amigos", count = "${myContacts.size}", colors = colors, onClick = { context.startActivity(Intent(context, ContactsActivity::class.java)); finish() })
                                         }
                                     }
 
@@ -185,7 +205,7 @@ class ProfileActivity : ComponentActivity() {
                                         horizontalAlignment = Alignment.Start
                                     ) {
                                         Text(
-                                            text = nameInput.ifBlank { "Wappi User" },
+                                            text = nameInput.ifBlank { "Oly User" },
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = colors.textPrimary
@@ -204,9 +224,9 @@ class ProfileActivity : ComponentActivity() {
                                     ) {
                                         Button(
                                             onClick = { showSettingsMenu = true },
-                                            modifier = Modifier.weight(1f).height(36.dp),
+                                            modifier = Modifier.weight(1f).height(40.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
-                                            shape = RoundedCornerShape(8.dp)
+                                            shape = RoundedCornerShape(10.dp)
                                         ) {
                                             Text("Editar Perfil", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         }
@@ -214,13 +234,13 @@ class ProfileActivity : ComponentActivity() {
                                             onClick = {
                                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                                     type = "text/plain"
-                                                    putExtra(Intent.EXTRA_TEXT, "Converse comigo no Wappi Messenger! Meu usuário é @$myUsername")
+                                                    putExtra(Intent.EXTRA_TEXT, "Converse comigo no Oly! Meu usuário é @$myUsername")
                                                 }
                                                 context.startActivity(Intent.createChooser(shareIntent, "Compartilhar perfil"))
                                             },
-                                            modifier = Modifier.weight(1f).height(36.dp),
+                                            modifier = Modifier.weight(1f).height(40.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
-                                            shape = RoundedCornerShape(8.dp)
+                                            shape = RoundedCornerShape(10.dp)
                                         ) {
                                             Text("Compartilhar", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         }
@@ -413,8 +433,8 @@ class ProfileActivity : ComponentActivity() {
                                                 },
                                                 enabled = !isSaving
                                             ) {
-                                                if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = MessengerBlue)
-                                                else Text("Concluir", color = MessengerBlue, fontWeight = FontWeight.ExtraBold)
+                                                if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = colors.primary)
+                                                else Text("Concluir", color = colors.primary, fontWeight = FontWeight.ExtraBold)
                                             }
                                         }
 
@@ -442,7 +462,7 @@ class ProfileActivity : ComponentActivity() {
                                             Surface(
                                                 modifier = Modifier.size(28.dp),
                                                 shape = CircleShape,
-                                                color = MessengerBlue
+                                                color = colors.primary
                                             ) {
                                                 Box(contentAlignment = Alignment.Center) {
                                                     Icon(Icons.Rounded.CameraAlt, null, tint = Color.White, modifier = Modifier.size(16.dp))
@@ -451,7 +471,7 @@ class ProfileActivity : ComponentActivity() {
                                         }
                                         
                                         TextButton(onClick = { photoLauncher.launch("image/*") }) {
-                                            Text("Alterar foto", color = MessengerBlue, fontWeight = FontWeight.Bold)
+                                            Text("Alterar foto", color = colors.primary, fontWeight = FontWeight.Bold)
                                         }
 
                                         Spacer(Modifier.height(16.dp))
@@ -501,6 +521,24 @@ class ProfileActivity : ComponentActivity() {
                                     onDismiss = { fullScreenPhotoUrl = null }
                                 )
                             }
+                            // Status viewer
+                            if (viewingMyStatuses != null) {
+                                StatusViewer(
+                                    userStatuses = viewingMyStatuses!!,
+                                    myUsername = myUsername,
+                                    viewModel = viewModel,
+                                    onClose = { viewingMyStatuses = null },
+                                    onDelete = { id -> viewModel.deleteStatus(id) }
+                                )
+                            }
+                            if (showMyQRSheet) {
+                                MyQRSheet(
+                                    userId = myUsername,
+                                    displayName = myName.ifBlank { myUsername },
+                                    photoUrl = myPhotoUrl,
+                                    onDismiss = { showMyQRSheet = false }
+                                )
+                            }
                             // Presence Selection Bottom Sheet
                             if (showPresenceMenu) {
                                 ModalBottomSheet(
@@ -541,7 +579,7 @@ class ProfileActivity : ComponentActivity() {
                                                 Text(status, color = colors.textPrimary, fontWeight = if (selectedPresence == status) FontWeight.Bold else FontWeight.Normal)
                                                 Spacer(Modifier.weight(1f))
                                                 if (selectedPresence == status) {
-                                                    Icon(Icons.Rounded.Check, null, tint = MessengerBlue)
+                                                    Icon(Icons.Rounded.Check, null, tint = colors.primary)
                                                 }
                                             }
                                         }
@@ -557,8 +595,8 @@ class ProfileActivity : ComponentActivity() {
 } // End of ProfileActivity
 
 @Composable
-private fun StatItem(label: String, count: String, colors: ChatColors) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatItem(label: String, count: String, colors: ChatColors, onClick: () -> Unit = {}) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClick).padding(8.dp)) {
         Text(text = count, fontWeight = FontWeight.Bold, fontSize = 18.sp, color = colors.textPrimary)
         Text(text = label, fontSize = 13.sp, color = colors.textPrimary)
     }
@@ -593,8 +631,8 @@ private fun ProfileEditRow(label: String, value: String, onValueChange: (String)
         modifier = Modifier.fillMaxWidth().padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MessengerBlue.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = MessengerBlue, modifier = Modifier.size(20.dp))
+        Box(modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(colors.primary.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = colors.primary, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -604,7 +642,7 @@ private fun ProfileEditRow(label: String, value: String, onValueChange: (String)
                 onValueChange = onValueChange,
                 textStyle = MaterialTheme.typography.bodyLarge.copy(color = colors.textPrimary, fontWeight = FontWeight.SemiBold),
                 modifier = Modifier.fillMaxWidth(),
-                cursorBrush = androidx.compose.ui.graphics.SolidColor(MessengerBlue)
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(colors.primary)
             )
         }
     }

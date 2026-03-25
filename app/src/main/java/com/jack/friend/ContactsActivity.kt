@@ -46,12 +46,31 @@ import coil.compose.AsyncImage
 import com.jack.friend.ui.profile.IOS17ContactProfileSheet
 import com.jack.friend.ui.theme.*
 import java.util.UUID
+import android.util.Log
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
 
 class ContactsActivity : ComponentActivity() {
     private val viewModel: ChatViewModel by viewModels()
 
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            checkAndFetchLocation()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        checkLocationPermissions()
+
         setContent {
             FriendTheme {
                 ContactsScreenIOS17(
@@ -72,6 +91,7 @@ class ContactsActivity : ComponentActivity() {
 
                         startActivity(
                             Intent(this, CallActivity::class.java).apply {
+                                Log.d("ContactsActivity", "Starting call: $uniqueRoomId")
                                 putExtra("roomId", uniqueRoomId)
                                 putExtra("targetId", contact.id)
                                 putExtra("targetPhotoUrl", contact.photoUrl)
@@ -82,6 +102,34 @@ class ContactsActivity : ComponentActivity() {
                     }
                 )
             }
+        }
+    }
+
+    private fun checkLocationPermissions() {
+        when {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED -> {
+                checkAndFetchLocation()
+            }
+            else -> {
+                requestPermissionLauncher.launch(arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                ))
+            }
+        }
+    }
+
+    private fun checkAndFetchLocation() {
+        try {
+            val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+            fusedLocationClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                .addOnSuccessListener { location ->
+                    location?.let {
+                        viewModel.updateUserLocation(it.latitude, it.longitude)
+                    }
+                }
+        } catch (e: SecurityException) {
+            e.printStackTrace()
         }
     }
 }
@@ -116,10 +164,15 @@ fun ContactsScreenIOS17(
     var selectedTab by remember { mutableIntStateOf(0) } // 0: Friends, 1: Discover
 
     val searchResults by viewModel.searchResults.collectAsStateWithLifecycle(emptyList())
+    val nearbyUsers by viewModel.nearbyUsers.collectAsStateWithLifecycle(emptyList())
 
     LaunchedEffect(query, selectedTab) {
-        if (selectedTab == 1 && query.isNotBlank()) {
-            viewModel.searchUsers(query)
+        if (selectedTab == 1) {
+            if (query.isNotBlank()) {
+                viewModel.searchUsers(query)
+            } else {
+                viewModel.fetchNearbyUsers()
+            }
         }
     }
 
@@ -155,7 +208,7 @@ fun ContactsScreenIOS17(
                 },
                 actions = {
                     IconButton(onClick = { showAddContactDialog = true }) {
-                        Icon(Icons.Rounded.PersonAdd, "Adicionar", tint = MessengerBlue)
+                        Icon(Icons.Rounded.PersonAdd, "Adicionar", tint = LocalChatColors.current.primary)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -189,12 +242,12 @@ fun ContactsScreenIOS17(
             TabRow(
                 selectedTabIndex = selectedTab,
                 containerColor = Color.Transparent,
-                contentColor = MessengerBlue,
+                contentColor = LocalChatColors.current.primary,
                 divider = { HorizontalDivider(thickness = 0.5.dp, color = LocalChatColors.current.separator.copy(0.2f)) },
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         modifier = Modifier.tabIndicatorOffset(tabPositions[selectedTab]),
-                        color = MessengerBlue
+                        color = LocalChatColors.current.primary
                     )
                 }
             ) {
@@ -220,7 +273,7 @@ fun ContactsScreenIOS17(
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(bottom = 20.dp)
+                contentPadding = PaddingValues(bottom = 130.dp)
             ) {
                 if (selectedTab == 0) {
                     if (contacts.isEmpty()) {
@@ -251,8 +304,33 @@ fun ContactsScreenIOS17(
                 } else {
                     // Discover Tab
                     if (query.isBlank()) {
-                        item {
-                            DiscoverEmptyState()
+                        if (nearbyUsers.isEmpty()) {
+                            item { DiscoverEmptyState() }
+                        } else {
+                            item {
+                                Text(
+                                    "Pessoas próximas (50km)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = MetaGray4,
+                                    modifier = Modifier.padding(16.dp)
+                                )
+                            }
+                            items(
+                                items = nearbyUsers.filter { it.id != myUsername },
+                                key = { it.id }
+                            ) { user ->
+                                val isContact = contacts.any { it.id == user.id }
+                                DiscoverFriendRow(
+                                    user = user,
+                                    isContact = isContact,
+                                    onClick = { selectedProfile = user },
+                                    onAddClick = { 
+                                        viewModel.addContact(user.id) { success, _ -> 
+                                            if (success) Toast.makeText(context, "Amigo adicionado!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
+                                )
+                            }
                         }
                     } else {
                         items(
@@ -476,7 +554,7 @@ private fun FriendRow(
                      Text(
                         text = "• ${2 + (contact.id.length % 5)} amigos em comum",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MessengerBlue.copy(alpha = 0.7f),
+                        color = chatColors.primary.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -539,11 +617,22 @@ private fun DiscoverFriendRow(
                     fontWeight = FontWeight.Bold,
                     color = chatColors.textPrimary
                 )
-                Text(
-                    text = "@${user.id.lowercase()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = chatColors.textSecondary
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "@${user.id.lowercase()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = chatColors.textSecondary
+                    )
+                    if (user.status.contains("km")) {
+                         Spacer(Modifier.width(8.dp))
+                         Text(
+                            text = "• ${user.status}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = chatColors.primary,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
 
             if (!isContact) {
@@ -609,7 +698,7 @@ private fun DiscoverEmptyState() {
             textAlign = TextAlign.Center
         )
         Text(
-            "Digite um nome ou arroba para encontrar usuários em todo o Wappi.", 
+            "Digite um nome ou arroba para encontrar usuários em todo o Oly.", 
             color = MetaGray4,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -653,9 +742,9 @@ private fun ContactActionSheet(
             
             HorizontalDivider(color = LocalChatColors.current.separator, thickness = 0.5.dp)
             
-            ActionItem("Enviar Mensagem", Icons.Rounded.ChatBubble, MessengerBlue, onOpenChat)
-            ActionItem("Chamada de Áudio", Icons.Rounded.Call, MessengerBlue) { onCall(false) }
-            ActionItem("Chamada de Vídeo", Icons.Rounded.Videocam, MessengerBlue) { onCall(true) }
+            ActionItem("Enviar Mensagem", Icons.Rounded.ChatBubble, LocalChatColors.current.primary, onOpenChat)
+            ActionItem("Chamada de Áudio", Icons.Rounded.Call, LocalChatColors.current.primary) { onCall(false) }
+            ActionItem("Chamada de Vídeo", Icons.Rounded.Videocam, LocalChatColors.current.primary) { onCall(true) }
             ActionItem(if (isBlocked) "Desbloquear" else "Bloquear", Icons.Rounded.Block, iOSRed, onBlock)
             ActionItem("Desfazer Amizade", Icons.Rounded.PersonRemove, iOSRed, onDelete)
         }
@@ -689,7 +778,7 @@ private fun EmptyContactsState(onAddClick: () -> Unit) {
                     Icons.Rounded.People, 
                     null, 
                     modifier = Modifier.size(56.dp), 
-                    tint = MessengerBlue.copy(alpha = 0.6f)
+                    tint = chatColors.primary.copy(alpha = 0.6f)
                 )
             }
         }
@@ -712,7 +801,7 @@ private fun EmptyContactsState(onAddClick: () -> Unit) {
             onClick = onAddClick,
             modifier = Modifier.height(48.dp).fillMaxWidth(0.8f),
             shape = RoundedCornerShape(16.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue),
+            colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary),
             elevation = ButtonDefaults.buttonElevation(defaultElevation = 4.dp)
         ) {
             Icon(Icons.Rounded.PersonAdd, null)

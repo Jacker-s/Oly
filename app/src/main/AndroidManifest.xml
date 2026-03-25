@@ -42,6 +42,8 @@
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
     <application
         android:name=".FriendApplication"
         android:allowBackup="true"
@@ -82,6 +84,14 @@
         <!-- RECEIVER PARA RESPOSTA DIRETA DA NOTIFICAÇÃO -->
         <receiver
             android:name=".ReplyReceiver"
+            android:exported="false" />
+            
+        <receiver
+            android:name=".MarkAsReadReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".ReminderReceiver"
             android:exported="false" />
 
         <!-- SERVIÇO FCM PARA RECEBER MENSAGENS E CHAMADAS VIA PUSH -->

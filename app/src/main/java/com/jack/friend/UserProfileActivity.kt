@@ -96,7 +96,7 @@ private fun UserProfileScreen(
         if (loading) {
             CircularProgressIndicator(
                 modifier = Modifier.align(Alignment.Center),
-                color = MessengerBlue
+                color = LocalChatColors.current.primary
             )
         } else if (profile == null) {
             Column(
@@ -106,7 +106,7 @@ private fun UserProfileScreen(
                 Icon(Icons.Rounded.ErrorOutline, null, tint = MetaGray4, modifier = Modifier.size(48.dp))
                 Spacer(Modifier.height(16.dp))
                 Text("Perfil não encontrado", color = MetaGray4)
-                TextButton(onClick = onBack) { Text("Voltar", color = MessengerBlue) }
+                TextButton(onClick = onBack) { Text("Voltar", color = LocalChatColors.current.primary) }
             }
         } else {
             val p = profile!!
@@ -138,11 +138,11 @@ private fun UserProfileScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = MessengerBlue)
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBackIos, null, tint = LocalChatColors.current.primary)
                         }
                         Text("Perfil", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         IconButton(onClick = { /* Share */ }) {
-                            Icon(Icons.Rounded.IosShare, null, tint = MessengerBlue)
+                            Icon(Icons.Rounded.IosShare, null, tint = LocalChatColors.current.primary)
                         }
                     }
                 }
@@ -195,7 +195,7 @@ private fun UserProfileScreen(
                     Text(
                         text = "@${p.id.lowercase()}",
                         style = MaterialTheme.typography.bodyLarge,
-                        color = MessengerBlue,
+                        color = LocalChatColors.current.primary,
                         fontWeight = FontWeight.Medium
                     )
                     Spacer(Modifier.height(24.dp))
@@ -289,7 +289,7 @@ private fun ProfileActionButton(icon: ImageVector, label: String) {
             shadowElevation = 2.dp
         ) {
             Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = MessengerBlue, modifier = Modifier.size(26.dp))
+                Icon(icon, null, tint = LocalChatColors.current.primary, modifier = Modifier.size(26.dp))
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -310,10 +310,10 @@ private fun ProfileInfoItem(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(MessengerBlue.copy(alpha = 0.1f)),
+            modifier = Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(LocalChatColors.current.primary.copy(alpha = 0.1f)),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, null, tint = MessengerBlue, modifier = Modifier.size(20.dp))
+            Icon(icon, null, tint = LocalChatColors.current.primary, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {

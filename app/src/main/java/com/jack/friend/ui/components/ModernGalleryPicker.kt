@@ -24,7 +24,6 @@ import coil.compose.AsyncImage
 import com.jack.friend.ChatViewModel
 import com.jack.friend.LocalMedia
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +50,7 @@ fun ModernGalleryPicker(
                 actions = {
                     if (selectedUris.isNotEmpty()) {
                         TextButton(onClick = { onSend(selectedUris.toList()); onDismiss() }) {
-                            Text("ENVIAR (${selectedUris.size})", fontWeight = FontWeight.Bold, color = MessengerBlue)
+                            Text("ENVIAR (${selectedUris.size})", fontWeight = FontWeight.Bold, color = LocalChatColors.current.primary)
                         }
                     }
                 },
@@ -103,7 +102,7 @@ fun ModernGalleryPicker(
                         Icon(
                             Icons.Rounded.CheckCircle,
                             null,
-                            tint = MessengerBlue,
+                            tint = LocalChatColors.current.primary,
                             modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).background(Color.White, CircleShape)
                         )
                     }

@@ -44,8 +44,7 @@ class ReplyReceiver : BroadcastReceiver() {
                 }
 
                 // Notificar o sistema que a resposta foi processada (remove o ícone de carregamento na notificação)
-                val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-                nm.cancel(chatId.hashCode())
+                NotificationHelper.clearNotification(context, chatId)
             }
         } else {
             Log.e(TAG, "RemoteInput é nulo")

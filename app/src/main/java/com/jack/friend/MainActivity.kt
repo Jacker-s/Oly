@@ -69,7 +69,7 @@ class MainActivity : FragmentActivity() {
                     AlertDialog(
                         onDismissRequest = { /* Não permite fechar fora */ },
                         title = { Text("Aviso de Anúncios") },
-                        text = { Text("Para manter o Wappi Messenger gratuito e com servidores ativos, poderemos exibir alguns anúncios durante o uso do chat. Você pode remover os anúncios comprando o pacote Premium!") },
+                        text = { Text("Para manter o Oly gratuito e com servidores ativos, poderemos exibir alguns anúncios durante o uso do chat. Você pode remover os anúncios comprando o pacote Premium!") },
                         confirmButton = {
                             Button(onClick = {
                                 val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -163,7 +163,7 @@ class MainActivity : FragmentActivity() {
                     AlertDialog(
                         onDismissRequest = { showOverlayDialog = false },
                         title = { Text("Chamadas em Segundo Plano") },
-                        text = { Text("Para que você receba chamadas instantaneamente em qualquer lugar, o Wappi precisa da permissão de 'Sobreposição'. Deseja configurar?") },
+                        text = { Text("Para que você receba chamadas instantaneamente em qualquer lugar, o Oly precisa da permissão de 'Sobreposição'. Deseja configurar?") },
                         confirmButton = {
                             Button(onClick = {
                                 showOverlayDialog = false
@@ -273,3 +273,4 @@ class MainActivity : FragmentActivity() {
         }
     }
 }
+

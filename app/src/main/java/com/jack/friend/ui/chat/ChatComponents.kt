@@ -10,7 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +32,7 @@ import com.jack.friend.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MetaStatusRow(
     statuses: List<UserStatus>,
@@ -52,6 +53,92 @@ fun MetaStatusRow(
 
     val hasUnread = { list: List<UserStatus> -> list.any { !it.viewers.containsKey(myUsername) } }
 
+    var showMyStatusOptions by remember { mutableStateOf(false) }
+
+    if (showMyStatusOptions) {
+        ModalBottomSheet(
+            onDismissRequest = { showMyStatusOptions = false },
+            containerColor = LocalChatColors.current.secondaryBackground,
+            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+            dragHandle = {
+                Surface(
+                    modifier = Modifier.padding(top = 12.dp).width(36.dp).height(4.dp),
+                    color = LocalChatColors.current.textSecondary.copy(alpha = 0.2f),
+                    shape = CircleShape
+                ) {}
+            }
+        ) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp)) {
+                Text(
+                    "Meu Status",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = LocalChatColors.current.textPrimary,
+                    modifier = Modifier.padding(bottom = 20.dp)
+                )
+
+                Surface(
+                    onClick = {
+                        showMyStatusOptions = false
+                        onViewUserStatuses(myStatuses)
+                    },
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = LocalChatColors.current.primary.copy(alpha = 0.1f)
+                        ) {
+                            Icon(
+                                Icons.Rounded.Visibility,
+                                null,
+                                tint = LocalChatColors.current.primary,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Text("Ver Status", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+
+                Surface(
+                    onClick = {
+                        showMyStatusOptions = false
+                        onAdd()
+                    },
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = Color(0xFF4CAF50).copy(alpha = 0.1f)
+                        ) {
+                            Icon(
+                                Icons.Rounded.AddCircleOutline,
+                                null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                        Spacer(Modifier.width(16.dp))
+                        Text("Adicionar Novo", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+    }
+
     LazyRow(
         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
         contentPadding = PaddingValues(horizontal = 16.dp),
@@ -61,7 +148,11 @@ fun MetaStatusRow(
         item {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.width(76.dp).clickable { if (myStatuses.isNotEmpty()) onViewUserStatuses(myStatuses) else onAdd() }
+                modifier = Modifier
+                    .width(76.dp)
+                    .clickable {
+                        if (myStatuses.isNotEmpty()) showMyStatusOptions = true else onAdd()
+                    }
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     val gradientBrush = Brush.linearGradient(
@@ -96,7 +187,7 @@ fun MetaStatusRow(
                         Surface(
                             modifier = Modifier.align(Alignment.BottomEnd).size(22.dp).offset(x = (-2).dp, y = (-2).dp),
                             shape = CircleShape,
-                            color = MessengerBlue,
+                            color = LocalChatColors.current.primary,
                             border = BorderStroke(2.dp, Color.White)
                         ) {
                             Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.padding(2.dp))
@@ -256,7 +347,7 @@ fun MetaChatItem(
                         Icon(
                             imageVector = Icons.Default.PushPin,
                             contentDescription = null,
-                            tint = MessengerBlue,
+                            tint = chatColors.primary,
                             modifier = Modifier.padding(start = 4.dp).size(14.dp)
                         )
                     }
@@ -265,7 +356,7 @@ fun MetaChatItem(
                 Text(
                     text = formatChatTime(summary.timestamp),
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (summary.hasUnread) MessengerBlue else MetaGray4
+                    color = if (summary.hasUnread) chatColors.primary else MetaGray4
                 )
             }
 
@@ -283,7 +374,7 @@ fun MetaChatItem(
                 }
 
                 val contentColor = if (summary.isTyping) {
-                    MessengerBlue
+                    chatColors.primary
                 } else if (summary.hasUnread) {
                     chatColors.textPrimary
                 } else {
@@ -315,7 +406,7 @@ fun MetaChatItem(
                         modifier = Modifier
                             .padding(start = 8.dp)
                             .size(12.dp)
-                            .background(MessengerBlue, CircleShape)
+                            .background(chatColors.primary, CircleShape)
                     )
                 }
             }
@@ -369,8 +460,8 @@ fun MetaUserItem(
             Text("@${user.id.lowercase()}", style = MaterialTheme.typography.labelSmall, color = MetaGray4)
         }
         Row {
-            if (!isContact) IconButton(onClick = onAddContactClick) { Icon(Icons.Rounded.PersonAdd, null, tint = MessengerBlue) }
-            IconButton(onClick = onChatClick) { Icon(Icons.Rounded.ChatBubble, null, tint = MessengerBlue) }
+            if (!isContact) IconButton(onClick = onAddContactClick) { Icon(Icons.Rounded.PersonAdd, null, tint = LocalChatColors.current.primary) }
+            IconButton(onClick = onChatClick) { Icon(Icons.Rounded.ChatBubble, null, tint = LocalChatColors.current.primary) }
         }
     }
 }

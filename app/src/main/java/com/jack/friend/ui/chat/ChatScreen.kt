@@ -87,6 +87,14 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 import kotlin.math.roundToInt
+import com.jack.friend.ui.components.LocationShareDialog
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.Priority
+import android.provider.OpenableColumns
+import com.google.android.gms.location.LocationServices
+import android.Manifest
 
 /**
  * Main screen for the chat functionality, handling both the conversation list and individual chat sessions.
@@ -139,7 +147,10 @@ fun ChatScreen(
     var showAddContactDialog by remember { mutableStateOf(false) }
     var showChatInfo by remember { mutableStateOf(false) }
     var replyingTo by remember { mutableStateOf<Message?>(null) }
+    var showLocationDialog by remember { mutableStateOf(false) }
+    var liveLocationCallback: LocationCallback? by remember { mutableStateOf(null) }
     var editingMessage by remember { mutableStateOf<Message?>(null) }
+    var showStarredMessages by remember { mutableStateOf(false) }
     var viewingStatuses by remember { mutableStateOf<List<UserStatus>?>(null) }
     var selectedFilter by remember { mutableStateOf("Tudo") }
     var selectedChatForOptions by remember { mutableStateOf<ChatSummary?>(null) }
@@ -148,6 +159,47 @@ fun ChatScreen(
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { bottomScreens.size })
 
     val openFeed by viewModel.openFeed.collectAsStateWithLifecycle(false)
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            try {
+                context.contentResolver.query(it, null, null, null, null)?.use { cursor ->
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (cursor.moveToFirst()) {
+                        val name = cursor.getString(nameIndex) ?: "Arquivo"
+                        val size = cursor.getLong(sizeIndex)
+                        viewModel.uploadFile(it, name, size, tempMessageDuration)
+                    }
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Erro ao selecionar arquivo", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    val locationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { perms ->
+        if (perms[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
+            showLocationDialog = true
+        } else {
+            Toast.makeText(context, "Permissão de localização negada", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Cleanup live location on leaving chat
+    DisposableEffect(targetId) {
+        onDispose {
+            liveLocationCallback?.let {
+                LocationServices.getFusedLocationProviderClient(context).removeLocationUpdates(it)
+                liveLocationCallback = null
+            }
+        }
+    }
     val openPostId by viewModel.openPostId.collectAsStateWithLifecycle(null)
 
     LaunchedEffect(openFeed, openPostId) {
@@ -188,10 +240,14 @@ fun ChatScreen(
         derivedStateOf { if (selectedFilter == "Não Lidas") activeChats.filter { it.hasUnread } else activeChats }
     }
 
-    // Ensure screenshots are always allowed
-    LaunchedEffect(Unit) {
+    // Screenshot blocking inside conversations
+    LaunchedEffect(targetId) {
         val currentActivity = context as? Activity ?: return@LaunchedEffect
-        currentActivity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        if (targetId.isNotEmpty()) {
+            currentActivity.window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        } else {
+            currentActivity.window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        }
     }
 
     LaunchedEffect(currentBottomRoute) {
@@ -225,8 +281,7 @@ fun ChatScreen(
         if (targetId.isNotEmpty()) {
             viewModel.markAsRead()
             FriendApplication.currentOpenedChatId = targetId
-            val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            nm.cancel(targetId.hashCode())
+            NotificationHelper.clearNotification(context, targetId)
         } else {
             FriendApplication.currentOpenedChatId = "LISTA_CONVERSAS"
         }
@@ -384,7 +439,8 @@ fun ChatScreen(
             }
         }
     ) { innerPadding ->
-        Box(modifier = Modifier.padding(innerPadding).fillMaxSize()) {
+        val bottomPadding = if (targetId.isNotEmpty()) innerPadding.calculateBottomPadding() else 0.dp
+        Box(modifier = Modifier.padding(top = innerPadding.calculateTopPadding(), bottom = bottomPadding).fillMaxSize()) {
             when {
                 targetId.isNotEmpty() -> {
                     MessageListContent(
@@ -393,8 +449,11 @@ fun ChatScreen(
                         onImageClick = { url -> mediaViewerItem = MediaViewerItem.Image(url) },
                         onVideoClick = { url -> mediaViewerItem = MediaViewerItem.Video(url) },
                         onDelete = { m -> viewModel.deleteMessage(m.id, if (m.senderId == myUsername) m.receiverId else m.senderId) },
-                        onReply = { m -> replyingTo = m }, onReact = { m, e -> viewModel.addReaction(m, e) },
-                        onEdit = { m -> editingMessage = m; textState = m.text }, onPin = { m -> viewModel.pinMessage(m) },
+                        onReply = { m -> replyingTo = m },
+                        onReact = { m, e -> viewModel.addReaction(m, e) },
+                        onEdit = { m -> editingMessage = m; textState = m.text },
+                        onPin = { m -> viewModel.pinMessage(m) },
+                        onStar = { m -> viewModel.toggleStarredMessage(m.id, if (m.senderId == myUsername) m.receiverId else m.senderId, m.isStarred) },
                         onAudioPlayed = { m -> viewModel.markAudioAsPlayed(m.id) }
                     )
 
@@ -439,6 +498,7 @@ fun ChatScreen(
                                 onToggleTempMessages = { showTempMessageSelector = true },
                                 onClearChat = { showClearChatDialog = true },
                                 onBlockToggle = { if (blockedUsers.contains(targetId)) viewModel.unblockUser(targetId) else viewModel.blockUser(targetId) },
+                                onStarredMessages = { showOptionsMenu = false; showStarredMessages = true },
                                 onSendTestAd = { viewModel.sendTestAd() }
                             )
                         }
@@ -548,6 +608,11 @@ fun ChatScreen(
                                                 }
                                             }
                                         }
+                                    },
+                                    onStatusAdd = { showStatusAttachmentMenu = true },
+                                    onStatusView = { userStatuses ->
+                                        viewModel.markStatusAsViewed(userStatuses.first().id)
+                                        viewingStatuses = userStatuses
                                     }
                                 )
                             }
@@ -591,11 +656,40 @@ fun ChatScreen(
                 }
             }
 
-            if (showAttachmentMenu) MediaAttachmentSheet(viewModel = viewModel, onDismiss = { showAttachmentMenu = false }, onOpenCamera = { showInAppCamera = true }, onOpenGallery = { showModernGallery = true }, onMediaSelected = { uris -> uris.forEach { viewModel.uploadImage(it, tempMessageDuration) } }, onOpenFile = { })
+            if (showAttachmentMenu) {
+                MediaAttachmentSheet(
+                    viewModel = viewModel,
+                    onDismiss = { showAttachmentMenu = false },
+                    onOpenCamera = { showInAppCamera = true },
+                    onOpenGallery = { showModernGallery = true },
+                    onOpenFile = { filePickerLauncher.launch("*/*") },
+                    onShareLocation = {
+                        locationPermissionLauncher.launch(arrayOf(
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.ACCESS_COARSE_LOCATION
+                        ))
+                    },
+                    onMediaSelected = { uris -> uris.forEach { viewModel.uploadImage(it, tempMessageDuration) } }
+                )
+            }
             if (showInAppCamera) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { InAppCameraView(onDismiss = { showInAppCamera = false }, onPhotoCaptured = { uri -> viewModel.uploadImage(uri, tempMessageDuration) }, onVideoCaptured = { uri -> viewModel.uploadVideo(uri, tempMessageDuration) }) }
             if (showModernGallery) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { ModernGalleryPicker(viewModel = viewModel, onDismiss = { showModernGallery = false }, onSend = { uris -> uris.forEach { u -> viewModel.uploadImage(u, tempMessageDuration) } }) }
 
-            if (showStatusAttachmentMenu) MediaAttachmentSheet(viewModel = viewModel, onDismiss = { showStatusAttachmentMenu = false }, onOpenCamera = { showInAppStatusCamera = true }, onOpenGallery = { showInAppStatusGallery = true }, onMediaSelected = { uris -> statusItemsToCompose = mutableStateListOf<StatusDraft>().apply { uris.forEach { add(StatusDraft(it)) } }; showStatusAttachmentMenu = false }, onOpenFile = { })
+            if (showStatusAttachmentMenu) {
+                MediaAttachmentSheet(
+                    viewModel = viewModel,
+                    isStatus = true,
+                    onDismiss = { showStatusAttachmentMenu = false },
+                    onOpenCamera = { showInAppStatusCamera = true },
+                    onOpenGallery = { showInAppStatusGallery = true },
+                    onOpenFile = { },
+                    onShareLocation = { },
+                    onMediaSelected = { uris ->
+                        statusItemsToCompose = mutableStateListOf<StatusDraft>().apply { uris.forEach { add(StatusDraft(it)) } }
+                        showStatusAttachmentMenu = false
+                    }
+                )
+            }
             if (showInAppStatusCamera) Box(modifier = Modifier.fillMaxSize().zIndex(11f)) { InAppCameraView(onDismiss = { showInAppStatusCamera = false }, onPhotoCaptured = { statusItemsToCompose = mutableStateListOf(StatusDraft(it)); showInAppStatusCamera = false }, onVideoCaptured = { statusItemsToCompose = mutableStateListOf(StatusDraft(it)); showInAppStatusCamera = false }) }
             if (showInAppStatusGallery) Box(modifier = Modifier.fillMaxSize().zIndex(11f)) { ModernGalleryPicker(viewModel = viewModel, onDismiss = { showInAppStatusGallery = false }, onSend = { uris -> statusItemsToCompose = mutableStateListOf<StatusDraft>().apply { uris.forEach { add(StatusDraft(it)) } }; showInAppStatusGallery = false }) }
 
@@ -647,7 +741,22 @@ fun ChatScreen(
 
             val currentViewingStatuses = viewingStatuses
             if (currentViewingStatuses != null) {
-                StatusViewer(userStatuses = currentViewingStatuses, myUsername = myUsername, viewModel = viewModel, onClose = { viewingStatuses = null }, onDelete = { id -> viewModel.deleteStatus(id) })
+                StatusViewer(
+                    userStatuses = currentViewingStatuses,
+                    myUsername = myUsername,
+                    viewModel = viewModel,
+                    onClose = { viewingStatuses = null },
+                    onDelete = { id ->
+                        viewModel.deleteStatus(id)
+                        // Feedback instantâneo local
+                        val newList = viewingStatuses?.filter { it.id != id }
+                        if (newList.isNullOrEmpty()) {
+                            viewingStatuses = null
+                        } else {
+                            viewingStatuses = newList
+                        }
+                    }
+                )
             }
 
             val shareTargetId = showShareConfirmDialog
@@ -755,9 +864,76 @@ fun ChatScreen(
                     }
                 }
             }
+
+            // --- Location Share Dialog ---
+            val isSharingLiveLocation by viewModel.isSharingLocation.collectAsStateWithLifecycle(false)
+            if (showLocationDialog) {
+                LocationShareDialog(
+                    isSharingLive = isSharingLiveLocation,
+                    onDismiss = { showLocationDialog = false },
+                    onShareStatic = {
+                        try {
+                            LocationServices.getFusedLocationProviderClient(context)
+                                .lastLocation.addOnSuccessListener { loc ->
+                                    if (loc != null) {
+                                        viewModel.shareLocation(loc.latitude, loc.longitude, tempDurationMillis = tempMessageDuration)
+                                    } else {
+                                        Toast.makeText(context, "Não foi possível obter localização", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                        } catch (e: SecurityException) {
+                            Toast.makeText(context, "Permissão de localização necessária", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onStartLive = { durationMinutes ->
+                        val durationMs = durationMinutes * 60 * 1000L
+                        try {
+                            val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                            val locationRequest = LocationRequest.Builder(
+                                Priority.PRIORITY_HIGH_ACCURACY,
+                                10_000L
+                            ).setMinUpdateIntervalMillis(5_000L).build()
+                            val callback = object : LocationCallback() {
+                                override fun onLocationResult(result: LocationResult) {
+                                    result.lastLocation?.let { loc ->
+                                        viewModel.updateMyLocation(loc.latitude, loc.longitude)
+                                    }
+                                }
+                            }
+                            liveLocationCallback = callback
+                            fusedClient.requestLocationUpdates(locationRequest, callback, context.mainLooper)
+                            viewModel.startLocationSharing(targetId, durationMs)
+                        } catch (e: SecurityException) {
+                            Toast.makeText(context, "Permissão de localização necessária", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    onStopLive = {
+                        liveLocationCallback?.let {
+                            LocationServices.getFusedLocationProviderClient(context).removeLocationUpdates(it)
+                            liveLocationCallback = null
+                        }
+                        viewModel.stopLocationSharing(targetId)
+                    }
+                )
+            }
+
+            // --- Starred Messages Screen (full-screen overlay) ---
+            AnimatedVisibility(
+                visible = showStarredMessages,
+                enter = slideInHorizontally { it } + fadeIn(),
+                exit = slideOutHorizontally { it } + fadeOut()
+            ) {
+                Box(modifier = Modifier.fillMaxSize().zIndex(12f)) {
+                    StarredMessagesScreen(
+                        viewModel = viewModel,
+                        onBack = { showStarredMessages = false }
+                    )
+                }
+            }
         }
     }
 }
+
 
 @Composable
 fun NotificationPopup(
@@ -800,7 +976,7 @@ fun NotificationPopup(
                 }
                 val iconColor = when (notification.type) {
                     "LIKE" -> Color.Red
-                    "COMMENT" -> MessengerBlue
+                    "COMMENT" -> colors.primary
                     "REACTION" -> Color(0xFFFF9800)
                     else -> colors.primary
                 }
@@ -868,6 +1044,7 @@ fun StatusComposer(
 ) {
     var currentStatusIndex by remember { mutableIntStateOf(0) }
     val currentStatusDraft = statusItems[currentStatusIndex]
+    val chatColors = LocalChatColors.current
 
     var draftCaption by remember(currentStatusIndex) { mutableStateOf(currentStatusDraft.caption) }
 
@@ -1065,7 +1242,7 @@ fun StatusComposer(
                                 unfocusedContainerColor = Color.Transparent,
                                 focusedTextColor = Color.White,
                                 unfocusedTextColor = Color.White,
-                                cursorColor = MessengerBlue,
+                                cursorColor = chatColors.primary,
                                 focusedIndicatorColor = Color.Transparent,
                                 unfocusedIndicatorColor = Color.Transparent
                             ),
@@ -1078,7 +1255,7 @@ fun StatusComposer(
                         modifier = Modifier
                             .size(48.dp)
                             .clip(CircleShape)
-                            .background(MessengerBlue)
+                            .background(chatColors.primary)
                             .clickable { onPost(statusItems.toList()) },
                         contentAlignment = Alignment.Center
                     ) {
@@ -1101,7 +1278,7 @@ fun StatusComposer(
                         items(fonts) { font ->
                             Text(
                                 text = font,
-                                color = if (selectedFont == font) MessengerBlue else Color.White,
+                                color = if (selectedFont == font) chatColors.primary else Color.White,
                                 modifier = Modifier
                                     .clickable { selectedFont = font }
                                     .padding(8.dp),
@@ -1139,7 +1316,7 @@ fun StatusComposer(
                             fontWeight = FontWeight.Bold
                         ),
                         modifier = Modifier.fillMaxWidth(),
-                        cursorBrush = androidx.compose.ui.graphics.SolidColor(MessengerBlue)
+                        cursorBrush = androidx.compose.ui.graphics.SolidColor(chatColors.primary)
                     )
 
                     Spacer(Modifier.height(32.dp))
@@ -1158,7 +1335,7 @@ fun StatusComposer(
                             currentOverlayText = ""
                             showTextEditor = false
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = MessengerBlue)
+                        colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary)
                     ) {
                         Text("Concluído")
                     }
@@ -1204,7 +1381,7 @@ fun StatusViewer(
     onDelete: (String) -> Unit
 ) {
     var currentIndex by remember { mutableIntStateOf(0) }
-    val currentStatus = userStatuses[currentIndex]
+    val currentStatus = userStatuses.getOrNull(currentIndex) ?: return
     var progress by remember { mutableFloatStateOf(0f) }
     var showViewers by remember { mutableStateOf(false) }
     var containerSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -1213,23 +1390,23 @@ fun StatusViewer(
     var replyText by remember { mutableStateOf("") }
     var isReplying by remember { mutableStateOf(false) }
     val focusManager = LocalFocusManager.current
+    val chatColors = LocalChatColors.current
 
-    // Pausar o status se o usuário estiver focando no teclado
-    val effectiveIsPaused = isPaused || isReplying
+    val effectiveIsPaused = isPaused || isReplying || showViewers
 
     LaunchedEffect(currentIndex, effectiveIsPaused) {
         progress = 0f
-        if (showViewers || currentStatus.isVideo) return@LaunchedEffect
+        if (effectiveIsPaused || currentStatus.isVideo) return@LaunchedEffect
 
-        val duration = 5000L
-        val updateInterval = 50L
+        val duration = 6000L
+        val updateInterval = 40L
         var accumulatedTime = 0L
 
         while(accumulatedTime < duration) {
             kotlinx.coroutines.delay(updateInterval)
-            if (!effectiveIsPaused && !showViewers) {
+            if (!effectiveIsPaused) {
                 accumulatedTime += updateInterval
-                progress = accumulatedTime.toFloat() / duration
+                progress = (accumulatedTime.toFloat() / duration).coerceIn(0f, 1f)
             }
         }
         if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
@@ -1242,51 +1419,50 @@ fun StatusViewer(
         .pointerInput(Unit) {
             detectTapGestures(
                 onPress = {
-                    val wasReplying = isReplying
-                    if (!wasReplying) isPaused = true // Só pausa por toque longo se não estiver digitando
+                    if (!isReplying) isPaused = true
                     tryAwaitRelease()
-                    if (!wasReplying) isPaused = false
+                    if (!isReplying) isPaused = false
                 },
                 onTap = { offset ->
                     if (isReplying) {
-                        isReplying = false // Tocar fora do teclado cancela a resposta
+                        isReplying = false
                         replyText = ""
                         focusManager.clearFocus()
                         return@detectTapGestures
                     }
-                    if (offset.x < size.width * 0.3f) {
-                        if (currentIndex > 0) {
-                            currentIndex--
-                            progress = 0f
-                        } else onClose() // Changed from onPreviousUser()
+                    if (offset.x < size.width * 0.35f) {
+                        if (currentIndex > 0) currentIndex-- else onClose()
+                        progress = 0f
                     } else {
-                        if (currentIndex < userStatuses.size - 1) {
-                            currentIndex++
-                            progress = 0f
-                        } else onClose() // Changed from onNextUser()
+                        if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
+                        progress = 0f
                     }
                 }
             )
         }
     ) {
-        if (currentStatus.isVideo && currentStatus.videoUrl != null) {
-            VideoStatusPlayer(
-                url = currentStatus.videoUrl!!,
-                onComplete = {
-                    if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
-                },
-                isPaused = showViewers || effectiveIsPaused,
-                onProgress = { progress = it }
-            )
-        } else {
-            AsyncImage(
-                model = currentStatus.imageUrl,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+        // --- Media Content ---
+        Box(modifier = Modifier.fillMaxSize()) {
+            if (currentStatus.isVideo && currentStatus.videoUrl != null) {
+                VideoStatusPlayer(
+                    url = currentStatus.videoUrl!!,
+                    onComplete = {
+                        if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
+                    },
+                    isPaused = effectiveIsPaused,
+                    onProgress = { progress = it }
+                )
+            } else {
+                AsyncImage(
+                    model = currentStatus.imageUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
 
+        // --- Overlays (Stickers/Text) ---
         currentStatus.overlays.forEach { overlay ->
             Box(
                 modifier = Modifier
@@ -1299,236 +1475,341 @@ fun StatusViewer(
                     .padding(8.dp)
             ) {
                 if (overlay.isAnimated && overlay.stickerUrl != null) {
-                    AnimatedEmoji(emoji = overlay.stickerUrl!!, modifier = Modifier.size(100.dp))
+                    AnimatedEmoji(emoji = overlay.stickerUrl!!, size = 110.dp)
                 } else {
-                    Text(
-                        text = overlay.text,
-                        color = Color(overlay.color),
-                        fontSize = overlay.fontSize.sp,
-                        fontFamily = when(overlay.fontStyle) {
-                            "Serif" -> FontFamily.Serif
-                            "Monospace" -> FontFamily.Monospace
-                            "Cursive" -> FontFamily.Cursive
-                            else -> FontFamily.Default
-                        },
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.background(Color.Black.copy(0.3f), RoundedCornerShape(4.dp)).padding(4.dp)
-                    )
+                    Surface(
+                        color = Color.Black.copy(0.4f),
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(4.dp)
+                    ) {
+                        Text(
+                            text = overlay.text,
+                            color = Color(overlay.color),
+                            fontSize = overlay.fontSize.sp,
+                            fontFamily = when(overlay.fontStyle) {
+                                "Serif" -> FontFamily.Serif
+                                "Monospace" -> FontFamily.Monospace
+                                "Cursive" -> FontFamily.Cursive
+                                else -> FontFamily.Default
+                            },
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        )
+                    }
                 }
             }
         }
 
+        // --- Top Controls Decorator ---
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(140.dp)
-                .align(Alignment.TopCenter)
-                .background(Brush.verticalGradient(colors = listOf(Color.Black.copy(0.7f), Color.Transparent)))
+                .height(180.dp)
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(0.6f), Color.Transparent)))
         )
 
+        // --- Bottom Controls Decorator ---
         Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(260.dp)
+                .align(Alignment.BottomCenter)
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(0.7f))))
+        )
+
+        // --- Header (User Info & Progress Bars) ---
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .statusBarsPadding()
+                .padding(top = 10.dp)
+        ) {
+            // Bars
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                userStatuses.forEachIndexed { index, _ ->
+                    val barProgress = when {
+                        index < currentIndex -> 1f
+                        index == currentIndex -> progress
+                        else -> 0f
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(2.5.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.3f))
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(barProgress.coerceIn(0f, 1f))
+                                .fillMaxHeight()
+                                .background(Color.White)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // User Profile
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AsyncImage(
+                    model = currentStatus.userPhotoUrl,
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .border(1.5.dp, Color.White.copy(0.5f), CircleShape)
+                        .background(Color.DarkGray),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        currentStatus.username,
+                        color = Color.White,
+                        fontWeight = FontWeight.ExtraBold,
+                        style = MaterialTheme.typography.titleMedium,
+                        letterSpacing = (-0.2).sp
+                    )
+                    Text(
+                        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentStatus.timestamp)),
+                        color = Color.White.copy(0.7f),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                if (currentStatus.userId == myUsername) {
+                    IconButton(onClick = { showViewers = true }) {
+                        Icon(Icons.Rounded.Visibility, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    IconButton(onClick = { onDelete(currentStatus.id) }) {
+                        Icon(Icons.Rounded.DeleteOutline, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                }
+                IconButton(onClick = onClose) {
+                    Icon(Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                }
+            }
+        }
+
+        // --- Footer (Caption & Actions) ---
+        val currentContext = LocalContext.current
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.BottomCenter)
-                .background(Brush.verticalGradient(colors = listOf(Color.Transparent, Color.Black.copy(0.8f))))
+                .navigationBarsPadding()
+                .padding(bottom = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (currentStatus.caption.isNotBlank()) {
+            if (currentStatus.caption.isNotBlank() && !isReplying) {
                 Text(
                     text = currentStatus.caption,
                     color = Color.White,
                     fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp)
-                        .padding(bottom = if (currentStatus.userId == myUsername) 40.dp else 100.dp, top = 24.dp)
+                        .padding(horizontal = 32.dp)
+                        .padding(bottom = 24.dp)
                 )
             }
-        }
 
-        val currentContext = LocalContext.current
-        if (currentStatus.userId != myUsername) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                // Quick Animated Reactions Row
-                val reactionEmojis = listOf("😂", "😍", "🔥", "😢", "👏", "🤯")
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+            if (currentStatus.userId != myUsername) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    reactionEmojis.forEach { emoji ->
-                        AnimatedEmoji(
-                            emoji = emoji,
-                            size = 48.dp,
-                            onClick = {
-                                viewModel.setTargetId(currentStatus.userId)
-                                val mockStatusReply = Message(
-                                    id = currentStatus.id,
-                                    senderId = currentStatus.userId,
-                                    senderName = currentStatus.username,
-                                    text = if (currentStatus.isVideo) "📹 Vídeo" else "📷 Imagem",
-                                    imageUrl = if (!currentStatus.isVideo) currentStatus.imageUrl else null,
-                                    videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
+                    // Reactions Row
+                    if (!isReplying) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            listOf("😂", "😍", "🔥", "😢", "👏", "🤯").forEach { emoji ->
+                                AnimatedEmoji(
+                                    emoji = emoji,
+                                    size = 46.dp,
+                                    onClick = {
+                                        viewModel.setTargetId(currentStatus.userId)
+                                        val mockStatusReply = Message(
+                                            id = currentStatus.id,
+                                            senderId = currentStatus.userId,
+                                            senderName = currentStatus.username,
+                                            text = if (currentStatus.isVideo) "📹 Vídeo" else "📷 Imagem",
+                                            imageUrl = if (!currentStatus.isVideo) currentStatus.imageUrl else null,
+                                            videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
+                                        )
+                                        viewModel.sendMessage(emoji, replyingTo = mockStatusReply)
+                                        Toast.makeText(currentContext, "Reação Enviada!", Toast.LENGTH_SHORT).show()
+                                    }
                                 )
-                                viewModel.sendMessage(emoji, replyingTo = mockStatusReply)
-                                android.widget.Toast.makeText(currentContext, "Reação Enviada", android.widget.Toast.LENGTH_SHORT).show()
                             }
-                        )
+                        }
                     }
-                }
 
-                // Input/Action Row
-                val mockStatusReply = remember(currentStatus) {
-                    Message(
-                        id = currentStatus.id,
-                        senderId = currentStatus.userId,
-                        senderName = currentStatus.username,
-                        text = if (currentStatus.isVideo) "📹 Vídeo" else "📷 Imagem",
-                        imageUrl = if (!currentStatus.isVideo) currentStatus.imageUrl else null,
-                        videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
-                    )
-                }
-
-                Row(
-                    modifier = Modifier.fillMaxWidth().animateContentSize(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (isReplying) {
-                        val focusRequester = remember { androidx.compose.ui.focus.FocusRequester() }
-                        LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
-                        TextField(
-                            value = replyText,
-                            onValueChange = { replyText = it },
+                    // Reply Input
+                    Row(
+                        modifier = Modifier.fillMaxWidth().animateContentSize(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
                             modifier = Modifier
                                 .weight(1f)
-                                .clip(RoundedCornerShape(24.dp))
-                                .border(1.dp, Color.White.copy(0.3f), RoundedCornerShape(24.dp))
-                                .focusRequester(focusRequester),
-                            colors = TextFieldDefaults.colors(
-                                focusedContainerColor = Color.Black.copy(0.6f),
-                                unfocusedContainerColor = Color.Black.copy(0.6f),
-                                focusedTextColor = Color.White,
-                                unfocusedTextColor = Color.White,
-                                cursorColor = Color.White,
-                                focusedIndicatorColor = Color.Transparent,
-                                unfocusedIndicatorColor = Color.Transparent
-                            ),
-                            placeholder = { Text("Mensagem...", color = Color.White.copy(0.5f)) },
-                            keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
-                                capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
-                                imeAction = androidx.compose.ui.text.input.ImeAction.Send
-                            ),
-                            keyboardActions = androidx.compose.foundation.text.KeyboardActions(
-                                onSend = {
-                                    if (replyText.isNotBlank()) {
+                                .height(54.dp),
+                            color = Color.White.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(27.dp),
+                            border = BorderStroke(1.dp, Color.White.copy(0.2f))
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.CenterStart
+                            ) {
+                                if (isReplying) {
+                                    val focusRequester = remember { FocusRequester() }
+                                    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+                                    TextField(
+                                        value = replyText,
+                                        onValueChange = { replyText = it },
+                                        modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
+                                        placeholder = { Text("Responda ao status...", color = Color.White.copy(0.5f)) },
+                                        colors = TextFieldDefaults.colors(
+                                            focusedContainerColor = Color.Transparent,
+                                            unfocusedContainerColor = Color.Transparent,
+                                            focusedTextColor = Color.White,
+                                            unfocusedTextColor = Color.White,
+                                            cursorColor = chatColors.primary,
+                                            focusedIndicatorColor = Color.Transparent,
+                                            unfocusedIndicatorColor = Color.Transparent
+                                        ),
+                                        textStyle = TextStyle(fontSize = 16.sp),
+                                        keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                            capitalization = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+                                            imeAction = androidx.compose.ui.text.input.ImeAction.Send
+                                        ),
+                                        keyboardActions = androidx.compose.foundation.text.KeyboardActions(
+                                            onSend = {
+                                                if (replyText.isNotBlank()) {
+                                                    viewModel.setTargetId(currentStatus.userId)
+                                                    viewModel.sendMessage(replyText.trim(), replyingTo = Message(id = currentStatus.id, senderId = currentStatus.userId, senderName = currentStatus.username, text = "Status"))
+                                                    replyText = ""
+                                                    isReplying = false
+                                                    focusManager.clearFocus()
+                                                }
+                                            }
+                                        )
+                                    )
+                                } else {
+                                    Text(
+                                        "Responda a ${currentStatus.username}...",
+                                        color = Color.White.copy(0.8f),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable { isReplying = true }
+                                            .padding(horizontal = 24.dp),
+                                        fontSize = 15.sp
+                                    )
+                                }
+                            }
+                        }
+
+                        if (isReplying && replyText.isNotBlank()) {
+                            Spacer(Modifier.width(12.dp))
+                            Box(
+                                modifier = Modifier
+                                    .size(54.dp)
+                                    .clip(CircleShape)
+                                    .background(chatColors.primary)
+                                    .clickable {
                                         viewModel.setTargetId(currentStatus.userId)
-                                        viewModel.sendMessage(replyText.trim(), replyingTo = mockStatusReply)
-                                        android.widget.Toast.makeText(currentContext, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
+                                        viewModel.sendMessage(replyText.trim(), replyingTo = Message(id = currentStatus.id, senderId = currentStatus.userId, senderName = currentStatus.username, text = "Status"))
                                         replyText = ""
                                         isReplying = false
                                         focusManager.clearFocus()
-                                    }
-                                }
-                            ),
-                            trailingIcon = {
-                                androidx.compose.animation.AnimatedVisibility(
-                                    visible = replyText.isNotBlank(),
-                                    enter = androidx.compose.animation.scaleIn(),
-                                    exit = androidx.compose.animation.scaleOut()
-                                ) {
-                                    IconButton(
-                                        onClick = {
-                                            viewModel.setTargetId(currentStatus.userId)
-                                            viewModel.sendMessage(replyText.trim(), replyingTo = mockStatusReply)
-                                            android.widget.Toast.makeText(currentContext, "Respondido", android.widget.Toast.LENGTH_SHORT).show()
-                                            replyText = ""
-                                            isReplying = false
-                                            focusManager.clearFocus()
-                                        },
-                                        modifier = Modifier.background(LocalChatColors.current.primary, CircleShape).size(36.dp)
-                                    ) {
-                                        Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                                    }
-                                }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White, modifier = Modifier.size(24.dp))
                             }
-                        )
-                    } else {
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(48.dp)
-                                .clip(RoundedCornerShape(24.dp))
-                                .border(1.dp, Color.White.copy(0.3f), RoundedCornerShape(24.dp))
-                                .background(Color.Black.copy(0.4f))
-                                .clickable { isReplying = true }
-                                .padding(horizontal = 16.dp),
-                            contentAlignment = Alignment.CenterStart
-                        ) {
-                            Text("Responder...", color = Color.White.copy(0.8f))
-                        }
-                    }
-
-                    if (!isReplying) {
-                        Spacer(Modifier.width(16.dp))
-                        IconButton(onClick = { onClose(); viewModel.setTargetId(currentStatus.userId) }, modifier = Modifier.size(40.dp)) {
-                            Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White)
                         }
                     }
                 }
             }
         }
 
-        Column(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                userStatuses.forEachIndexed { index, _ ->
-                    LinearProgressIndicator(
-                        progress = { if (index < currentIndex) 1f else if (index == currentIndex) progress else 0f },
-                        modifier = Modifier.weight(1f).height(3.dp).clip(RoundedCornerShape(1.5.dp)),
-                        color = Color.White,
-                        trackColor = Color.White.copy(alpha = 0.3f)
-                    )
-                }
-            }
-
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                AsyncImage(model = currentStatus.userPhotoUrl, contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray), contentScale = ContentScale.Crop)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(currentStatus.username, color = Color.White, fontWeight = FontWeight.Bold)
-                    Text(SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentStatus.timestamp)), color = Color.White.copy(0.7f), fontSize = 12.sp)
-                }
-                if (currentStatus.userId == myUsername) {
-                    IconButton(onClick = { showViewers = true }) {
-                        Icon(Icons.Rounded.Visibility, null, tint = Color.White)
-                    }
-                    IconButton(onClick = { onDelete(currentStatus.id) }) { Icon(Icons.Rounded.Delete, null, tint = Color.White) }
-                }
-                IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, null, tint = Color.White) }
-            }
-        }
-
+        // --- Viewers Bottom Sheet ---
         if (showViewers && currentStatus.userId == myUsername) {
             ModalBottomSheet(
                 onDismissRequest = { showViewers = false },
-                containerColor = MaterialTheme.colorScheme.surface,
-                shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
+                containerColor = chatColors.secondaryBackground.copy(alpha = 0.98f),
+                sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+                dragHandle = {
+                    Surface(
+                        modifier = Modifier.padding(top = 12.dp).width(36.dp).height(4.dp),
+                        color = chatColors.textSecondary.copy(alpha = 0.2f),
+                        shape = CircleShape
+                    ) {}
+                },
+                shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp)
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
-                    Text("Visto por", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
+                    Text(
+                        "Visualizações (${currentStatus.viewers.size})",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = chatColors.textPrimary
+                    )
+
+                    Spacer(Modifier.height(24.dp))
+
+                    if (currentStatus.userId == myUsername) {
+                        Button(
+                            onClick = { onDelete(currentStatus.id) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = iOSRed.copy(0.1f)),
+                            shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, iOSRed.copy(0.2f))
+                        ) {
+                            Icon(Icons.Rounded.DeleteOutline, null, tint = iOSRed)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Excluir Story", color = iOSRed, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(24.dp))
+                    }
 
                     val viewers = currentStatus.viewers.keys.toList()
                     if (viewers.isEmpty()) {
-                        Text("Nenhuma visualização ainda.", color = Color.Gray, modifier = Modifier.padding(vertical = 32.dp).align(Alignment.CenterHorizontally))
+                        Column(
+                            modifier = Modifier.fillMaxWidth().padding(vertical = 60.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(Icons.Rounded.VisibilityOff, null, tint = chatColors.textSecondary.copy(0.3f), modifier = Modifier.size(64.dp))
+                            Spacer(Modifier.height(16.dp))
+                            Text("Nenhuma visualização ainda", color = chatColors.textSecondary)
+                        }
                     } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
+                        LazyColumn(
+                            modifier = Modifier.heightIn(max = 500.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp),
+                            contentPadding = PaddingValues(bottom = 40.dp)
+                        ) {
                             items(viewers) { viewerId ->
                                 var viewerProfile by remember { mutableStateOf<UserProfile?>(null) }
                                 LaunchedEffect(viewerId) {
@@ -1538,15 +1819,34 @@ fun StatusViewer(
                                         }
                                 }
 
-                                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    AsyncImage(model = viewerProfile?.photoUrl, contentDescription = null, modifier = Modifier.size(40.dp).clip(CircleShape).background(Color.Gray), contentScale = ContentScale.Crop)
-                                    Spacer(Modifier.width(12.dp))
-                                    Text(viewerProfile?.name ?: viewerId, fontWeight = FontWeight.Medium)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    AsyncImage(
+                                        model = viewerProfile?.photoUrl,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp).clip(CircleShape).background(chatColors.separator),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                    Spacer(Modifier.width(16.dp))
+                                    Column {
+                                        Text(
+                                            viewerProfile?.name ?: viewerId,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = chatColors.textPrimary
+                                        )
+                                        Text(
+                                            "Visualizou recentemente",
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = chatColors.textSecondary
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
-                    Spacer(Modifier.height(32.dp))
                 }
             }
         }
@@ -1681,7 +1981,7 @@ fun ChatPopUpMenu(
                 ChatPopOptionItem(
                     text = if (summary.isPinned) "Desafixar" else "Fixar Conversa",
                     icon = Icons.Rounded.PushPin,
-                    iconColor = if (summary.isPinned) MessengerBlue else null,
+                    iconColor = if (summary.isPinned) chatColors.primary else null,
                     onClick = { onTogglePin(summary.friendId, summary.isPinned); onDismiss() }
                 )
 
@@ -1803,7 +2103,7 @@ fun TempMessageSelectorSheet(
                     Icon(
                         imageVector = Icons.Rounded.Check,
                         contentDescription = "Selecionado",
-                        tint = MessengerBlue,
+                        tint = chatColors.primary,
                         modifier = Modifier.size(24.dp)
                     )
                 }

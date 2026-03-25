@@ -28,6 +28,7 @@ material3 = "1.4.0"
 jsoup = "1.18.3"
 fresco = "3.6.0"
 billing = "7.1.1"
+material = "1.12.0"
 playServicesMlkitBarcodeScanning = "18.3.1"
 
 [libraries]
@@ -74,6 +75,7 @@ jsoup = { group = "org.jsoup", name = "jsoup", version.ref = "jsoup" }
 fresco = { group = "com.facebook.fresco", name = "fresco", version.ref = "fresco" }
 billing-ktx = { group = "com.android.billingclient", name = "billing-ktx", version.ref = "billing" }
 play-services-mlkit-barcode-scanning = { group = "com.google.android.gms", name = "play-services-mlkit-barcode-scanning", version.ref = "playServicesMlkitBarcodeScanning" }
+com-google-android-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

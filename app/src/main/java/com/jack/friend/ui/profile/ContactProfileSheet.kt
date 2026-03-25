@@ -186,7 +186,7 @@ fun IOS17ContactProfileSheet(
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(user.displayName, fontWeight = FontWeight.Black, fontSize = 24.sp, color = colors.textPrimary)
                             if (isVerified) {
-                                Icon(Icons.Rounded.Verified, null, tint = MessengerBlue, modifier = Modifier.size(20.dp).padding(start = 6.dp))
+                                Icon(Icons.Rounded.Verified, null, tint = colors.primary, modifier = Modifier.size(20.dp).padding(start = 6.dp))
                             }
                         }
                         
@@ -218,9 +218,9 @@ fun IOS17ContactProfileSheet(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    ModernActionButton("Mensagem", Icons.Rounded.ChatBubble, MessengerBlue) { onMessage(user) }
-                    ModernActionButton("Ligação", Icons.Rounded.Call, MessengerBlue) { onAudioCall(user) }
-                    ModernActionButton("Vídeo", Icons.Rounded.Videocam, MessengerBlue) { onVideoCall(user) }
+                    ModernActionButton("Mensagem", Icons.Rounded.ChatBubble, colors.primary) { onMessage(user) }
+                    ModernActionButton("Ligação", Icons.Rounded.Call, colors.primary) { onAudioCall(user) }
+                    ModernActionButton("Vídeo", Icons.Rounded.Videocam, colors.primary) { onVideoCall(user) }
                     ModernActionButton(if (isMuted) "Ativar" else "Silenciar", if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, if (isMuted) iOSOrange else colors.textSecondary) { onToggleMute() }
                 }
 
@@ -229,7 +229,7 @@ fun IOS17ContactProfileSheet(
                 // BIO Card
                 ProfileCard(colors) {
                     Text(
-                        text = user.status.ifBlank { "Olá! Estou usando o Wappi Messenger." },
+                        text = user.status.ifBlank { "Olá! Estou usando o Oly." },
                         modifier = Modifier.padding(16.dp),
                         fontSize = 15.sp,
                         color = colors.textPrimary,
@@ -317,7 +317,7 @@ private fun SectionTitle(text: String) {
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         style = MaterialTheme.typography.labelLarge,
         fontWeight = FontWeight.Bold,
-        color = MessengerBlue
+        color = LocalChatColors.current.primary
     )
 }
 
@@ -341,7 +341,7 @@ private fun ModernActionButton(label: String, icon: ImageVector, color: Color, o
 @Composable
 private fun SettingsRow(icon: ImageVector, title: String, subtitle: String, colors: ChatColors) {
     Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MessengerBlue, modifier = Modifier.size(22.dp))
+        Icon(icon, null, tint = LocalChatColors.current.primary, modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(16.dp))
         Column {
             Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.textPrimary)

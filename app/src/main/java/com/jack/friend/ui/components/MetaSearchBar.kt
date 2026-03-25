@@ -22,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.unit.dp
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.MetaGray4
 
 @Composable
@@ -63,7 +62,7 @@ fun MetaSearchBar(
                             .onFocusChanged { if (it.isFocused) onActiveChange(true) },
                         singleLine = true,
                         textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
-                        cursorBrush = SolidColor(MessengerBlue)
+                        cursorBrush = SolidColor(LocalChatColors.current.primary)
                     )
                 }
                 if (value.isNotEmpty()) {
