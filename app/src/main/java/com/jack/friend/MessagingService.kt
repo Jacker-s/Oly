@@ -43,7 +43,7 @@ class MessagingService : Service() {
     private fun startSilentForeground() {
         val notification = NotificationCompat.Builder(this, SILENT_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Friend")
+            .setContentTitle(getString(R.string.app_name))
             .setContentText("Ativo para chamadas e mensagens")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .build()

@@ -316,7 +316,7 @@ fun FeedScreen(
                                                     if (!processedKeys.contains(key)) {
                                                         val same = notifications.filter { it.postId == n.postId && it.type == n.type }
                                                         if (same.size > 1) {
-                                                            result.add(n.copy(fromName = context.getString(R.string.feed_aggregated_notification, n.fromName, same.size - 1)))
+                                                            result.add(n.copy(fromName = context.getString(R.string.notification_aggregated_format, n.fromName, same.size - 1)))
                                                         } else result.add(n)
                                                         processedKeys.add(key)
                                                     }
@@ -567,12 +567,17 @@ fun FeedScreen(
                         decorFitsSystemWindows = false
                     )
                 ) {
-                    FeedCameraScreen(
-                        onImageCaptured = { capturedUri ->
-                            selectedImageUris = selectedImageUris + capturedUri
+                    InAppCameraView(
+                        onDismiss = { showCamera = false },
+                        onPhotoCaptured = { uri ->
+                            selectedImageUris = selectedImageUris + uri
                             showCamera = false
                         },
-                        onClose = { showCamera = false }
+                        onVideoCaptured = { uri ->
+                            // Feed typically supports images, if it supports video, handle it here
+                            selectedImageUris = selectedImageUris + uri
+                            showCamera = false
+                        }
                     )
                 }
             }
@@ -586,67 +591,32 @@ fun FeedScreen(
                         decorFitsSystemWindows = false
                     )
                 ) {
-                    FeedGalleryScreen(
-                        onImagesSelected = { uris ->
+                    ModernGalleryPicker(
+                        viewModel = viewModel,
+                        onDismiss = { showCustomGallery = false },
+                        onSend = { uris ->
                             selectedImageUris = selectedImageUris + uris
                             showCustomGallery = false
-                        },
-                        onClose = { showCustomGallery = false }
+                        }
                     )
                 }
             }
 
             if (showMediaOptions) {
-                val context = LocalContext.current
-                ModalBottomSheet(
-                    onDismissRequest = { showMediaOptions = false },
-                    containerColor = colors.secondaryBackground
-                ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)) {
-                        Text(
-                            stringResource(R.string.post_media_sheet_title),
-                            modifier = Modifier.padding(16.dp),
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 20.sp,
-                            color = colors.primary
-                        )
-
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.post_media_take_photo), color = colors.primary, fontWeight = FontWeight.Medium) },
-                            leadingContent = { Icon(Icons.Rounded.CameraAlt, contentDescription = null, tint = colors.primary) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier.clickable {
-                                showMediaOptions = false
-                                val permissionCheck = androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.CAMERA)
-                                if (permissionCheck == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                    showCamera = true
-                                } else {
-                                    cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
-                                }
-                            }
-                        )
-
-                        ListItem(
-                            headlineContent = { Text(stringResource(R.string.post_media_gallery), color = colors.primary, fontWeight = FontWeight.Medium) },
-                            leadingContent = { Icon(Icons.Rounded.PhotoLibrary, contentDescription = null, tint = Color(0xFF4CAF50)) },
-                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                            modifier = Modifier.clickable {
-                                showMediaOptions = false
-                                val permission = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-                                    android.Manifest.permission.READ_MEDIA_IMAGES
-                                } else {
-                                    android.Manifest.permission.READ_EXTERNAL_STORAGE
-                                }
-                                val permissionCheck = androidx.core.content.ContextCompat.checkSelfPermission(context, permission)
-                                if (permissionCheck == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                    showCustomGallery = true
-                                } else {
-                                    galleryPermissionLauncher.launch(permission)
-                                }
-                            }
-                        )
+                MediaAttachmentSheet(
+                    viewModel = viewModel,
+                    isStatus = false,
+                    isFeed = true,
+                    onDismiss = { showMediaOptions = false },
+                    onOpenCamera = { showCamera = true },
+                    onOpenGallery = { showCustomGallery = true },
+                    onOpenFile = { /* handled by launcher if needed */ },
+                    onShareLocation = { /* handled if needed */ },
+                    onMediaSelected = { uris ->
+                        selectedImageUris = selectedImageUris + uris
+                        showMediaOptions = false
                     }
-                }
+                )
             }
 
             // Status Creation Overlays are now handled by the parent callback via onStatusAdd

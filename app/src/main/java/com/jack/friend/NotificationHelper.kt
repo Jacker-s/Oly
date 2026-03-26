@@ -6,7 +6,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -122,7 +121,7 @@ object NotificationHelper {
             connection.doInput = true
             connection.connect()
             val bytes = connection.inputStream.readBytes()
-            var bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+            var bitmap = BitmapOrientationUtils.decodeWithExif(bytes) ?: return null
             
             // Redimensionar para o ícone da notificação se necessário
             if (bitmap.width > 256 || bitmap.height > 256) {

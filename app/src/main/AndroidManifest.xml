@@ -55,6 +55,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Friend"
         android:extractNativeLibs="false"
+        android:localeConfig="@xml/locales_config"
         tools:replace="android:extractNativeLibs">
 
         <!-- AdMob App ID -->
@@ -102,6 +103,13 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+
+        <!-- SERVIÇO PARA CHAMADAS E NOTIFICAÇÕES EM SEGUNDO PLANO (REALTIME DB) -->
+        <service
+            android:name=".MessagingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="remoteMessaging" />
 
 
         <provider

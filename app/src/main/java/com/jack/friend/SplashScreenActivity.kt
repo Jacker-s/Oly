@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -24,7 +25,7 @@ import androidx.compose.ui.unit.sp
 import com.jack.friend.ui.theme.FriendTheme
 import kotlinx.coroutines.delay
 
-class SplashScreenActivity : ComponentActivity() {
+class SplashScreenActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 

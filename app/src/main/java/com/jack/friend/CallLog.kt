@@ -5,7 +5,7 @@ import com.google.firebase.database.IgnoreExtraProperties
 @IgnoreExtraProperties
 data class CallLog(
     var id: String = "",            // roomId
-    var peerId: String = "",        // outro usuário (ou groupId futuramente)
+    var peerId: String = "",        // id do outro usuário
     var peerName: String = "",      // nome cacheado
     var peerPhotoUrl: String? = null,
     var direction: String = "OUT",  // OUT | IN

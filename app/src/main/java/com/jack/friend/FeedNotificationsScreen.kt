@@ -82,7 +82,7 @@ fun FeedNotificationsScreen(
                     if (sameGroup.size > 1) {
                         val main = sameGroup.first()
                         val aggregated = main.copy(
-                            fromName = context.getString(R.string.feed_aggregated_notification, main.fromName, sameGroup.size - 1),
+                            fromName = context.getString(R.string.notification_aggregated_format, main.fromName, sameGroup.size - 1),
                             id = "GROUP_${main.id}"
                         )
                         result.add(aggregated)

@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.Manifest
+import androidx.appcompat.app.AppCompatActivity
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -37,7 +38,7 @@ import com.jack.friend.ui.chat.ChatScreen
 import com.jack.friend.ui.chat.SecurityWrapper
 import com.jack.friend.ui.theme.FriendTheme
 
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
     private lateinit var mainViewModel: ChatViewModel
     private lateinit var appUpdateManager: AppUpdateManager
     private val updateType = AppUpdateType.FLEXIBLE

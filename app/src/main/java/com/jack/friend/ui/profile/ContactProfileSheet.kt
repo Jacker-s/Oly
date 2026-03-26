@@ -71,7 +71,6 @@ fun IOS17ContactProfileSheet(
     var fullScreenPhotoUrl by remember { mutableStateOf<String?>(null) }
     
     var isVerified by remember { mutableStateOf(false) }
-    var mutualGroups by remember { mutableIntStateOf(0) }
     val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
     val feedPosts by viewModel.feedPosts.collectAsStateWithLifecycle()
     val userPosts = remember(feedPosts, user.id) { feedPosts.filter { it.authorId == user.id } }
@@ -79,9 +78,6 @@ fun IOS17ContactProfileSheet(
     LaunchedEffect(user.id) {
         FirebaseDatabase.getInstance().reference.child("verifiedUsers").child(user.id).get()
             .addOnSuccessListener { isVerified = it.getValue(Boolean::class.java) == true }
-        
-        // Mocking some groups/mutuals for UI beauty
-        mutualGroups = (user.id.length % 4) + 1
     }
 
     val presenceText = remember(user.isOnline, user.isVisibleOnline, user.lastActive) {
@@ -273,8 +269,6 @@ fun IOS17ContactProfileSheet(
                     SettingsRow(Icons.Rounded.Lock, stringResource(R.string.profile_encryption_title), stringResource(R.string.profile_encryption_subtitle), colors)
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp), 0.5.dp, colors.separator.copy(0.2f))
                     SettingsRow(Icons.Rounded.History, stringResource(R.string.dialog_temp_messages_title), stringResource(R.string.profile_temp_messages_subtitle_off), colors)
-                    HorizontalDivider(Modifier.padding(horizontal = 16.dp), 0.5.dp, colors.separator.copy(0.2f))
-                    SettingsRow(Icons.Rounded.Group, stringResource(R.string.profile_mutual_groups, mutualGroups), stringResource(R.string.profile_mutual_groups_subtitle), colors)
                 }
 
                 Spacer(Modifier.height(24.dp))

@@ -27,9 +27,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.jack.friend.ChatSummary
-import com.jack.friend.UserProfile
-import com.jack.friend.UserStatus
+import com.jack.friend.*
 import com.jack.friend.R
 import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.*
@@ -330,12 +328,21 @@ fun MetaChatItem(
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                     Text(
-                        text = summary.friendName ?: summary.friendId,
+                        text = summary.displayName,
                         style = MaterialTheme.typography.bodyLarge.copy(
                             fontWeight = if (summary.hasUnread) FontWeight.Bold else FontWeight.SemiBold
                         ),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    Spacer(Modifier.width(6.dp))
+                    
+                    Text(
+                        text = "@${summary.friendId.lowercase()}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MetaGray4,
+                        maxLines = 1
                     )
 
                     if (summary.isMuted) {
@@ -375,7 +382,7 @@ fun MetaChatItem(
                 } else if (summary.lastMessage == "Conversa apagada") {
                     stringResource(R.string.chat_status_history_deleted)
                 } else {
-                    val prefix = if (summary.lastSenderId == myId) stringResource(R.string.chat_last_message_prefix_you) else ""
+                    val prefix = if (summary.lastSenderId.equals(myId, ignoreCase = true)) stringResource(R.string.chat_last_message_prefix_you) else ""
                     "$prefix${summary.lastMessage}"
                 }
 
@@ -462,7 +469,7 @@ fun MetaUserItem(
         AsyncImage(model = user.photoUrl, contentDescription = null, modifier = Modifier.size(50.dp).clip(CircleShape).background(LocalChatColors.current.separator), contentScale = ContentScale.Crop)
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(user.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Text(user.displayName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
             Text("@${user.id.lowercase()}", style = MaterialTheme.typography.labelSmall, color = MetaGray4)
         }
         Row {

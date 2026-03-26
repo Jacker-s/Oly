@@ -68,10 +68,6 @@ data class ChatSummary(
     @set:PropertyName("isScreenshotDisabled")
     var isScreenshotDisabled: Boolean = false, // ✅ Nova configuração por chat
 
-    @get:PropertyName("isGroup")
-    @set:PropertyName("isGroup")
-    var isGroup: Boolean = false,
-
     @get:PropertyName("isAccepted")
     @set:PropertyName("isAccepted")
     var isAccepted: Boolean = true,
@@ -141,6 +137,7 @@ data class FeedPost(
     var shares: Map<String, Boolean> = emptyMap(), // userId -> true
     var animatedEmoji: String? = null,
     var mentions: List<String> = emptyList(), // ✅ Novo: Lista de usernames mencionados (@User)
+    var privateAudience: List<String> = emptyList(), // userIds permitidos quando isPublic = false
     var isAd: Boolean = false,
     var adLink: String? = null
 )

@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
@@ -11,7 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.jack.friend.ui.chat.LoginScreen
 import com.jack.friend.ui.theme.FriendTheme
 
-class LoginActivity : FragmentActivity() {
+class LoginActivity : AppCompatActivity() {
 
     private val viewModel: ChatViewModel by viewModels()
 

@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.os.Bundle
+import androidx.appcompat.app.AppCompatActivity
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -40,7 +41,7 @@ import com.jack.friend.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
 
-class UserProfileActivity : ComponentActivity() {
+class UserProfileActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -240,8 +241,7 @@ private fun UserProfileScreen(
                             .clip(RoundedCornerShape(20.dp))
                             .background(LocalChatColors.current.secondaryBackground)
                     ) {
-                        ProfileInfoItem(Icons.Rounded.Image, "Mídia e Links", "Fotos, vídeos e arquivos", showArrow = true)
-                        ProfileInfoItem(Icons.Rounded.Groups, "Grupos em comum", "Nenhum grupo encontrado", isLast = true, showArrow = true)
+                        ProfileInfoItem(Icons.Rounded.Image, "Mídia e Links", "Fotos, vídeos e arquivos", isLast = true, showArrow = true)
                     }
                     Spacer(Modifier.height(32.dp))
                 }

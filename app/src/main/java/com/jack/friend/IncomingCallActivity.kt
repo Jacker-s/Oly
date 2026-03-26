@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.app.KeyguardManager
+import androidx.appcompat.app.AppCompatActivity
 import android.app.NotificationManager
 import android.app.AlarmManager
 import android.app.PendingIntent
@@ -75,7 +76,7 @@ import com.jack.friend.ui.theme.FriendTheme
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-class IncomingCallActivity : ComponentActivity() {
+class IncomingCallActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "IncomingCallActivity"
@@ -114,6 +115,7 @@ class IncomingCallActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(1002)
 
         showOnLockScreen()
         initVibrator()
@@ -206,7 +208,7 @@ class IncomingCallActivity : ComponentActivity() {
             receiverId = target,
             text = text,
             timestamp = System.currentTimeMillis(),
-            isGroup = false
+
         )
         
         // Caminho da mensagem (mesmo chatKey usado no ViewModel)

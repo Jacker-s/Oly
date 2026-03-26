@@ -787,7 +787,7 @@ fun ChatScreen(
             if (searchingUserProfile != null) {
                 val user = searchingUserProfile!!
                 val isContact = contacts.any { it.id == user.id }
-                val chat = activeChats.firstOrNull { !it.isGroup && it.friendId == user.id }
+                val chat = activeChats.firstOrNull { it.friendId == user.id }
 
                 IOS17ContactProfileSheet(
                     viewModel = viewModel,
@@ -857,9 +857,13 @@ fun ChatScreen(
                             onDismiss = { activePopupNotification = null },
                             onClick = {
                                 activePopupNotification = null
-                                currentBottomRoute = BottomBarScreen.Feed.route
-                                scope.launch {
-                                    pagerState.animateScrollToPage(1)
+                                if (notification.type == "CHAT_MSG" && notification.fromId.isNotBlank()) {
+                                    viewModel.setTargetId(notification.fromId)
+                                } else {
+                                    currentBottomRoute = BottomBarScreen.Feed.route
+                                    scope.launch {
+                                        pagerState.animateScrollToPage(1)
+                                    }
                                 }
                             }
                         )
@@ -974,12 +978,14 @@ fun NotificationPopup(
                     "LIKE" -> Icons.Rounded.Favorite
                     "COMMENT" -> Icons.Rounded.Comment
                     "REACTION" -> Icons.Rounded.AddReaction
+                    "CHAT_MSG" -> Icons.AutoMirrored.Rounded.Chat
                     else -> Icons.Rounded.Notifications
                 }
                 val iconColor = when (notification.type) {
                     "LIKE" -> Color.Red
                     "COMMENT" -> colors.primary
                     "REACTION" -> Color(0xFFFF9800)
+                    "CHAT_MSG" -> colors.primary
                     else -> colors.primary
                 }
 
@@ -1005,9 +1011,10 @@ fun NotificationPopup(
                             "LIKE" -> append(" " + stringResource(R.string.notification_action_liked))
                             "COMMENT" -> append(" " + stringResource(R.string.notification_action_commented))
                             "REACTION" -> append(" " + stringResource(R.string.notification_action_reacted) + " ${notification.reactionEmoji}")
+                            "CHAT_MSG" -> append(" " + stringResource(R.string.notification_action_sent_message))
                             else -> append(" " + stringResource(R.string.notification_action_interacted))
                         }
-                        if (notification.type != "REACTION" && notification.type != "MENTION") {
+                        if (notification.type != "REACTION" && notification.type != "MENTION" && notification.type != "CHAT_MSG") {
                              append(" " + stringResource(R.string.label_post_preview)) // "sua postagem" logic was hardcoded, let's simplify or check strings
                         }
                     },

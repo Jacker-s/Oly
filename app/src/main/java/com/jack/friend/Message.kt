@@ -95,10 +95,6 @@ data class Message(
     // =========================
     var reactions: Map<String, String>? = null, // userId -> emoji
 
-    // =========================
-    // Grupo
-    // =========================
-    var isGroup: Boolean = false,
     var senderName: String? = null,
     var senderPhotoUrl: String? = null,
     var isSticker: Boolean = false,

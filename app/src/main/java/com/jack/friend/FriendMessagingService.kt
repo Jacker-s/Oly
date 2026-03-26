@@ -7,7 +7,6 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
-import android.graphics.BitmapFactory
 import android.media.RingtoneManager
 import android.net.Uri
 import android.os.Build
@@ -30,7 +29,7 @@ class FriendMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val CHANNEL_ID = "MESSAGES_CHANNEL_V24"
-        private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V24"
+        private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V25"
         private const val TAG = "FriendMessagingService"
         const val KEY_TEXT_REPLY = "key_text_reply"
         private const val PREFS_NAME = "friend_prefs"
@@ -133,7 +132,6 @@ class FriendMessagingService : FirebaseMessagingService() {
                 lastSenderId = sender,
                 friendName = senderProfile?.name ?: sender,
                 friendPhotoUrl = senderProfile?.photoUrl,
-                isGroup = false,
                 isOnline = senderProfile?.isOnline ?: false,
                 hasUnread = setAsUnread,
                 presenceStatus = senderProfile?.presenceStatus ?: "Online"
@@ -150,7 +148,8 @@ class FriendMessagingService : FirebaseMessagingService() {
             connection.readTimeout = 5000
             connection.doInput = true
             connection.connect()
-            BitmapFactory.decodeStream(connection.inputStream)
+            val bytes = connection.inputStream.readBytes()
+            BitmapOrientationUtils.decodeWithExif(bytes)
         } catch (e: Exception) {
             null
         }
@@ -162,39 +161,65 @@ class FriendMessagingService : FirebaseMessagingService() {
             putExtra("isVideo", message.callType == "VIDEO")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        if (Settings.canDrawOverlays(this) || FriendApplication.isAppInForeground) {
-            try { startActivity(intent) } catch (e: Exception) {}
+
+        if (FriendApplication.isAppInForeground || Settings.canDrawOverlays(this)) {
+            try {
+                startActivity(intent)
+                (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(1002)
+                return
+            } catch (e: Exception) {
+                Log.e(TAG, "Unable to open IncomingCallActivity directly: ${e.message}")
+            }
         }
-        showCallNotification(message)
+
+        // Background sem overlay: depender do full-screen intent da notificação.
+        showCallNotification(message, forceSendFullScreenIntent = true)
     }
 
-    private fun showCallNotification(message: Message) {
+    private fun showCallNotification(message: Message, forceSendFullScreenIntent: Boolean = false) {
         val intent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("callMessage", message)
             putExtra("isVideo", message.callType == "VIDEO")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
-        val fullScreenPI = PendingIntent.getActivity(this, 1002, intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val fullScreenPI = PendingIntent.getActivity(
+            this,
+            1002,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
         val builder = NotificationCompat.Builder(this, CALL_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(message.senderName ?: "Chamada")
+            .setContentTitle(message.senderName ?: getString(R.string.notification_call_title_default))
+            .setContentText(getString(R.string.call_status_incoming))
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setAutoCancel(false)
+            .setContentIntent(fullScreenPI)
+            .setSound(ringtoneUri)
             .setFullScreenIntent(fullScreenPI, true)
-            .setOngoing(true).setSilent(true)
-        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(1002, builder.build())
+            .setOngoing(true)
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(1002, builder.build())
+
+        if (forceSendFullScreenIntent) {
+            runCatching { fullScreenPI.send() }
+                .onFailure { Log.e(TAG, "Failed to force full screen intent: ${it.message}") }
+        }
     }
 
     private fun showNotification(message: Message, myUsername: String?) {
-        val chatId = if (message.isGroup) message.receiverId else message.senderId
-        val senderName = message.senderName ?: "Wappi"
+        val chatId = message.senderId
+        val senderName = message.senderName ?: getString(R.string.app_name)
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
 
         // Criar uma Intent que force a MainActivity a processar o targetId
         val intent = Intent(this, MainActivity::class.java).apply {
             action = "OPEN_CHAT_" + chatId
             putExtra("targetId", chatId)
-            putExtra("isGroup", message.isGroup)
+
             // IMPORTANTE: Flags para garantir que a atividade seja trazida para frente corretamente
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -230,8 +255,7 @@ class FriendMessagingService : FirebaseMessagingService() {
             .build()
 
         val messagingStyle = NotificationCompat.MessagingStyle(userPerson)
-            .setConversationTitle(if (message.isGroup) senderName else null)
-            .setGroupConversation(message.isGroup)
+            .setGroupConversation(false)
 
         val msgText = when {
             message.isImage -> "📷 Imagem"
@@ -253,14 +277,45 @@ class FriendMessagingService : FirebaseMessagingService() {
         if (senderBitmap != null) builder.setLargeIcon(senderBitmap)
 
         // Resposta rápida
-        val remoteInput = RemoteInput.Builder(KEY_TEXT_REPLY).setLabel("Responder...").build()
+        val remoteInput = RemoteInput.Builder(KEY_TEXT_REPLY)
+            .setLabel(getString(R.string.notification_reply_label))
+            .build()
         val replyIntent = Intent(this, ReplyReceiver::class.java).apply {
             putExtra("chatId", chatId)
             putExtra("senderName", myUsername ?: "")
-            putExtra("isGroup", message.isGroup)
+
         }
-        val replyPI = PendingIntent.getBroadcast(this, chatId.hashCode(), replyIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE)
-        builder.addAction(NotificationCompat.Action.Builder(android.R.drawable.ic_menu_send, "Responder", replyPI).addRemoteInput(remoteInput).build())
+        val replyPI = PendingIntent.getBroadcast(
+            this,
+            chatId.hashCode(),
+            replyIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
+        )
+        builder.addAction(
+            NotificationCompat.Action.Builder(
+                android.R.drawable.ic_menu_send,
+                getString(R.string.notification_action_reply),
+                replyPI
+            ).addRemoteInput(remoteInput).build()
+        )
+
+        // Marcar como lida
+        val readIntent = Intent(this, MarkAsReadReceiver::class.java).apply {
+            putExtra("chatId", chatId)
+        }
+        val readPI = PendingIntent.getBroadcast(
+            this,
+            chatId.hashCode() + 1,
+            readIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.addAction(
+            NotificationCompat.Action.Builder(
+                0,
+                getString(R.string.notification_action_mark_read),
+                readPI
+            ).build()
+        )
 
         nm.notify(chatId.hashCode(), builder.build())
     }
@@ -272,10 +327,16 @@ class FriendMessagingService : FirebaseMessagingService() {
                 nm.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Mensagens", NotificationManager.IMPORTANCE_HIGH))
             }
             if (nm.getNotificationChannel(CALL_CHANNEL_ID) == null) {
-                nm.createNotificationChannel(NotificationChannel(CALL_CHANNEL_ID, "Chamadas", NotificationManager.IMPORTANCE_HIGH).apply {
-                    setSound(null, null)
-                    enableVibration(false)
-                })
+                nm.createNotificationChannel(
+                    NotificationChannel(
+                        CALL_CHANNEL_ID,
+                        getString(R.string.notification_call_channel_name),
+                        NotificationManager.IMPORTANCE_HIGH
+                    ).apply {
+                        description = getString(R.string.notification_channel_description)
+                        enableVibration(true)
+                    }
+                )
             }
         }
     }

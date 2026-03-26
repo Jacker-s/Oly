@@ -49,10 +49,7 @@ data class UserProfile(
     @set:PropertyName("isScreenshotDisabled")
     var isScreenshotDisabled: Boolean = false, // ✅ Nova configuração de privacidade
 
-    /**
-     * Todos, Contatos
-     */
-    var allowAddGroups: String = "Todos",
+
 
     // =========================
     // Mensagem de solicitação

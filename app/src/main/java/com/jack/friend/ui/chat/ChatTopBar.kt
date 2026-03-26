@@ -95,7 +95,7 @@ fun ChatTopBar(
                                 .clickable { onChatHeaderClick() }
                                 .padding(vertical = 4.dp, horizontal = 4.dp)
                         ) {
-                            ChatHeaderTitle(targetProfile, currentChat, isTargetTyping)
+                            ChatHeaderTitle(targetId, targetProfile, currentChat, isTargetTyping)
                         }
                     } else if (!isSearching) {
                         Text(
@@ -170,7 +170,7 @@ fun ChatTopBar(
 }
 
 @Composable
-fun ChatHeaderTitle(targetProfile: UserProfile?, currentChat: ChatSummary?, isTargetTyping: Boolean) {
+fun ChatHeaderTitle(targetId: String, targetProfile: UserProfile?, currentChat: ChatSummary?, isTargetTyping: Boolean) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         AsyncImage(
             model = targetProfile?.photoUrl ?: currentChat?.friendPhotoUrl,
@@ -184,13 +184,24 @@ fun ChatHeaderTitle(targetProfile: UserProfile?, currentChat: ChatSummary?, isTa
         )
         Spacer(Modifier.width(12.dp))
         Column {
-            Text(
-                targetProfile?.name ?: currentChat?.friendName ?: "",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    targetProfile?.name?.takeIf { it.isNotBlank() } ?: currentChat?.friendName?.takeIf { it.isNotBlank() } ?: targetId,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                
+                Spacer(Modifier.width(6.dp))
+                
+                Text(
+                    "@${targetId.lowercase()}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = LocalChatColors.current.textSecondary.copy(alpha = 0.5f),
+                    maxLines = 1
+                )
+            }
             if (isTargetTyping) {
                 Text(
                     stringResource(R.string.status_typing),

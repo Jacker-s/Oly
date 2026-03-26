@@ -1,12 +1,12 @@
 <resources>
-    <string name="app_name">Oly: Feed e Chats</string>
+    <string name="app_name">Oly</string>
     <string name="default_web_client_id">135221802523-fl381le8p7cf5agsshqtps78cal57427.apps.googleusercontent.com</string>
 
     <!-- Navigation & Tabs -->
     <string name="tab_all">Tudo</string>
-    <string name="tab_groups">Grupos</string>
+
     <string name="tab_unread">Não Lidas</string>
-    <string name="title_new_group">Novo Grupo</string>
+
     <string name="title_contacts">Contatos</string>
     <string name="title_friends">Amigos</string>
     <string name="title_chats">Conversas</string>
@@ -39,7 +39,7 @@
 
     <!-- Chat Actions -->
     <string name="action_clear_chat">Limpar conversa</string>
-    <string name="action_delete_group">Apagar Grupo</string>
+
     <string name="action_delete_chat">Excluir conversa</string>
     <string name="action_block">Bloquear</string>
     <string name="action_unblock">Desbloquear</string>
@@ -53,8 +53,8 @@
     <!-- Dialogs -->
     <string name="dialog_clear_chat_title">Limpar Conversa</string>
     <string name="dialog_clear_chat_message">Isso apagará todas as mensagens para ambos.</string>
-    <string name="dialog_delete_group_title">Apagar Grupo</string>
-    <string name="dialog_delete_group_message">Isso excluirá o grupo e todas as mensagens para todos os membros.</string>
+
+
     <string name="dialog_add_contact_title">Adicionar Contato</string>
     <string name="dialog_add_contact_message">Digite o username exato do usuário:</string>
     <string name="dialog_reset_password_title">Recuperar Senha</string>
@@ -67,7 +67,7 @@
     <string name="status_away">Ausente</string>
     <string name="status_invisible">Invisível</string>
     <string name="status_offline">Offline</string>
-    <string name="status_members_count">%1$d membros</string>
+
     <string name="status_my_status">Meu status</string>
 
     <!-- Attachments -->
@@ -126,9 +126,9 @@
     <string name="media_placeholder">Mídia</string>
 
     <!-- Group Creation -->
-    <string name="group_name_hint">Nome do grupo</string>
-    <string name="group_members_count">Selecionar Membros (%1$d)</string>
-    <string name="group_create_button">Criar Grupo</string>
+
+
+
 
     <!-- Audio Recording -->
     <string name="audio_release_to_cancel">Solte para cancelar</string>
@@ -470,8 +470,8 @@
     <string name="profile_encryption_title">Criptografia de ponta a ponta</string>
     <string name="profile_encryption_subtitle">Suas conversas são privadas</string>
     <string name="profile_temp_messages_subtitle_off">Desativadas</string>
-    <string name="profile_mutual_groups">%1$d grupos em comum</string>
-    <string name="profile_mutual_groups_subtitle">Vocês participam dos mesmos chats</string>
+
+
     <string name="profile_section_posts">Publicações</string>
     <string name="profile_no_posts">Ainda não compartilhou nada no Feed</string>
 
@@ -553,8 +553,8 @@
     <string name="profile_status_hidden">Oculto</string>
     <string name="profile_status_public">Público</string>
     <string name="profile_section_media_desc">Fotos, vídeos e arquivos</string>
-    <string name="profile_section_groups">Grupos em comum</string>
-    <string name="profile_section_groups_empty">Nenhum grupo encontrado</string>
+
+
     <string name="action_block_user">Bloquear Usuário</string>
     <string name="action_report_profile">Denunciar Perfil</string>
     <string name="date_format_last_seen">dd/MM/yy \'às\' HH:mm</string>
@@ -578,9 +578,25 @@
     <string name="notification_reply_label">Responda aqui...</string>
     <string name="notification_action_reply">Responder</string>
     <string name="notification_action_mark_read">Marcar como lida</string>
+    <string name="notification_action_sent_message">enviou uma mensagem</string>
     <string name="notification_summary_text">Mensagens recebidas</string>
+    <string name="notification_channel_feed_name">Postagens</string>
+    <string name="notification_channel_feed_description">Interacoes nas suas postagens</string>
+    <string name="notification_channel_chats_name">Mensagens</string>
+    <string name="notification_channel_chats_description">Novas mensagens recebidas</string>
+    <string name="notification_feed_liked_post">curtiu sua postagem</string>
+    <string name="notification_feed_commented_preview">comentou: "%1$s"</string>
+    <string name="notification_feed_reacted_post">reagiu %1$s a sua postagem</string>
+    <string name="notification_feed_new_chat_message">enviou uma nova mensagem</string>
+    <string name="notification_feed_mentioned_post">mencionou voce numa postagem</string>
+    <string name="notification_feed_interacted_post">interagiu com sua postagem</string>
     <string name="notification_call_title_default">Chamada</string>
     <string name="notification_default_sender">Oly</string>
     <string name="notification_call_channel_name">Chamadas</string>
     <string name="profile_username_you">Eu</string>
+    <string name="qr_sheet_title">Meu Código QR</string>
+    <string name="qr_share_label">Compartilhar</string>
+    <string name="qr_copy_label">Copiar Link</string>
+    <string name="scanner_title">Scanner</string>
 </resources>
+

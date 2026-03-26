@@ -40,6 +40,7 @@ fun MediaAttachmentSheet(
     onOpenFile: () -> Unit,
     onShareLocation: () -> Unit,
     isStatus: Boolean = false,
+    isFeed: Boolean = false,
     onMediaSelected: (List<Uri>) -> Unit
 ) {
     val context = LocalContext.current
@@ -197,7 +198,7 @@ fun MediaAttachmentSheet(
                         onClick = { onOpenGallery(); onDismiss() }
                     )
                 }
-                if (!isStatus) {
+                if (!isStatus && !isFeed) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(16.dp)

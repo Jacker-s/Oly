@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.content.Intent
+import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -55,7 +56,7 @@ import androidx.core.content.ContextCompat
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 
-class ContactsActivity : ComponentActivity() {
+class ContactsActivity : AppCompatActivity() {
     private val viewModel: ChatViewModel by viewModels()
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -383,7 +384,7 @@ fun ContactsScreenIOS17(
 
         if (selectedProfile != null) {
             val user = selectedProfile!!
-            val chat = activeChats.firstOrNull { !it.isGroup && it.friendId == user.id }
+            val chat = activeChats.firstOrNull { it.friendId == user.id }
             IOS17ContactProfileSheet(
                 viewModel = viewModel,
                 user = user,

@@ -1,6 +1,7 @@
 package com.jack.friend
 
 import android.Manifest
+import androidx.appcompat.app.AppCompatActivity
 import android.app.NotificationManager
 import android.content.Context
 import android.content.pm.PackageManager
@@ -55,7 +56,7 @@ import org.webrtc.RendererCommon
 import org.webrtc.SurfaceViewRenderer
 import java.util.Locale
 
-class CallActivity : ComponentActivity() {
+class CallActivity : AppCompatActivity() {
     private val database = FirebaseDatabase.getInstance().reference
     private var roomId: String = ""
     private var targetId: String = ""

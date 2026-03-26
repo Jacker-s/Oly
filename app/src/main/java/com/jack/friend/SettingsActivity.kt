@@ -60,7 +60,9 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
 import java.util.Locale
 
-class SettingsActivity : ComponentActivity() {
+import androidx.appcompat.app.AppCompatActivity
+
+class SettingsActivity : AppCompatActivity() {
 
     private lateinit var billingManager: BillingManager
 
@@ -122,6 +124,7 @@ fun SettingsScreen(
         var showBlockedDialog by remember { mutableStateOf(false) }
         var showThemePicker by remember { mutableStateOf(false) }
         var showClearCacheDialog by remember { mutableStateOf(false) }
+        var showLanguageDialog by remember { mutableStateOf(false) }
 
         val themeSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
@@ -219,12 +222,26 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_language),
                         icon = Icons.Default.Language,
                         iconColor = iOSBlue,
-                        subtitle = if (Locale.getDefault().language == "pt") "Português" else "English",
-                        onClick = {
-                            val nextLang = if (Locale.getDefault().language == "pt") "en" else "pt"
-                            val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(nextLang)
-                            AppCompatDelegate.setApplicationLocales(appLocale)
-                        }
+                        subtitle = when (AppCompatDelegate.getApplicationLocales().get(0)?.language) {
+                            "pt" -> "Português"
+                            "en" -> "English"
+                            "es" -> "Español"
+                            "fr" -> "Français"
+                            "de" -> "Deutsch"
+                            "it" -> "Italiano"
+                            "ru" -> "Русский"
+                            "ar" -> "العربية"
+                            "zh" -> "中文"
+                            "hi" -> "हिन्दी"
+                            "bn" -> "বাংলা"
+                            "id", "in" -> "Bahasa Indonesia"
+                            "ja" -> "日本語"
+                            "ko" -> "한국어"
+                            "tr" -> "Türkçe"
+                            "ur" -> "اردو"
+                            else -> stringResource(R.string.settings_sync_system)
+                        },
+                        onClick = { showLanguageDialog = true }
                     )
                 }
 
@@ -456,6 +473,60 @@ fun SettingsScreen(
                 },
                 dismissButton = {
                     TextButton(onClick = { showClearCacheDialog = false }) { Text(stringResource(R.string.action_cancel)) }
+                }
+            )
+        }
+
+        if (showLanguageDialog) {
+            AlertDialog(
+                onDismissRequest = { showLanguageDialog = false },
+                title = { Text(stringResource(R.string.settings_language)) },
+                text = {
+                    val currentLang = AppCompatDelegate.getApplicationLocales().get(0)?.language ?: ""
+                    val syncSystemText = stringResource(R.string.settings_sync_system)
+                    val languages = listOf(
+                        "" to syncSystemText,
+                        "pt" to "Português",
+                        "en" to "English",
+                        "es" to "Español",
+                        "fr" to "Français",
+                        "de" to "Deutsch",
+                        "it" to "Italiano",
+                        "ru" to "Русский",
+                        "ar" to "العربية",
+                        "zh" to "中文",
+                        "hi" to "हिन्दी",
+                        "bn" to "বাংলা",
+                        "id" to "Bahasa Indonesia",
+                        "ja" to "日本語",
+                        "ko" to "한국어",
+                        "tr" to "Türkçe",
+                        "ur" to "اردو"
+                    )
+                    LazyColumn {
+                        items(languages) { lang ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        val appLocale = if (lang.first.isEmpty()) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(lang.first)
+                                        AppCompatDelegate.setApplicationLocales(appLocale)
+                                        showLanguageDialog = false
+                                    }
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(selected = currentLang == lang.first, onClick = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(lang.second)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    TextButton(onClick = { showLanguageDialog = false }) {
+                        Text(stringResource(R.string.action_cancel))
+                    }
                 }
             )
         }

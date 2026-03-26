@@ -53,6 +53,7 @@ fun LoginScreen(viewModel: ChatViewModel) {
     var email by remember { mutableStateOf(prefs.getString("saved_email", "") ?: "") }
     var password by remember { mutableStateOf(prefs.getString("saved_password", "") ?: "") }
     var username by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var isSignUp by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(false) }
@@ -269,6 +270,13 @@ fun LoginScreen(viewModel: ChatViewModel) {
                                                 icon = Icons.Rounded.AlternateEmail
                                             )
                                             Spacer(modifier = Modifier.height(16.dp))
+                                            MetaTextField(
+                                                value = name,
+                                                onValueChange = { name = it },
+                                                placeholder = stringResource(R.string.setup_hint_full_name),
+                                                icon = Icons.Rounded.Badge
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
                                         }
                                     }
                                 }
@@ -327,7 +335,7 @@ fun LoginScreen(viewModel: ChatViewModel) {
                                     Button(
                                         onClick = {
                                             loading = true
-                                            if (isSignUp) viewModel.signUp(email, password, username, selectedImageUri) { s, e -> loading = false; if (!s) Toast.makeText(context, e ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show() }
+                                            if (isSignUp) viewModel.signUp(email, password, username, name.ifBlank { username }, selectedImageUri) { s, e -> loading = false; if (!s) Toast.makeText(context, e ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show() }
                                             else viewModel.login(email, password) { s, e ->
                                                 loading = false
                                                 if (!s) {

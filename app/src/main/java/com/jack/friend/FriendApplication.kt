@@ -3,7 +3,8 @@ package com.jack.friend
 import android.app.Activity
 import android.app.Application
 import android.content.Context
-import android.os.Build.VERSION.SDK_INT
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import com.cloudinary.android.MediaManager
 import coil.ImageLoader
@@ -57,6 +58,18 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
             "api_secret" to "CKubGcQuYFyGat2n5I0Q0eZi-QQ"
         )
         MediaManager.init(this, config)
+
+        // INICIAR O SERVIÇO DE MENSAGENS/CHAMADAS
+        startMessagingService()
+    }
+
+    private fun startMessagingService() {
+        val intent = Intent(this, MessagingService::class.java)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
     }
 
     fun clearAppData() {
@@ -81,7 +94,7 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
     override fun newImageLoader(): ImageLoader {
         return ImageLoader.Builder(this)
             .components {
-                if (SDK_INT >= 28) {
+                if (Build.VERSION.SDK_INT >= 28) {
                     add(ImageDecoderDecoder.Factory())
                 } else {
                     add(GifDecoder.Factory())
