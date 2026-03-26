@@ -11,11 +11,13 @@ import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.util.Patterns
+import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.cloudinary.android.MediaManager
 import com.cloudinary.android.callback.ErrorInfo
 import com.cloudinary.android.callback.UploadCallback
+import com.google.android.play.core.integrity.t
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -90,6 +92,9 @@ object RecentEmojiStore {
 }
 
 class ChatViewModel : ViewModel() {
+    private fun getString(@StringRes resId: Int, vararg args: Any): String {
+        return FriendApplication.instance.getString(resId, *args)
+    }
 
     companion object {
         private const val TAG = "ChatViewModel"
@@ -154,8 +159,13 @@ class ChatViewModel : ViewModel() {
     private val _myStatus = MutableStateFlow("")
     val myStatus: StateFlow<String> = _myStatus
 
-    private val _myPresenceStatus = MutableStateFlow("Online")
+    private val _myPresenceStatus = MutableStateFlow("") // Will be initialized in init
     val myPresenceStatus: StateFlow<String> = _myPresenceStatus
+
+    init {
+        _myPresenceStatus.value = getString(R.string.status_online)
+        _myStatus.value = getString(R.string.profile_default_status)
+    }
 
     private val _openFeed = MutableStateFlow(false)
     val openFeed: StateFlow<Boolean> = _openFeed
@@ -454,8 +464,8 @@ class ChatViewModel : ViewModel() {
                 val profile = snapshot.getValue(UserProfile::class.java)
                 _myName.value = profile?.name ?: username
                 _myPhotoUrl.value = profile?.photoUrl
-                _myStatus.value = profile?.status ?: "Olá! Estou usando o Friend."
-                _myPresenceStatus.value = profile?.presenceStatus ?: "Online"
+                _myStatus.value = profile?.status ?: getString(R.string.profile_default_status)
+                _myPresenceStatus.value = profile?.presenceStatus ?: getString(R.string.status_online)
                 _showLastSeen.value = profile?.showLastSeen ?: true
                 _showReadReceipts.value = profile?.showReadReceipts ?: true
                 _showOnlineStatus.value = profile?.showOnlineStatus ?: true
@@ -528,8 +538,9 @@ class ChatViewModel : ViewModel() {
         _myId.value = "" // Limpar também o myId
         _myName.value = ""
         _myPhotoUrl.value = null
-        _myStatus.value = ""
-        _myPresenceStatus.value = "Online"
+        _myId.value = auth.currentUser?.uid ?: ""
+        _myPresenceStatus.value = getString(R.string.status_online)
+        _myStatus.value = getString(R.string.profile_default_status)
         _recentEmojis.value = emptyList()
         _showLastSeen.value = true
         _showReadReceipts.value = true
@@ -571,7 +582,6 @@ class ChatViewModel : ViewModel() {
         pinnedMessageListener = null
 
         targetProfileListener?.let { l ->
-            val t = safeTarget()
             if (t.isNotEmpty()) db.child("users").child(t).removeEventListener(l)
         }
         targetProfileListener = null
@@ -703,7 +713,7 @@ class ChatViewModel : ViewModel() {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val user = snapshot.getValue(UserProfile::class.java)
                 val isOnline = user?.isOnline ?: false
-                val presenceStatus = user?.presenceStatus ?: "Online"
+                val presenceStatus = user?.presenceStatus ?: getString(R.string.status_online)
                 updateLocalChatPresence(friendUsername, isOnline, presenceStatus)
             }
             override fun onCancelled(error: DatabaseError) {}
@@ -780,9 +790,12 @@ class ChatViewModel : ViewModel() {
             senderName = _myName.value,
             replyToId = replyingTo?.id,
             replyToText = replyingTo?.text
-                ?: if (replyingTo?.imageUrl != null) "📷 Imagem"
-                else if (replyingTo?.audioUrl != null) "🎤 Áudio"
-                else null,
+                ?: if (replyingTo?.imageUrl != null) getString(R.string.chat_summary_image)
+                else if (replyingTo?.audioUrl != null) getString(R.string.chat_summary_audio)
+                else if (replyingTo?.videoUrl != null) getString(R.string.chat_summary_video)
+                else if (replyingTo?.stickerUrl != null) getString(R.string.chat_summary_sticker)
+                else if (replyingTo?.fileUrl != null) getString(R.string.chat_summary_file)
+                else if (replyingTo?.latitude != null) getString(R.string.chat_summary_location) else null,
             replyToName = replyingTo?.senderName ?: replyingTo?.senderId,
             replyToImageUrl = replyingTo?.imageUrl ?: replyingTo?.videoThumbnailUrl,
             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
@@ -843,9 +856,9 @@ class ChatViewModel : ViewModel() {
             senderName = _myName.value,
             replyToId = replyingTo?.id,
             replyToText = replyingTo?.text
-                ?: if (replyingTo?.imageUrl != null) "📷 Imagem"
-                else if (replyingTo?.audioUrl != null) "🎤 Áudio"
-                else if (replyingTo?.stickerUrl != null) "Sticker" else null,
+                ?: if (replyingTo?.imageUrl != null) getString(R.string.chat_summary_image)
+                else if (replyingTo?.audioUrl != null) getString(R.string.chat_summary_audio)
+                else if (replyingTo?.stickerUrl != null) getString(R.string.chat_summary_sticker) else null,
             replyToName = replyingTo?.senderName ?: replyingTo?.senderId,
             replyToImageUrl = replyingTo?.imageUrl ?: replyingTo?.videoThumbnailUrl
         )
@@ -1269,13 +1282,13 @@ class ChatViewModel : ViewModel() {
                 val friend = msg.receiverId
 
                 val lastMsgText = when {
-                    msg.isAd -> "📢 Anúncio"
-                    msg.audioUrl != null -> "🎤 Áudio"
-                    msg.imageUrl != null -> "📷 Imagem"
-                    msg.videoUrl != null -> "📹 Vídeo"
-                    msg.stickerUrl != null -> "Sticker"
-                    msg.fileUrl != null -> "📄 Arquivo"
-                    msg.latitude != null -> "📍 Localização"
+                    msg.isAd -> getString(R.string.chat_summary_ad)
+                    msg.audioUrl != null -> getString(R.string.chat_summary_audio)
+                    msg.imageUrl != null -> getString(R.string.chat_summary_image)
+                    msg.videoUrl != null -> getString(R.string.chat_summary_video)
+                    msg.stickerUrl != null -> getString(R.string.chat_summary_sticker)
+                    msg.fileUrl != null -> getString(R.string.chat_summary_file)
+                    msg.latitude != null -> getString(R.string.chat_summary_location)
                     else -> msg.text
                 }
 
@@ -1294,7 +1307,7 @@ class ChatViewModel : ViewModel() {
                     isGroup = false,
                     isOnline = friendProf?.isOnline ?: false,
                     hasUnread = false,
-                    presenceStatus = friendProf?.presenceStatus ?: "Online",
+                    presenceStatus = friendProf?.presenceStatus ?: getString(R.string.status_online),
                     isPinned = existingSummary?.isPinned ?: false,
                     isMuted = existingSummary?.isMuted ?: false,
                     isEphemeral = existingSummary?.isEphemeral ?: false,
@@ -1314,7 +1327,7 @@ class ChatViewModel : ViewModel() {
                         friendName = meProf?.name ?: me,
                         friendPhotoUrl = meProf?.photoUrl,
                         hasUnread = true,
-                        presenceStatus = meProf?.presenceStatus ?: "Online",
+                        presenceStatus = meProf?.presenceStatus ?: getString(R.string.status_online),
                         isPinned = existingFriendSummary?.isPinned ?: false,
                         isMuted = existingFriendSummary?.isMuted ?: false,
                         isEphemeral = existingFriendSummary?.isEphemeral ?: false,
@@ -1334,7 +1347,7 @@ class ChatViewModel : ViewModel() {
         val user = safeMe()
         if (user.isEmpty()) return
 
-        val isVisible = _myPresenceStatus.value != "Invisível" && _showOnlineStatus.value
+        val isVisible = _myPresenceStatus.value != getString(R.string.status_invisible) && _showOnlineStatus.value
         db.child("users").child(user).child("isOnline").setValue(online && isVisible)
 
         if (!online) {
@@ -1451,15 +1464,15 @@ class ChatViewModel : ViewModel() {
         val cleanTarget = if (targetUsername.startsWith("@")) targetUsername.substring(1) else targetUsername
         val target = cleanTarget.uppercase().trim()
 
-        if (me.isEmpty()) return callback(false, "Usuário não autenticado")
-        if (me == target) return callback(false, "Não pode adicionar a si mesmo")
+        if (me.isEmpty()) return callback(false, getString(R.string.error_user_not_logged_in))
+        if (me == target) return callback(false, getString(R.string.error_add_self))
 
         db.child("users").child(target).get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
                 db.child("contacts").child(me).child(target).setValue(true).addOnCompleteListener { task ->
                     if (task.isSuccessful) callback(true, null) else callback(false, task.exception?.message)
                 }
-            } else callback(false, "Usuário não encontrado")
+            } else callback(false, getString(R.string.error_user_no_found))
         }.addOnFailureListener { callback(false, it.message) }
     }
 
@@ -1585,9 +1598,9 @@ class ChatViewModel : ViewModel() {
                     completeProfile(uid, upper, username, imageUri, callback)
                 } else {
                     val errorMsg = when (task.exception) {
-                        is FirebaseAuthUserCollisionException -> "Este e-mail já está em uso."
-                        is FirebaseAuthInvalidCredentialsException -> "Formato de e-mail inválido ou senha fraca."
-                        else -> task.exception?.localizedMessage ?: "Erro ao criar conta"
+                        is FirebaseAuthUserCollisionException -> getString(R.string.error_email_already_exists)
+                        is FirebaseAuthInvalidCredentialsException -> getString(R.string.error_invalid_format)
+                        else -> task.exception?.localizedMessage ?: getString(R.string.error_generic)
                     }
                     callback(false, errorMsg)
                 }
@@ -1599,7 +1612,7 @@ class ChatViewModel : ViewModel() {
         db.child("users").child(upper).get().addOnSuccessListener { snapshot ->
             if (snapshot.exists()) {
                 // Se o username já existir, não deletamos o user do auth se ele já existia antes
-                callback(false, "Este nome de usuário já está em uso.")
+                callback(false, getString(R.string.error_username_already_exists))
             } else {
                 viewModelScope.launch(errorHandler) {
                     try {
@@ -1614,19 +1627,19 @@ class ChatViewModel : ViewModel() {
                         setupUserSession()
                         callback(true, null)
                     } catch (e: Exception) {
-                        callback(false, "Erro ao salvar perfil: ${e.message}")
+                        callback(false, getString(R.string.error_profile_save_failed, e.message ?: ""))
                     }
                 }
             }
         }.addOnFailureListener {
-            callback(false, "Erro de permissão no banco: ${it.message}")
+            callback(false, getString(R.string.error_db_permission, it.message ?: ""))
         }
     }
 
     fun finalizeProfile(username: String, name: String, imageUri: Uri?, callback: (Boolean, String?) -> Unit) {
         val upper = username.uppercase().trim()
         val uid = _myId.value
-        if (uid.isEmpty()) return callback(false, "Sessão inválida")
+        if (uid.isEmpty()) return callback(false, getString(R.string.error_invalid_session))
         completeProfile(uid, upper, name, imageUri, callback)
     }
 
@@ -1649,13 +1662,13 @@ class ChatViewModel : ViewModel() {
                         callback(true, "NEED_PROFILE")
                     }
                 }.addOnFailureListener {
-                    callback(false, "Erro ao carregar dados do perfil: ${it.message}")
+                    callback(false, getString(R.string.error_profile_save_failed, it.message ?: ""))
                 }
             } else {
                 val errorMsg = when (task.exception) {
-                    is FirebaseAuthInvalidUserException -> "Usuário não encontrado ou desativado."
-                    is FirebaseAuthInvalidCredentialsException -> "E-mail ou senha incorretos."
-                    else -> "E-mail ou senha incorretos."
+                    is FirebaseAuthInvalidUserException -> getString(R.string.error_user_not_found)
+                    is FirebaseAuthInvalidCredentialsException -> getString(R.string.error_invalid_credentials)
+                    else -> getString(R.string.error_invalid_credentials)
                 }
                 callback(false, errorMsg)
             }
@@ -1818,7 +1831,7 @@ class ChatViewModel : ViewModel() {
                 callback(true, null)
             } catch (e: Exception) {
                 val msg = if (e.message?.contains("recent-login") == true)
-                    "Re-autenticação necessária." else e.message
+                    getString(R.string.error_reauth_required) else e.message
                 callback(false, msg)
             }
         }
@@ -2189,7 +2202,7 @@ class ChatViewModel : ViewModel() {
 
                         if (similar.isNotEmpty() && newest.type != "COMMENT" && newest.type != "MENTION") {
                             val aggregated = newest.copy(
-                                fromName = "${newest.fromName} e ${similar.size} outras pessoas"
+                                fromName = getString(R.string.notification_aggregated_format, newest.fromName, similar.size)
                             )
                             viewModelScope.launch { _latestNotification.emit(aggregated) }
                             FeedNotificationHelper.showFeedInteractionNotification(FriendApplication.instance, aggregated)
@@ -2408,7 +2421,7 @@ class ChatViewModel : ViewModel() {
                 id = systemMsgId,
                 senderId = me, // ENVIAR COMO O USUÁRIO ATUAL PARA O RECEPTOR SABER DE QUEM VEIO
                 receiverId = friendId,
-                text = "Conversa apagada",
+                text = getString(R.string.chat_summary_deleted),
                 timestamp = System.currentTimeMillis()
             )
             // Escrevemos a mensagem no chatKey. A regra "messages" permite pois você faz parte do chat.
@@ -2429,7 +2442,7 @@ class ChatViewModel : ViewModel() {
             db.child(path).removeValue()
 
             val upd = mapOf(
-                "lastMessage" to "Conversa limpa",
+                "lastMessage" to getString(R.string.chat_status_history_cleared),
                 "timestamp" to System.currentTimeMillis(),
                 "hasUnread" to false,
                 "lastSenderId" to ""
@@ -2444,7 +2457,7 @@ class ChatViewModel : ViewModel() {
                 id = systemMsgId,
                 senderId = me,
                 receiverId = friendId,
-                text = "Conversa limpa",
+                text = getString(R.string.chat_status_history_cleared),
                 timestamp = System.currentTimeMillis()
             )
             db.child(path).child(systemMsgId).setValue(systemMsg)
@@ -2507,11 +2520,11 @@ class ChatViewModel : ViewModel() {
 
                     if (lastMsg != null) {
                         val updatedText = when {
-                            lastMsg.isAd -> "📢 Anúncio"
-                            lastMsg.audioUrl != null -> "🎤 Áudio"
-                            lastMsg.imageUrl != null -> "📷 Imagem"
-                            lastMsg.videoUrl != null -> "📹 Vídeo"
-                            lastMsg.stickerUrl != null -> "Sticker"
+                            lastMsg.isAd -> getString(R.string.chat_summary_ad)
+                            lastMsg.audioUrl != null -> getString(R.string.chat_summary_audio)
+                            lastMsg.imageUrl != null -> getString(R.string.chat_summary_image)
+                            lastMsg.videoUrl != null -> getString(R.string.chat_summary_video)
+                            lastMsg.stickerUrl != null -> getString(R.string.chat_summary_sticker)
                             else -> lastMsg.text
                         }
                         meRef.child("lastMessage").setValue(updatedText)
@@ -2519,8 +2532,8 @@ class ChatViewModel : ViewModel() {
                         frRef.child("lastMessage").setValue(updatedText)
                         frRef.child("timestamp").setValue(lastMsg.timestamp)
                     } else {
-                        meRef.child("lastMessage").setValue("Conversa vazia")
-                        frRef.child("lastMessage").setValue("Conversa vazia")
+                        meRef.child("lastMessage").setValue(getString(R.string.chat_summary_empty))
+                        frRef.child("lastMessage").setValue(getString(R.string.chat_summary_empty))
                     }
                 }
             }
@@ -2603,7 +2616,7 @@ class ChatViewModel : ViewModel() {
                     id = msgId,
                     senderId = me,
                     receiverId = target,
-                    text = if (isVideo) "Chamada de vídeo" else "Chamada de áudio",
+                    text = if (isVideo) getString(R.string.chat_call_video) else getString(R.string.chat_call_audio),
                     timestamp = now,
                     isGroup = false,
                     senderName = _myName.value,
@@ -2772,7 +2785,7 @@ class ChatViewModel : ViewModel() {
             id = msgId,
             senderId = me,
             receiverId = target,
-            text = "Tentou tirar um print da tela! 📸",
+            text = getString(R.string.chat_screenshot_alert),
             timestamp = System.currentTimeMillis(),
             isGroup = false,
             senderName = _myName.value,
@@ -2814,7 +2827,7 @@ class ChatViewModel : ViewModel() {
             val msgId = db.push().key ?: return@launch
 
             // Texto formatado com o ID para detecção automática de clique no bubble
-            val shareText = "Confira esta postagem no Oly!\n\n${post.text}\n\nEnviado por @${post.authorId}\nPOST_ID:${post.id}"
+            val shareText = getString(R.string.feed_share_message_format, post.text, post.authorId) + "\nPOST_ID:${post.id}"
 
             val msg = Message(
                 id = msgId,
