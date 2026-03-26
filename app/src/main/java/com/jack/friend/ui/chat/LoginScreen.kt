@@ -15,6 +15,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.*
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,7 +37,13 @@ import coil.compose.AsyncImage
 import com.jack.friend.ChatViewModel
 import com.jack.friend.MetaTextField
 import com.jack.friend.ui.theme.LocalChatColors
-import com.jack.friend.ui.theme.MetaGray4
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.jack.friend.getGoogleSignInClient
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.res.painterResource
 
 @Composable
 fun LoginScreen(viewModel: ChatViewModel) {
@@ -51,10 +58,37 @@ fun LoginScreen(viewModel: ChatViewModel) {
     var loading by remember { mutableStateOf(false) }
     var showResetPassword by remember { mutableStateOf(false) }
     var rememberMe by remember { mutableStateOf(prefs.getBoolean("remember_me", false)) }
+    var showEmailForm by remember { mutableStateOf(false) }
 
     val photoLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? -> selectedImageUri = uri }
     val chatColors = LocalChatColors.current
 
+    val myId by viewModel.myId.collectAsStateWithLifecycle()
+    val isUserLoggedIn by viewModel.isUserLoggedIn.collectAsStateWithLifecycle()
+    val myUsername by viewModel.myUsername.collectAsStateWithLifecycle()
+
+    val googleSignInLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.getResult(com.google.android.gms.common.api.ApiException::class.java)
+            val idToken = account?.idToken
+            if (idToken != null) {
+                loading = true
+                viewModel.signInWithGoogle(idToken) { success, error ->
+                    loading = false
+                    if (!success) {
+                        Toast.makeText(context, error ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Toast.makeText(context, "Google sign in failed: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (isUserLoggedIn && myUsername.isEmpty()) {
+        InitialProfileSetupScreen(viewModel)
+    } else {
     Box(modifier = Modifier.fillMaxSize().background(chatColors.background)) {
         // Decorative Background Elements (Premium Feel)
         Box(
@@ -136,7 +170,7 @@ fun LoginScreen(viewModel: ChatViewModel) {
             )
             
             Text(
-                if (isSignUp) "Crie sua conta e comece a conversar" else "Bem-vindo de volta! Sentimos sua falta",
+                if (isSignUp) stringResource(R.string.signup_subtitle) else stringResource(R.string.login_welcome),
                 style = MaterialTheme.typography.bodyMedium,
                 color = chatColors.textSecondary.copy(alpha = 0.7f),
                 textAlign = TextAlign.Center,
@@ -145,235 +179,258 @@ fun LoginScreen(viewModel: ChatViewModel) {
 
             Spacer(modifier = Modifier.height(40.dp))
 
-            // Main Input Container (Glassy Look)
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(32.dp),
-                color = chatColors.secondaryBackground.copy(alpha = 0.6f),
-                border = BorderStroke(1.dp, chatColors.primary.copy(alpha = 0.05f))
-            ) {
-                Column(
-                    modifier = Modifier.padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    AnimatedContent(
-                        targetState = isSignUp,
-                        transitionSpec = {
-                            (fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300))) togetherWith
-                            (fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300)))
-                        },
-                        label = "auth_toggle"
-                    ) { signUp ->
-                        if (signUp) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(110.dp)
-                                        .clip(CircleShape)
-                                        .background(chatColors.tertiaryBackground)
-                                        .clickable { photoLauncher.launch("image/*") }
-                                        .border(2.dp, if (selectedImageUri != null) chatColors.primary else chatColors.primary.copy(0.1f), CircleShape),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (selectedImageUri != null) {
-                                        AsyncImage(
-                                            model = selectedImageUri,
-                                            contentDescription = null,
-                                            modifier = Modifier.fillMaxSize(),
-                                            contentScale = ContentScale.Crop
-                                        )
-                                    } else {
+            AnimatedContent(
+                targetState = showEmailForm,
+                transitionSpec = {
+                    (fadeIn(animationSpec = tween(400)) + slideInVertically(initialOffsetY = { 40 })).togetherWith(
+                        fadeOut(animationSpec = tween(400)) + slideOutVertically(targetOffsetY = { -40 })
+                    )
+                },
+                label = "login_mode_transition"
+            ) { isEmailMode ->
+                if (!isEmailMode) {
+                    // Initial Selection Mode
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        SocialLoginButton(
+                            painter = painterResource(R.drawable.ic_google),
+                            text = "Entrar com Google",
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            onClick = { 
+                                val client = getGoogleSignInClient(context)
+                                client.signOut().addOnCompleteListener {
+                                    googleSignInLauncher.launch(client.signInIntent)
+                                }
+                            }
+                        )
+                        
+                        SocialLoginButton(
+                            painter = rememberVectorPainter(Icons.Rounded.Email),
+                            text = "Login com E-mail",
+                            modifier = Modifier.fillMaxWidth().height(60.dp),
+                            onClick = { showEmailForm = true }
+                        )
+                    }
+                } else {
+                    // Email Form Mode
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        // Main Input Container (Glassy Look)
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(32.dp),
+                            color = chatColors.secondaryBackground.copy(alpha = 0.6f),
+                            border = BorderStroke(1.dp, chatColors.primary.copy(alpha = 0.05f))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(24.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                AnimatedContent(
+                                    targetState = isSignUp,
+                                    transitionSpec = {
+                                        (fadeIn(animationSpec = tween(300)) + expandVertically(animationSpec = tween(300))) togetherWith
+                                        (fadeOut(animationSpec = tween(300)) + shrinkVertically(animationSpec = tween(300)))
+                                    },
+                                    label = "auth_toggle"
+                                ) { signUp ->
+                                    if (signUp) {
                                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                            Icon(Icons.Rounded.AddAPhoto, null, tint = chatColors.primary, modifier = Modifier.size(30.dp))
-                                            Text("Foto", fontSize = 11.sp, color = chatColors.primary, fontWeight = FontWeight.Bold)
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(110.dp)
+                                                    .clip(CircleShape)
+                                                    .background(chatColors.tertiaryBackground)
+                                                    .clickable { photoLauncher.launch("image/*") }
+                                                    .border(2.dp, if (selectedImageUri != null) chatColors.primary else chatColors.primary.copy(0.1f), CircleShape),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (selectedImageUri != null) {
+                                                    AsyncImage(
+                                                        model = selectedImageUri,
+                                                        contentDescription = null,
+                                                        modifier = Modifier.fillMaxSize(),
+                                                        contentScale = ContentScale.Crop
+                                                    )
+                                                } else {
+                                                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                                        Icon(Icons.Rounded.AddAPhoto, null, tint = chatColors.primary, modifier = Modifier.size(30.dp))
+                                                        Text(stringResource(R.string.label_photo), fontSize = 11.sp, color = chatColors.primary, fontWeight = FontWeight.Bold)
+                                                    }
+                                                }
+                                            }
+                                            Spacer(modifier = Modifier.height(24.dp))
+                                            MetaTextField(
+                                                value = username,
+                                                onValueChange = { if (!it.contains(".")) username = it },
+                                                placeholder = stringResource(R.string.label_username),
+                                                icon = Icons.Rounded.AlternateEmail
+                                            )
+                                            Spacer(modifier = Modifier.height(16.dp))
                                         }
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(24.dp))
+
                                 MetaTextField(
-                                    value = username,
-                                    onValueChange = { if (!it.contains(".")) username = it },
-                                    placeholder = "Nome de usuário",
-                                    icon = Icons.Rounded.AlternateEmail
+                                    value = email,
+                                    onValueChange = { email = it },
+                                    placeholder = stringResource(R.string.label_email),
+                                    icon = Icons.Rounded.Email,
+                                    keyboardType = KeyboardType.Email
                                 )
+                                
                                 Spacer(modifier = Modifier.height(16.dp))
+                                
+                                MetaTextField(
+                                    value = password,
+                                    onValueChange = { password = it },
+                                    placeholder = stringResource(R.string.label_password),
+                                    icon = Icons.Rounded.Lock,
+                                    isPassword = true
+                                )
+
+                                if (!isSignUp) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween
+                                    ) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Surface(
+                                                modifier = Modifier.size(20.dp),
+                                                shape = RoundedCornerShape(6.dp),
+                                                color = if (rememberMe) chatColors.primary else chatColors.tertiaryBackground,
+                                                onClick = { rememberMe = !rememberMe }
+                                            ) {
+                                                if (rememberMe) {
+                                                    Icon(Icons.Rounded.Check, null, modifier = Modifier.padding(2.dp), tint = Color.White)
+                                                }
+                                            }
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(stringResource(R.string.label_remember_me), fontSize = 14.sp, color = chatColors.textSecondary, fontWeight = FontWeight.Medium)
+                                        }
+                                        TextButton(onClick = { showResetPassword = true }) {
+                                            Text(stringResource(R.string.action_forgot_password_short), color = chatColors.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(28.dp))
+
+                                if (loading) {
+                                    Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
+                                        CircularProgressIndicator(color = chatColors.primary, modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
+                                    }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            loading = true
+                                            if (isSignUp) viewModel.signUp(email, password, username, selectedImageUri) { s, e -> loading = false; if (!s) Toast.makeText(context, e ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show() }
+                                            else viewModel.login(email, password) { s, e ->
+                                                loading = false
+                                                if (!s) {
+                                                    Toast.makeText(context, e ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show()
+                                                } else {
+                                                    if (rememberMe) {
+                                                        prefs.edit {
+                                                            putString("saved_email", email)
+                                                            putString("saved_password", password)
+                                                            putBoolean("remember_me", true)
+                                                        }
+                                                    } else {
+                                                        prefs.edit { clear() }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(58.dp),
+                                        shape = RoundedCornerShape(20.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary),
+                                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp, pressedElevation = 2.dp)
+                                    ) {
+                                        Text(
+                                            if (isSignUp) stringResource(R.string.action_signup) else stringResource(R.string.action_login),
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.ExtraBold,
+                                            color = Color.White
+                                        )
+                                    }
+                                }
                             }
                         }
-                    }
 
-                    MetaTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        placeholder = "E-mail",
-                        icon = Icons.Rounded.Email,
-                        keyboardType = KeyboardType.Email
-                    )
-                    
-                    Spacer(modifier = Modifier.height(16.dp))
-                    
-                    MetaTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        placeholder = "Senha",
-                        icon = Icons.Rounded.Lock,
-                        isPassword = true
-                    )
-
-                    if (!isSignUp) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                        Spacer(modifier = Modifier.height(32.dp))
+                        
+                        TextButton(
+                            onClick = { isSignUp = !isSignUp },
+                            modifier = Modifier.padding(bottom = 8.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(
-                                    modifier = Modifier.size(20.dp),
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (rememberMe) chatColors.primary else chatColors.tertiaryBackground,
-                                    onClick = { rememberMe = !rememberMe }
-                                ) {
-                                    if (rememberMe) {
-                                        Icon(Icons.Rounded.Check, null, modifier = Modifier.padding(2.dp), tint = Color.White)
-                                    }
-                                }
-                                Spacer(Modifier.width(8.dp))
-                                Text("Lembrar", fontSize = 14.sp, color = chatColors.textSecondary, fontWeight = FontWeight.Medium)
-                            }
-                            TextButton(onClick = { showResetPassword = true }) {
-                                Text("Esqueceu?", color = chatColors.primary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(
+                                    if (isSignUp) stringResource(R.string.login_switch_to_login_question) else stringResource(R.string.login_switch_to_signup_question),
+                                    color = chatColors.textSecondary,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    if (isSignUp) stringResource(R.string.login_switch_to_login_action) else stringResource(R.string.login_switch_to_signup_action),
+                                    color = chatColors.primary,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.ExtraBold
+                                )
                             }
                         }
-                    }
-
-                    Spacer(modifier = Modifier.height(28.dp))
-
-                    if (loading) {
-                        Box(modifier = Modifier.height(56.dp), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator(color = chatColors.primary, modifier = Modifier.size(28.dp), strokeWidth = 3.dp)
-                        }
-                    } else {
-                        Button(
-                            onClick = {
-                                loading = true
-                                if (isSignUp) viewModel.signUp(email, password, username, selectedImageUri) { s, e -> loading = false; if (!s) Toast.makeText(context, e ?: "Erro", Toast.LENGTH_SHORT).show() }
-                                else viewModel.login(email, password) { s, e ->
-                                    loading = false
-                                    if (!s) {
-                                        Toast.makeText(context, e ?: "Erro", Toast.LENGTH_SHORT).show()
-                                    } else {
-                                        if (rememberMe) {
-                                            prefs.edit {
-                                                putString("saved_email", email)
-                                                putString("saved_password", password)
-                                                putBoolean("remember_me", true)
-                                            }
-                                        } else {
-                                            prefs.edit { clear() }
-                                        }
-                                    }
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth().height(58.dp),
-                            shape = RoundedCornerShape(20.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary),
-                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp, pressedElevation = 2.dp)
+                        
+                        TextButton(
+                            onClick = { showEmailForm = false }
                         ) {
                             Text(
-                                if (isSignUp) "Criar Conta" else "Entrar",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = Color.White
+                                "Voltar para opções de login",
+                                color = chatColors.textSecondary.copy(alpha = 0.6f),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            // Social Login Divider
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 16.dp)) {
-                HorizontalDivider(modifier = Modifier.weight(1f), color = chatColors.textSecondary.copy(alpha = 0.1f))
-                Text("ou continue com", modifier = Modifier.padding(horizontal = 16.dp), color = chatColors.textSecondary.copy(alpha = 0.5f), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                HorizontalDivider(modifier = Modifier.weight(1f), color = chatColors.textSecondary.copy(alpha = 0.1f))
-            }
-            
-            Spacer(modifier = Modifier.height(24.dp))
-            
-            // Social Buttons Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                SocialLoginButton(
-                    icon = Icons.Rounded.GTranslate, // Placeholder for Google
-                    text = "Google",
-                    modifier = Modifier.weight(1f),
-                    onClick = { /* TODO */ }
-                )
-                SocialLoginButton(
-                    icon = Icons.Rounded.AccountCircle, // Placeholder for Apple (Icons.Rounded.Apple does not exist)
-                    text = "Apple",
-                    modifier = Modifier.weight(1f),
-                    onClick = { /* TODO */ }
-                )
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-            
-            TextButton(
-                onClick = { isSignUp = !isSignUp },
-                modifier = Modifier.padding(bottom = 24.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        if (isSignUp) "Já tem uma conta?" else "Não tem uma conta?",
-                        color = chatColors.textSecondary,
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        if (isSignUp) "Entrar" else "Cadastre-se",
-                        color = chatColors.primary,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.ExtraBold
-                    )
                 }
             }
             
             Spacer(modifier = Modifier.height(20.dp))
         }
     }
+    }
 
     if (showResetPassword) {
         var resetEmail by remember { mutableStateOf(email) }
         AlertDialog(
             onDismissRequest = { showResetPassword = false },
-            title = { Text("Recuperar Senha", fontWeight = FontWeight.Bold, color = chatColors.textPrimary) },
+            title = { Text(stringResource(R.string.dialog_reset_password_title), fontWeight = FontWeight.Bold, color = chatColors.textPrimary) },
             text = {
                 Column {
-                    Text("Enviaremos um link de redefinição para o seu e-mail.", color = chatColors.textSecondary)
+                    Text(stringResource(R.string.dialog_reset_password_message), color = chatColors.textSecondary)
                     Spacer(Modifier.height(20.dp))
-                    MetaTextField(resetEmail, { resetEmail = it }, "E-mail de cadastro", Icons.Rounded.Email)
+                    MetaTextField(resetEmail, { resetEmail = it }, stringResource(R.string.label_email_reset), Icons.Rounded.Email)
                 }
             },
             confirmButton = {
                 Button(
                     onClick = {
                         if (resetEmail.isNotBlank()) viewModel.resetPassword(resetEmail) { s, e ->
-                            if (s) { Toast.makeText(context, "Link enviado!", Toast.LENGTH_LONG).show(); showResetPassword = false }
-                            else Toast.makeText(context, e ?: "Erro", Toast.LENGTH_SHORT).show()
+                            if (s) { Toast.makeText(context, context.getString(R.string.toast_link_sent), Toast.LENGTH_LONG).show(); showResetPassword = false }
+                            else Toast.makeText(context, e ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show()
                         }
                     },
                     shape = RoundedCornerShape(14.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary)
                 ) {
-                    Text("Enviar Link", fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.action_send_link), fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showResetPassword = false }) {
-                    Text("Cancelar", color = chatColors.textSecondary)
+                    Text(stringResource(R.string.action_cancel), color = chatColors.textSecondary)
                 }
             },
             shape = RoundedCornerShape(28.dp),
@@ -384,7 +441,7 @@ fun LoginScreen(viewModel: ChatViewModel) {
 
 @Composable
 fun SocialLoginButton(
-    icon: ImageVector,
+    painter: Painter,
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -392,19 +449,24 @@ fun SocialLoginButton(
     val chatColors = LocalChatColors.current
     Surface(
         onClick = onClick,
-        modifier = modifier.height(56.dp),
-        shape = RoundedCornerShape(20.dp),
-        color = chatColors.secondaryBackground.copy(alpha = 0.4f),
-        border = BorderStroke(1.dp, chatColors.textSecondary.copy(alpha = 0.05f))
+        modifier = modifier,
+        shape = RoundedCornerShape(22.dp),
+        color = Color.White.copy(alpha = 0.05f),
+        border = BorderStroke(1.dp, chatColors.primary.copy(alpha = 0.2f))
     ) {
         Row(
             modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center
         ) {
-            Icon(icon, null, modifier = Modifier.size(20.dp), tint = chatColors.textPrimary)
-            Spacer(Modifier.width(12.dp))
-            Text(text, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, color = chatColors.textPrimary)
+            Image(painter = painter, contentDescription = "Social Logo", modifier = Modifier.size(24.dp))
+            Spacer(Modifier.width(16.dp))
+            Text(
+                text, 
+                style = MaterialTheme.typography.titleMedium, 
+                fontWeight = FontWeight.Bold, 
+                color = chatColors.textPrimary
+            )
         }
     }
 }
@@ -443,10 +505,26 @@ fun InitialProfileSetupScreen(viewModel: ChatViewModel) {
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(80.dp))
+            Spacer(Modifier.height(20.dp))
+            
+            // Top Back Button
+            Box(Modifier.fillMaxWidth()) {
+                IconButton(
+                    onClick = { viewModel.logout() },
+                    modifier = Modifier.align(Alignment.CenterStart)
+                ) {
+                    Icon(
+                        Icons.Rounded.ArrowBack,
+                        contentDescription = "Voltar",
+                        tint = chatColors.textPrimary
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(40.dp))
             
             Text(
-                "Quase lá!",
+                stringResource(R.string.setup_title),
                 style = MaterialTheme.typography.headlineLarge.copy(
                     fontWeight = FontWeight.Black,
                     letterSpacing = (-1).sp
@@ -455,7 +533,7 @@ fun InitialProfileSetupScreen(viewModel: ChatViewModel) {
             )
             
             Text(
-                "Personalize seu perfil para que seus amigos possam te encontrar",
+                stringResource(R.string.setup_subtitle),
                 textAlign = TextAlign.Center,
                 color = chatColors.textSecondary.copy(alpha = 0.7f),
                 style = MaterialTheme.typography.bodyMedium,
@@ -492,7 +570,7 @@ fun InitialProfileSetupScreen(viewModel: ChatViewModel) {
                         )
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Foto de Perfil",
+                            stringResource(R.string.setup_label_photo),
                             fontSize = 12.sp,
                             color = chatColors.primary,
                             fontWeight = FontWeight.Bold
@@ -526,14 +604,14 @@ fun InitialProfileSetupScreen(viewModel: ChatViewModel) {
                     MetaTextField(
                         value = username, 
                         onValueChange = { if (!it.contains(".")) username = it }, 
-                        placeholder = "ID de usuário (ex: jack)", 
+                        placeholder = stringResource(R.string.setup_hint_username), 
                         icon = Icons.Rounded.AlternateEmail
                     )
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.width(20.dp))
                     MetaTextField(
                         value = name,
                         onValueChange = { name = it },
-                        placeholder = "Seu nome completo",
+                        placeholder = stringResource(R.string.setup_hint_full_name),
                         icon = Icons.Rounded.Badge
                     )
                 }
@@ -547,14 +625,14 @@ fun InitialProfileSetupScreen(viewModel: ChatViewModel) {
                 Button(
                     onClick = {
                         if (username.length < 3) {
-                            Toast.makeText(context, "Username muito curto", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.setup_error_username_short), Toast.LENGTH_SHORT).show()
                             return@Button
                         }
                         loading = true
                         viewModel.finalizeProfile(username, name.ifBlank { username }, selectedImageUri) { success, error ->
                             loading = false
                             if (!success) {
-                                Toast.makeText(context, error ?: "Erro ao salvar", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, error ?: context.getString(R.string.setup_error_save), Toast.LENGTH_SHORT).show()
                             }
                         }
                     },
@@ -563,8 +641,21 @@ fun InitialProfileSetupScreen(viewModel: ChatViewModel) {
                     colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary),
                     elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                 ) {
-                    Text("Concluir Cadastro", fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
+                    Text(stringResource(R.string.setup_button_finish), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Color.White)
                 }
+            }
+            
+            Spacer(Modifier.height(24.dp))
+
+            TextButton(
+                onClick = { viewModel.logout() }
+            ) {
+                Text(
+                    stringResource(R.string.login_switch_to_login_action),
+                    color = chatColors.textSecondary,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Bold
+                )
             }
             
             Spacer(Modifier.height(40.dp))

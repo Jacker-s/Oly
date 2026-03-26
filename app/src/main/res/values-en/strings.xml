@@ -1,0 +1,568 @@
+<resources>
+    <string name="app_name">Oly: Feed &amp; Chats</string>
+    <string name="default_web_client_id">135221802523-fl381le8p7cf5agsshqtps78cal57427.apps.googleusercontent.com</string>
+
+    <!-- Navigation & Tabs -->
+    <string name="tab_all">All</string>
+    <string name="tab_groups">Groups</string>
+    <string name="tab_unread">Unread</string>
+    <string name="title_new_group">New Group</string>
+    <string name="title_contacts">Contacts</string>
+    <string name="title_friends">Friends</string>
+    <string name="title_chats">Chats</string>
+    
+    <!-- Bottom Navigation -->
+    <string name="bottom_nav_chats">Chats</string>
+    <string name="bottom_nav_feed">Feed</string>
+    <string name="bottom_nav_friends">Friends</string>
+    <string name="bottom_nav_search">Search</string>
+    <string name="bottom_nav_calls">Calls</string>
+    <string name="bottom_nav_settings">Settings</string>
+    
+    <!-- Calls History -->
+    <string name="calls_title">Calls</string>
+    <string name="calls_tab_all">All</string>
+    <string name="calls_tab_missed">Missed</string>
+    <string name="calls_action_clear">Clear</string>
+    <string name="calls_new_call">New Call</string>
+    <string name="calls_empty_title">No recent calls</string>
+    <string name="calls_status_outgoing">Outgoing</string>
+    <string name="calls_status_incoming_log">Incoming</string>
+    <string name="calls_picker_title">Start Call</string>
+    <string name="calls_dialog_clear_title">Clear History</string>
+    <string name="calls_dialog_clear_message">Do you want to clear your entire call history?</string>
+    <string name="calls_dialog_clear_all">Clear All</string>
+    <string name="calls_dialog_delete_title">Delete</string>
+    <string name="calls_dialog_delete_message">Remove this call from history?</string>
+    <string name="duration_format_min_sec">%1$dm %2$ds</string>
+    <string name="duration_format_sec">%1$ds</string>
+
+    <!-- Chat Actions -->
+    <string name="action_clear_chat">Clear chat</string>
+    <string name="action_delete_group">Delete Group</string>
+    <string name="action_delete_chat">Delete chat</string>
+    <string name="action_block">Block</string>
+    <string name="action_unblock">Unblock</string>
+    <string name="action_open">Open</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_send">Send</string>
+    <string name="action_stop">Stop</string>
+
+    <!-- Dialogs -->
+    <string name="dialog_clear_chat_title">Clear Chat</string>
+    <string name="dialog_clear_chat_message">This will delete all messages for both parties.</string>
+    <string name="dialog_delete_group_title">Delete Group</string>
+    <string name="dialog_delete_group_message">This will delete the group and all messages for all members.</string>
+    <string name="dialog_add_contact_title">Add Contact</string>
+    <string name="dialog_add_contact_message">Enter the exact username of the user:</string>
+    <string name="dialog_reset_password_title">Reset Password</string>
+    <string name="dialog_reset_password_message">We will send a reset link to your email.</string>
+
+    <!-- Status & Presence -->
+    <string name="status_typing">Typing...</string>
+    <string name="status_online">Online</string>
+    <string name="status_busy">Busy</string>
+    <string name="status_away">Away</string>
+    <string name="status_invisible">Invisible</string>
+    <string name="status_offline">Offline</string>
+    <string name="status_members_count">%1$d members</string>
+    <string name="status_my_status">My status</string>
+
+    <!-- Attachments -->
+    <string name="attachment_camera">Camera</string>
+    <string name="attachment_gallery">Gallery</string>
+    <string name="attachment_image">📷 Image</string>
+    <string name="attachment_audio">🎤 Audio</string>
+    <string name="attachment_video">📹 Video</string>
+    <string name="attachment_sticker">Sticker</string>
+
+    <!-- Login & Auth -->
+    <string name="login_welcome">Welcome back! We missed you</string>
+    <string name="signup_subtitle">Create your account and start chatting</string>
+    <string name="label_username">Username</string>
+    <string name="label_email">Email</string>
+    <string name="label_password">Password</string>
+    <string name="label_photo">Photo</string>
+    <string name="label_remember_me">Remember me</string>
+    <string name="action_forgot_password">Forgot password?</string>
+    <string name="action_forgot_password_short">Forgot?</string>
+    <string name="action_login">Login</string>
+    <string name="action_signup">Create Account</string>
+    <string name="login_social_divider">or continue with</string>
+    <string name="login_social_google">Google</string>
+    <string name="login_social_apple">Apple</string>
+    <string name="login_switch_to_signup_question">Don\'t have an account?</string>
+    <string name="login_switch_to_signup_action">Sign up</string>
+    <string name="login_switch_to_login_question">Already have an account?</string>
+    <string name="login_switch_to_login_action">Login</string>
+    <string name="label_email_reset">Registration email</string>
+    <string name="toast_link_sent">Link sent!</string>
+    <string name="action_send_link">Send Link</string>
+
+    <!-- Initial Profile Setup -->
+    <string name="setup_title">Almost there!</string>
+    <string name="setup_subtitle">Personalize your profile so your friends can find you</string>
+    <string name="setup_label_photo">Profile Photo</string>
+    <string name="setup_hint_username">User ID (e.g. jack)</string>
+    <string name="setup_hint_full_name">Your full name</string>
+    <string name="setup_error_username_short">Username too short</string>
+    <string name="setup_error_save">Error saving</string>
+    <string name="setup_button_finish">Finish Setup</string>
+
+    <!-- Security -->
+    <string name="security_lock_title">Security Lock</string>
+    <string name="security_lock_subtitle">Biometrics to enter</string>
+    <string name="security_use_pin">Use PIN</string>
+    <string name="security_app_protected">App Protected</string>
+
+    <!-- Chat UI -->
+    <string name="hint_search">Search</string>
+    <string name="hint_message">Message...</string>
+    <string name="message_edited">edited</string>
+    <string name="message_pinned_header">Pinned Message</string>
+    <string name="message_edit_header">Edit message</string>
+    <string name="media_placeholder">Media</string>
+
+    <!-- Group Creation -->
+    <string name="group_name_hint">Group name</string>
+    <string name="group_members_count">Select Members (%1$d)</string>
+    <string name="group_create_button">Create Group</string>
+
+    <!-- Audio Recording -->
+    <string name="audio_release_to_cancel">Release to cancel</string>
+    <string name="audio_slide_to_cancel">&lt; Slide to cancel</string>
+    <string name="audio_recording">Recording...</string>
+
+    <!-- Date Formatting -->
+    <string name="date_today">TODAY</string>
+    <string name="date_yesterday">YESTERDAY</string>
+    <string name="time_minutes_short">%1$dm</string>
+    <string name="time_hours_short">%1$dh</string>
+    <string name="date_format">d MMM</string>
+
+    <!-- Message Menu -->
+    <string name="menu_reply">Reply</string>
+    <string name="menu_edit">Edit</string>
+    <string name="menu_pin">Pin</string>
+    <string name="menu_copy">Copy</string>
+    <string name="menu_remove">Remove</string>
+
+    <!-- Miscellaneous -->
+    <string name="error_generic">Error</string>
+    <string name="no_contacts">No contacts added</string>
+    <string name="viewers_count">Seen by %1$d people</string>
+    <string name="viewers_label">Seen</string>
+    <string name="temp_messages_label">Temporary Messages (%1$s)</string>
+    <string name="temp_off">Off</string>
+    <string name="profile_stat_posts">Posts</string>
+    <string name="profile_stat_friends">Friends</string>
+    <string name="profile_default_name">Oly User</string>
+    <string name="profile_default_bio">No bio</string>
+    <string name="profile_edit_profile">Edit Profile</string>
+    <string name="profile_share_message">Chat with me on Friend! My username is @%1$s</string>
+    <string name="profile_share_chooser_title">Share profile</string>
+    <string name="profile_share_button">Share</string>
+    <string name="profile_empty_posts">No posts yet</string>
+    <string name="profile_update_success">Profile updated!</string>
+    <string name="profile_finish_button">Done</string>
+    <string name="profile_change_photo">Change photo</string>
+    <string name="profile_section_account">My Account</string>
+    <string name="profile_label_name">Name</string>
+    <string name="profile_label_bio">Bio</string>
+    <string name="profile_section_presence">Presence &amp; Privacy</string>
+    <string name="profile_ghost_mode">Ghost Mode</string>
+    <string name="profile_logout_button">Logout</string>
+    <string name="profile_presence_status_title">Presence Status</string>
+    <string name="profile_username_format">@%1$s</string>
+
+    <!-- Contacts Screen -->
+    <string name="contacts_title">Friends</string>
+    <string name="contacts_count">%1$d friends</string>
+    <string name="contacts_search_results_count">%1$d found</string>
+    <string name="contacts_action_add_description">Add</string>
+    <string name="contacts_quick_scan">Scan</string>
+    <string name="contacts_quick_my_qr">My QR</string>
+    <string name="contacts_quick_add_new">New Friend</string>
+    <string name="contacts_tab_mine">My Friends</string>
+    <string name="contacts_tab_discover">Discover</string>
+    <string name="contacts_search_hint_mine">Search friends</string>
+    <string name="contacts_search_hint_discover">Search new users</string>
+    <string name="contacts_section_nearby">Nearby people (50km)</string>
+    <string name="contacts_toast_added">Friend added!</string>
+    <string name="contacts_dialog_unfriend_title">Unfriend</string>
+    <string name="contacts_dialog_unfriend_message">Do you want to remove %1$s from your friends?</string>
+    <string name="contacts_dialog_unfriend_confirm">Remove</string>
+    <string name="contacts_toast_id_found">ID Found: @%1$s</string>
+    <string name="contacts_status_available">Available</string>
+    <string name="contacts_mutual_friends_count">• %1$d mutual friends</string>
+    <string name="contacts_action_message_description">Message</string>
+    <string name="contacts_status_is_friend">Friend</string>
+    <string name="contacts_discover_empty_title">Discover new people</string>
+    <string name="contacts_discover_empty_subtitle">Type a name or username to find users throughout Friend.</string>
+    <string name="contacts_sheet_message">Send Message</string>
+    <string name="contacts_sheet_audio_call">Audio Call</string>
+    <string name="contacts_sheet_video_call">Video Call</string>
+    <string name="contacts_sheet_block">Block</string>
+    <string name="contacts_sheet_unblock">Unblock</string>
+    
+    <!-- Call Screen -->
+    <string name="call_status_ringing">Ringing...</string>
+    <string name="call_status_incoming">Incoming...</string>
+    <string name="call_status_muted">Muted</string>
+    <string name="call_status_connecting">Connecting...</string>
+    <string name="call_status_ended">Call ended</string>
+    <string name="contacts_empty_list_title">Your list is empty</string>
+    <string name="contacts_empty_list_subtitle">Add your friends to start chatting and sharing moments.</string>
+    <string name="contacts_empty_list_button">Add Friends</string>
+    <string name="contacts_search_empty_title">No results</string>
+    <string name="contacts_search_empty_subtitle">We didn\'t find anyone for \"%1$s\"</string>
+    <string name="toast_file_select_error">Error selecting file</string>
+    <string name="toast_location_permission_denied">Location permission denied</string>
+    <string name="toast_location_get_error">Could not get location</string>
+    <string name="toast_location_permission_required">Location permission required</string>
+    <string name="toast_unblock_to_call">Unblock to call</string>
+    <string name="toast_reaction_sent">Reaction Sent!</string>
+    <string name="file_generic_name">File</string>
+    <string name="label_error">Error</string>
+    <string name="error_load_image">Error loading image</string>
+    <string name="action_play">Play</string>
+    <string name="label_post_preview">on your post</string>
+
+    <!-- Feed Screen -->
+    <string name="feed_notifications_description">Notifications</string>
+    <string name="feed_my_profile_description">My Profile</string>
+    <string name="feed_interactions_title">Interactions</string>
+    <string name="feed_action_read_all">Read all</string>
+    <string name="feed_no_notifications">No new notifications</string>
+    <string name="feed_aggregated_notification">%1$s and %2$d others</string>
+    <string name="feed_view_full_history">View full history</string>
+    <string name="feed_sponsored_label">Sponsored</string>
+    <string name="feed_empty_state_title">Your feed is empty</string>
+    <string name="feed_empty_state_subtitle">Follow friends or post something new to get started!</string>
+
+    <!-- Post Composer -->
+    <string name="post_hint">What\'s on your mind?</string>
+    <string name="post_action_media">Media</string>
+    <string name="post_action_emoji">Emoji</string>
+    <string name="post_privacy_public">Public</string>
+    <string name="post_privacy_private">Private</string>
+    <string name="post_button_post">Post</string>
+    <string name="post_media_sheet_title">Add Media</string>
+    <string name="post_media_take_photo">Take Photo</string>
+    <string name="post_media_gallery">Gallery</string>
+
+    <!-- Post Interactions & Menu -->
+    <string name="post_menu_delete">Delete post</string>
+    <string name="post_menu_copy">Copy text</string>
+    <string name="post_menu_report">Report</string>
+    <string name="post_expand_more">See more</string>
+    <string name="post_expand_less">See less</string>
+    <string name="post_comment_count_singular">%1$d comment</string>
+    <string name="post_comment_count_plural">%1$d comments</string>
+    <string name="post_share_count_singular">%1$d share</string>
+    <string name="post_share_count_plural">%1$d shares</string>
+    <string name="post_action_like">Love</string>
+    <string name="post_action_like_count">Love (%1$d)</string>
+    <string name="post_action_comment">Comment</string>
+    <string name="post_action_comment_count">Comment (%1$d)</string>
+    <string name="post_action_send">Send</string>
+    <string name="post_action_send_count">Send (%1$d)</string>
+    <string name="post_hint_comment">Your comment...</string>
+    <string name="post_action_reply">Reply</string>
+    <string name="post_comment_menu_copy">Copy comment</string>
+    <string name="post_comment_menu_delete">Delete</string>
+
+    <!-- Notification Actions -->
+    <string name="notification_someone">Someone</string>
+    <string name="notification_action_liked">liked your post</string>
+    <string name="notification_action_commented">commented on your post</string>
+    <string name="notification_action_reacted">reacted to your post</string>
+    <string name="notification_action_mentioned">mentioned you</string>
+    <string name="notification_action_interacted">interacted with you</string>
+
+    <!-- Share Sheet -->
+    <string name="share_title">Share with friends</string>
+    <string name="share_no_friends">No friends found</string>
+    <string name="share_toast_sent">Sent to %1$s</string>
+    <string name="share_external_text">Check out this post on Friend!\n\n%1$s\n\nSent by @%2$s</string>
+    <string name="share_external_action">Share externally</string>
+    <string name="share_chooser_title">Share</string>
+    <string name="share_pending_header">Content ready to share. Select a friend.</string>
+    <string name="dialog_share_confirm_title">Share with %1$s?</string>
+    <string name="dialog_share_confirm_message">Do you want to send the selected content to this friend?</string>
+
+    <!-- Time Relative -->
+    <string name="time_now">Now</string>
+    <string name="time_minutes">%1$dm</string>
+    <string name="time_hours">%1$dh</string>
+    <string name="time_days">%1$dd</string>
+
+    <!-- Fullscreen Viewer -->
+    <string name="action_close">Close</string>
+    <string name="feed_no_interactions">No interactions yet</string>
+
+    <!-- Settings Labels (for refactoring later or manual use) -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_appearance">APPEARANCE</string>
+    <string name="settings_theme_title">Color Theme</string>
+    <string name="settings_sync_system">Sync with System</string>
+    <string name="settings_dark_mode">Dark Mode</string>
+    <string name="settings_privacy">PRIVACY</string>
+    <string name="settings_last_seen">Last Seen</string>
+    <string name="settings_last_seen_sub">Shows when you were last online</string>
+    <string name="settings_read_receipts">Read Receipts</string>
+    <string name="settings_read_receipts_sub">Allows others to see when you have read messages</string>
+    <string name="settings_online_status">Online Status</string>
+    <string name="settings_online_status_sub">Shows when you are currently online</string>
+    <string name="settings_blocked_users">Blocked Users</string>
+    <string name="settings_hide_search">Hide from Search</string>
+    <string name="settings_hide_search_sub">Prevents other users from finding you via search</string>
+    <string name="settings_security">SECURITY</string>
+    <string name="settings_pin_lock">PIN Lock</string>
+    <string name="settings_biometrics">Use Biometrics</string>
+    <string name="settings_data">DATA &amp; STORAGE</string>
+    <string name="settings_clear_cache">Clear Cache</string>
+    <string name="settings_clear_cache_sub">Frees up space by deleting temporary media</string>
+    <string name="settings_account">ACCOUNT</string>
+    <string name="settings_logout">Logout</string>
+    <string name="settings_delete_account">Delete Account</string>
+    <string name="settings_language">Language</string>
+    <string name="settings_premium_title">Remove Ads</string>
+    <string name="settings_premium_sub">Become Premium</string>
+    <string name="settings_dialog_blocked_title">Blocked Users</string>
+    <string name="settings_dialog_blocked_empty">No blocked users.</string>
+    <string name="settings_dialog_delete_title">Delete account?</string>
+    <string name="settings_dialog_delete_message">This action cannot be undone. For your security, you must have logged in recently to delete the account.</string>
+    <string name="settings_dialog_pin_title">Set PIN</string>
+    <string name="settings_dialog_pin_placeholder">0000</string>
+    <string name="settings_dialog_cache_title">Clear Cache?</string>
+    <string name="settings_dialog_cache_message">This will delete temporary files and downloaded media. Your messages will remain safe.</string>
+    <string name="settings_toast_cache_cleared">Cache cleared successfully!</string>
+
+    <!-- Privacy Policy Screen -->
+    <string name="privacy_title">Privacy Policy</string>
+    <string name="privacy_intro_title">1. Introduction</string>
+    <string name="privacy_intro_content">Welcome to Oly: Feed and Chats. We value your privacy and are committed to protecting your personal data. This policy explains how we collect, use, and protect your information.</string>
+    <string name="privacy_data_collection_title">2. Information We Collect</string>
+    <string name="privacy_data_collection_content">We collect information that you provide directly, such as your username, email address, profile photo, and messages sent. We also collect technical data automatically, such as IP address and device information to ensure security and the functioning of the service.</string>
+    <string name="privacy_use_title">3. Use of Information</string>
+    <string name="privacy_use_content">Your information is used to provide and improve our messaging services, authenticate your account, prevent fraud, and personalize your experience. We do not sell your data to third parties.</string>
+    <string name="privacy_security_title">4. Data Protection</string>
+    <string name="privacy_security_content">We use technical and organizational security measures to protect your data against unauthorized access, loss, or alteration. Your messages are stored securely and only you and the recipient have access to the content, respecting the privacy of conversations.</string>
+    <string name="privacy_rights_title">5. Your Rights</string>
+    <string name="privacy_rights_content">You have the right to access, correct, or delete your personal data at any time through the app settings. You can also request the definitive deletion of your account, which will permanently remove your information from our servers.</string>
+    <string name="privacy_changes_title">6. Changes to this Policy</string>
+    <string name="privacy_changes_content">We may update this policy periodically. We will notify you of significant changes through the app or other communication channels.</string>
+    <string name="privacy_contact_title">7. Contact</string>
+    <string name="privacy_contact_content">If you have questions about our privacy policy, please contact us via in-app support.</string>
+    <string name="privacy_last_updated">Last updated: March 2026</string>
+
+    <!-- Feed Notifications Screen -->
+    <string name="notifications_title">Notifications</string>
+    <string name="filter_likes">Likes</string>
+    <string name="filter_comments">Comments</string>
+    <string name="filter_mentions">Mentions</string>
+    <string name="action_mark_all_read">Mark all as read</string>
+    <string name="action_clear_all">Clear all</string>
+    <string name="dialog_clear_notifications_title">Clear all</string>
+    <string name="dialog_clear_notifications_message">Are you sure you want to delete all notifications from your feed?</string>
+    <string name="empty_notifications_title">No notifications</string>
+    <string name="empty_notifications_filter_no_results">No results for \"%1$s\"</string>
+    <string name="empty_notifications_subtitle">Your feed interactions will appear here.</string>
+    <string name="feed_notification_action_liked">liked your post</string>
+    <string name="feed_notification_action_commented">commented: </string>
+    <string name="feed_notification_action_reacted">reacted with %1$s to your post</string>
+    <string name="feed_notification_action_mentioned">mentioned you: </string>
+    <string name="feed_notification_action_interacted">interacted with you</string>
+    
+    <!-- Search Screen -->
+    <string name="search_nearby_people">Nearby People</string>
+    <string name="search_suggestions_for_you">Suggestions for you</string>
+    <string name="search_empty_hint">Search for @username to find friends</string>
+    <string name="search_nearby_label">Nearby</string>
+    <string name="action_add_friend">Add</string>
+    
+    <!-- Chat Options -->
+    <string name="menu_view_profile">View Profile</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="action_mute">Mute</string>
+    <string name="action_unmute">Unmute</string>
+    <string name="action_temp_messages">Temporary Messages</string>
+    <string name="action_starred_messages">Starred Messages</string>
+    <string name="time_seconds">%1$ds</string>
+    <string name="time_off">Off</string>
+    
+    <!-- Starred Messages Screen -->
+    <string name="starred_messages_empty_title">No starred messages</string>
+    <string name="starred_messages_empty_subtitle">Long press a message\nto add it to your favorites.</string>
+    <string name="label_you">You</string>
+    <string name="label_voice_message">🎤 Voice message</string>
+    <string name="label_video">📹 Video</string>
+    <string name="label_location_shared">📍 Shared location</string>
+    <string name="action_remove_starred">Remove from favorites</string>
+    <string name="action_back">Back</string>
+    
+    <!-- Sticker Picker -->
+    <string name="stickers_loading">Loading Stickers...</string>
+    <string name="label_sticker">Sticker</string>
+    
+    <!-- Recording -->
+    <string name="recording_release_to_cancel">Release to cancel</string>
+    <string name="recording_swipe_to_cancel">&lt; Swipe to cancel</string>
+    <string name="recording_status">Recording...</string>
+    
+    <!-- Message Bubble -->
+    <string name="label_publicity">Advertisement</string>
+    <string name="media_file">File</string>
+    <string name="content_description_map">Map</string>
+    <string name="label_location">Location</string>
+    <string name="menu_translate">Translate</string>
+    <string name="menu_star">Star</string>
+    <string name="menu_unstar">Unstar</string>
+    
+    <!-- Status & Stories -->
+    <string name="status_reply_placeholder">Reply to status...</string>
+    <string name="status_reply_to_user">Reply to %1$s...</string>
+    <string name="status_viewers_title">Views (%1$d)</string>
+    <string name="action_delete_story">Delete Story</string>
+    <string name="action_done">Done</string>
+    <string name="status_no_viewers">No views yet</string>
+    <string name="status_viewed_recently">Viewed recently</string>
+    <string name="status_last_seen_recent">Last seen recently</string>
+    <string name="status_composer_legend_hint">Add a caption...</string>
+    
+    <!-- Chat Pop-up Menu -->
+    <string name="menu_open_chat">Open Chat</string>
+    <string name="menu_unpin_chat">Unpin</string>
+    <string name="menu_pin_chat">Pin Chat</string>
+    <string name="menu_unmute_chat">Unmute</string>
+    <string name="menu_mute_chat">Mute</string>
+    <string name="menu_clear_history">Clear History</string>
+    <string name="menu_delete_chat">Delete Chat</string>
+    <string name="menu_block">Block</string>
+    <string name="menu_unblock">Unblock</string>
+    
+    <!-- Temporary Messages -->
+    <string name="dialog_temp_messages_title">Temporary Messages</string>
+    <string name="temp_messages_off">Disabled</string>
+    <string name="time_seconds_full">%1$d seconds</string>
+    <string name="time_minutes_full">%1$d minutes</string>
+    <string name="time_hours_full">%1$d hours</string>
+    <string name="content_description_selected">Selected</string>
+    <string name="content_description_avatar">Avatar</string>
+    
+    <!-- Profile Sheet -->
+    <string name="profile_last_seen">last seen %1$s</string>
+    <string name="profile_last_seen_at">at %1$s</string>
+    <string name="profile_last_seen_today">today at %1$s</string>
+    <string name="profile_last_seen_yesterday">yesterday at %1$s</string>
+    <string name="profile_action_message">Message</string>
+    <string name="profile_action_call">Call</string>
+    <string name="profile_action_video">Video</string>
+    <string name="profile_action_mute">Mute</string>
+    <string name="profile_action_unmute">Unmute</string>
+    <string name="profile_default_status">Hey! I\'m using Friend.</string>
+    <string name="profile_section_media">Media, Links and Docs</string>
+    <string name="profile_section_security">Security and Settings</string>
+    <string name="profile_encryption_title">End-to-end encryption</string>
+    <string name="profile_encryption_subtitle">Your conversations are private</string>
+    <string name="profile_temp_messages_subtitle_off">Disabled</string>
+    <string name="profile_mutual_groups">%1$d mutual groups</string>
+    <string name="profile_mutual_groups_subtitle">You are in the same chats</string>
+    <string name="profile_section_posts">Posts</string>
+    <string name="profile_no_posts">Nothing shared on the Feed yet</string>
+    
+    <!-- Media Attachment Sheet -->
+    <string name="attachment_status_title">Post to Status</string>
+    <string name="attachment_media_title">Share Media</string>
+    <string name="attachment_action_send_count">Send (%1$d)</string>
+    <string name="attachment_label_video">VIDEO</string>
+    <string name="attachment_action_camera">Camera</string>
+    <string name="attachment_action_gallery">Gallery</string>
+    <string name="attachment_action_document">Document</string>
+    <string name="attachment_action_location">Location</string>
+    
+    <!-- Location Dialog -->
+    <string name="location_dialog_title">Share Location</string>
+    <string name="location_dialog_subtitle">Choose sharing type</string>
+    <string name="location_static_title">Current Location</string>
+    <string name="location_static_subtitle">Sends your exact position now</string>
+    <string name="location_live_title">Live Location</string>
+    <string name="location_live_subtitle">Updates your position in real time</string>
+    <string name="location_duration_label">Duration:</string>
+    <string name="location_action_share_duration">Share for %1$s</string>
+    <string name="location_live_active_title">Live Location Active</string>
+    <string name="location_live_active_subtitle">Your position is being shared</string>
+    
+    <!-- Chat Components -->
+    <string name="status_my_status_title">My Status</string>
+    <string name="status_action_view">View Status</string>
+    <string name="status_action_add_new">Add New</string>
+    <string name="status_label_my_status">My status</string>
+    <string name="chat_status_typing">Typing...</string>
+    <string name="chat_status_history_cleared">History cleared</string>
+    <string name="chat_status_history_deleted">Chat deleted</string>
+    <string name="chat_last_message_prefix_you">You: </string>
+    <string name="chat_summary_audio">🎤 Audio</string>
+    <string name="chat_summary_image">📷 Image</string>
+    <string name="chat_summary_video">📹 Video</string>
+    <string name="chat_summary_sticker">Sticker</string>
+    <string name="chat_summary_file">📄 File</string>
+    <string name="chat_summary_location">📍 Location</string>
+    <string name="chat_summary_ad">📢 Sponsored</string>
+    <string name="chat_summary_empty">Empty conversation</string>
+    <string name="chat_summary_deleted">Chat deleted</string>
+    <string name="chat_summary_cleared">Chat cleared</string>
+    <string name="chat_call_audio">Audio call</string>
+    <string name="chat_call_video">Video call</string>
+    <string name="chat_screenshot_alert">Attempted to take a screenshot! 📸</string>
+    <string name="feed_share_message_format">Check out this post on Friend!\n\n%1$s\n\nSent by @%2$s</string>
+    <string name="error_email_already_exists">This email is already in use.</string>
+    <string name="error_username_already_exists">This username is already in use.</string>
+    <string name="error_invalid_credentials">Incorrect email or password.</string>
+    <string name="error_user_not_found">User not found or disabled.</string>
+    <string name="error_invalid_format">Invalid email format or weak password.</string>
+    <string name="error_reauth_required">Re-authentication required.</string>
+    <string name="error_profile_save_failed">Error saving profile: %1$s</string>
+    <string name="error_db_permission">Database permission error: %1$s</string>
+    <string name="error_invalid_session">Invalid session</string>
+    <string name="error_user_not_logged_in">User not authenticated</string>
+    <string name="error_add_self">You cannot add yourself</string>
+    <string name="error_user_no_found">User not found</string>
+    <string name="notification_mention_title">Mentioned you</string>
+    <string name="notification_comment_title">Commented on your post</string>
+    <string name="notification_like_title">Liked your message</string>
+    <string name="notification_reaction_title">Reacted to your post</string>
+    <string name="notification_aggregated_format">%1$s and %2$d others</string>
+    <string name="app_name_login">Oly Messenger</string>
+    <string name="country_name_default">Brazil</string>
+
+    <!-- Calls -->
+    <string name="call_reminder_toast">Reminder set for 15 minutes</string>
+    <string name="call_type_video">VIDEO CALL</string>
+    <string name="call_type_audio">AUDIO CALL</string>
+    <string name="call_action_remind">Remind</string>
+    <string name="call_action_message">Message</string>
+    <string name="call_action_reject">Reject</string>
+    <string name="call_action_accept">Accept</string>
+    <string name="call_quick_msg_1">Can\'t talk right now.</string>
+    <string name="call_quick_msg_2">I\'ll call you later.</string>
+    <string name="call_quick_msg_3">I\'m in a meeting.</string>
+    <string name="call_quick_msg_4">What\'s up?</string>
+    <string name="call_sheet_header">SEND MESSAGE</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_name">Messages</string>
+    <string name="notification_channel_description">Notifications for new messages</string>
+    <string name="notification_reply_label">Reply here...</string>
+    <string name="notification_action_reply">Reply</string>
+    <string name="notification_action_mark_read">Mark as read</string>
+    <string name="notification_summary_text">Incoming messages</string>
+    <string name="notification_call_title_default">Call</string>
+    <string name="notification_default_sender">Oly</string>
+    <string name="notification_call_channel_name">Calls</string>
+    <string name="profile_username_you">You</string>
+</resources>

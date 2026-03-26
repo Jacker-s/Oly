@@ -95,6 +95,8 @@ import com.google.android.gms.location.Priority
 import android.provider.OpenableColumns
 import com.google.android.gms.location.LocationServices
 import android.Manifest
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 
 /**
  * Main screen for the chat functionality, handling both the conversation list and individual chat sessions.
@@ -169,13 +171,13 @@ fun ChatScreen(
                     val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
                     val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
                     if (cursor.moveToFirst()) {
-                        val name = cursor.getString(nameIndex) ?: "Arquivo"
+                        val name = cursor.getString(nameIndex) ?: context.getString(R.string.file_generic_name)
                         val size = cursor.getLong(sizeIndex)
                         viewModel.uploadFile(it, name, size, tempMessageDuration)
                     }
                 }
             } catch (e: Exception) {
-                Toast.makeText(context, "Erro ao selecionar arquivo", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.toast_file_select_error), Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -187,7 +189,7 @@ fun ChatScreen(
             perms[Manifest.permission.ACCESS_COARSE_LOCATION] == true) {
             showLocationDialog = true
         } else {
-            Toast.makeText(context, "Permissão de localização negada", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.toast_location_permission_denied), Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -559,9 +561,9 @@ fun ChatScreen(
                                                 ) {
                                                     Icon(Icons.Rounded.Share, null, tint = MaterialTheme.colorScheme.primary)
                                                     Spacer(Modifier.width(12.dp))
-                                                    Text("Conteúdo pronto para compartilhar. Selecione um amigo.", Modifier.weight(1f), fontSize = 14.sp)
+                                                    Text(stringResource(R.string.share_pending_header), Modifier.weight(1f), fontSize = 14.sp)
                                                     TextButton(onClick = { viewModel.clearPendingShare() }) {
-                                                        Text("Cancelar", color = iOSRed)
+                                                        Text(stringResource(R.string.action_cancel), color = iOSRed)
                                                     }
                                                 }
                                             }
@@ -708,7 +710,7 @@ fun ChatScreen(
 
             MediaViewerScreen(mediaItem = mediaViewerItem, onDismiss = { mediaViewerItem = null })
 
-            if (showClearChatDialog) AlertDialog(onDismissRequest = { showClearChatDialog = false }, title = { Text("Limpar Conversa") }, text = { Text("Isso apagará todas as mensagens para ambos.") }, confirmButton = { TextButton(onClick = { viewModel.clearChat(targetId); showClearChatDialog = false }) { Text("Limpar", color = iOSRed) } }, dismissButton = { TextButton(onClick = { showClearChatDialog = false }) { Text("Cancelar") } })
+            if (showClearChatDialog) AlertDialog(onDismissRequest = { showClearChatDialog = false }, title = { Text(stringResource(R.string.dialog_clear_chat_title)) }, text = { Text(stringResource(R.string.dialog_clear_chat_message)) }, confirmButton = { TextButton(onClick = { viewModel.clearChat(targetId); showClearChatDialog = false }) { Text(stringResource(R.string.action_clear), color = iOSRed) } }, dismissButton = { TextButton(onClick = { showClearChatDialog = false }) { Text(stringResource(R.string.action_cancel)) } })
             if (showAddContactDialog) {
                 AddContactDialog(
                     icon = Icons.Default.Person,
@@ -718,7 +720,7 @@ fun ChatScreen(
                     onAdd = { u ->
                         viewModel.addContact(u) { s, e ->
                             if (s) showAddContactDialog = false
-                            else Toast.makeText(context, e ?: "Erro", Toast.LENGTH_SHORT).show()
+                            else Toast.makeText(context, e ?: context.getString(R.string.label_error), Toast.LENGTH_SHORT).show()
                         }
                     }
                 )
@@ -767,17 +769,17 @@ fun ChatScreen(
 
                 AlertDialog(
                     onDismissRequest = { showShareConfirmDialog = null },
-                    title = { Text("Compartilhar com $shareTargetName?") },
-                    text = { Text("Deseja enviar o conteúdo selecionado para este amigo?") },
+                    title = { Text(stringResource(R.string.dialog_share_confirm_title, shareTargetName)) },
+                    text = { Text(stringResource(R.string.dialog_share_confirm_message)) },
                     confirmButton = {
                         TextButton(onClick = {
                             viewModel.sendPendingShare(shareTargetId, tempMessageDuration)
                             showShareConfirmDialog = null
                             if (targetId.isEmpty()) viewModel.setTargetId(shareTargetId)
-                        }) { Text("Enviar", fontWeight = FontWeight.Bold) }
+                        }) { Text(stringResource(R.string.action_send), fontWeight = FontWeight.Bold) }
                     },
                     dismissButton = {
-                        TextButton(onClick = { showShareConfirmDialog = null }) { Text("Cancelar") }
+                        TextButton(onClick = { showShareConfirmDialog = null }) { Text(stringResource(R.string.action_cancel)) }
                     }
                 )
             }
@@ -801,7 +803,7 @@ fun ChatScreen(
                     },
                     onAudioCall = {
                         if (blockedUsers.contains(it.id)) {
-                            Toast.makeText(context, "Desbloqueie para ligar", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.toast_unblock_to_call), Toast.LENGTH_SHORT).show()
                         } else {
                             searchingUserProfile = null
                             isSearching = false
@@ -878,7 +880,7 @@ fun ChatScreen(
                                     if (loc != null) {
                                         viewModel.shareLocation(loc.latitude, loc.longitude, tempDurationMillis = tempMessageDuration)
                                     } else {
-                                        Toast.makeText(context, "Não foi possível obter localização", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(context, context.getString(R.string.toast_location_get_error), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                         } catch (e: SecurityException) {
@@ -904,7 +906,7 @@ fun ChatScreen(
                             fusedClient.requestLocationUpdates(locationRequest, callback, context.mainLooper)
                             viewModel.startLocationSharing(targetId, durationMs)
                         } catch (e: SecurityException) {
-                            Toast.makeText(context, "Permissão de localização necessária", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(context, context.getString(R.string.toast_location_permission_required), Toast.LENGTH_SHORT).show()
                         }
                     },
                     onStopLive = {
@@ -998,12 +1000,15 @@ fun NotificationPopup(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = buildString {
-                        append(notification.fromName.ifBlank { "Alguém" })
+                        append(notification.fromName.ifBlank { stringResource(R.string.notification_someone) })
                         when (notification.type) {
-                            "LIKE" -> append(" curtiu sua postagem")
-                            "COMMENT" -> append(" comentou na sua postagem")
-                            "REACTION" -> append(" reagiu ${notification.reactionEmoji} à sua postagem")
-                            else -> append(" interagiu com você")
+                            "LIKE" -> append(" " + stringResource(R.string.notification_action_liked))
+                            "COMMENT" -> append(" " + stringResource(R.string.notification_action_commented))
+                            "REACTION" -> append(" " + stringResource(R.string.notification_action_reacted) + " ${notification.reactionEmoji}")
+                            else -> append(" " + stringResource(R.string.notification_action_interacted))
+                        }
+                        if (notification.type != "REACTION" && notification.type != "MENTION") {
+                             append(" " + stringResource(R.string.label_post_preview)) // "sua postagem" logic was hardcoded, let's simplify or check strings
                         }
                     },
                     fontSize = 14.sp,
@@ -1235,7 +1240,7 @@ fun StatusComposer(
                                 draftCaption = it
                                 currentStatusDraft.caption = it
                             },
-                            placeholder = { Text("Adicione uma legenda...", color = Color.White.copy(0.8f)) },
+                             placeholder = { Text(stringResource(R.string.status_composer_legend_hint), color = Color.White.copy(0.8f)) },
                             modifier = Modifier.fillMaxWidth().clickable { }, // Ensures clickable area focus
                             colors = TextFieldDefaults.colors(
                                 focusedContainerColor = Color.Transparent,
@@ -1337,13 +1342,13 @@ fun StatusComposer(
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary)
                     ) {
-                        Text("Concluído")
+                        Text(stringResource(R.string.action_done))
                     }
                     TextButton(onClick = {
                         showTextEditor = false
                         currentOverlayText = ""
                     }) {
-                        Text("Cancelar", color = Color.White)
+                        Text(stringResource(R.string.action_cancel), color = Color.White)
                     }
                 }
             }
@@ -1657,7 +1662,7 @@ fun StatusViewer(
                                             videoThumbnailUrl = if (currentStatus.isVideo) currentStatus.videoUrl else null
                                         )
                                         viewModel.sendMessage(emoji, replyingTo = mockStatusReply)
-                                        Toast.makeText(currentContext, "Reação Enviada!", Toast.LENGTH_SHORT).show()
+                                        Toast.makeText(currentContext, currentContext.getString(R.string.toast_reaction_sent), Toast.LENGTH_SHORT).show()
                                     }
                                 )
                             }
@@ -1689,7 +1694,7 @@ fun StatusViewer(
                                         value = replyText,
                                         onValueChange = { replyText = it },
                                         modifier = Modifier.fillMaxWidth().focusRequester(focusRequester),
-                                        placeholder = { Text("Responda ao status...", color = Color.White.copy(0.5f)) },
+                                        placeholder = { Text(stringResource(R.string.status_reply_placeholder), color = Color.White.copy(0.5f)) },
                                         colors = TextFieldDefaults.colors(
                                             focusedContainerColor = Color.Transparent,
                                             unfocusedContainerColor = Color.Transparent,
@@ -1718,7 +1723,7 @@ fun StatusViewer(
                                     )
                                 } else {
                                     Text(
-                                        "Responda a ${currentStatus.username}...",
+                                        stringResource(R.string.status_reply_to_user, currentStatus.username),
                                         color = Color.White.copy(0.8f),
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -1771,7 +1776,7 @@ fun StatusViewer(
             ) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 20.dp)) {
                     Text(
-                        "Visualizações (${currentStatus.viewers.size})",
+                        stringResource(R.string.status_viewers_title, currentStatus.viewers.size),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.ExtraBold,
                         color = chatColors.textPrimary
@@ -1789,7 +1794,7 @@ fun StatusViewer(
                         ) {
                             Icon(Icons.Rounded.DeleteOutline, null, tint = iOSRed)
                             Spacer(Modifier.width(12.dp))
-                            Text("Excluir Story", color = iOSRed, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.action_delete_story), color = iOSRed, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.height(24.dp))
                     }
@@ -1802,7 +1807,7 @@ fun StatusViewer(
                         ) {
                             Icon(Icons.Rounded.VisibilityOff, null, tint = chatColors.textSecondary.copy(0.3f), modifier = Modifier.size(64.dp))
                             Spacer(Modifier.height(16.dp))
-                            Text("Nenhuma visualização ainda", color = chatColors.textSecondary)
+                            Text(stringResource(R.string.status_no_viewers), color = chatColors.textSecondary)
                         }
                     } else {
                         LazyColumn(
@@ -1838,7 +1843,7 @@ fun StatusViewer(
                                             color = chatColors.textPrimary
                                         )
                                         Text(
-                                            "Visualizou recentemente",
+                                            stringResource(R.string.status_viewed_recently),
                                             style = MaterialTheme.typography.bodySmall,
                                             color = chatColors.textSecondary
                                         )
@@ -1964,7 +1969,7 @@ fun ChatPopUpMenu(
                             color = chatColors.textPrimary
                         )
                         Text(
-                            text = if (summary.isOnline) "Online" else "Visto por último recentemente",
+                            text = if (summary.isOnline) stringResource(R.string.status_online) else stringResource(R.string.status_last_seen_recent),
                             style = MaterialTheme.typography.bodySmall,
                             color = if (summary.isOnline) iOSGreen else chatColors.textSecondary
                         )
@@ -1973,26 +1978,26 @@ fun ChatPopUpMenu(
 
 
                 ChatPopOptionItem(
-                    text = "Abrir Conversa",
+                    text = stringResource(R.string.menu_open_chat),
                     icon = Icons.AutoMirrored.Rounded.Chat,
                     onClick = { onOpen(summary); onDismiss() }
                 )
 
                 ChatPopOptionItem(
-                    text = if (summary.isPinned) "Desafixar" else "Fixar Conversa",
+                    text = if (summary.isPinned) stringResource(R.string.menu_unpin_chat) else stringResource(R.string.menu_pin_chat),
                     icon = Icons.Rounded.PushPin,
                     iconColor = if (summary.isPinned) chatColors.primary else null,
                     onClick = { onTogglePin(summary.friendId, summary.isPinned); onDismiss() }
                 )
 
                 ChatPopOptionItem(
-                    text = if (summary.isMuted) "Ativar Sons" else "Silenciar",
+                    text = if (summary.isMuted) stringResource(R.string.menu_unmute_chat) else stringResource(R.string.menu_mute_chat),
                     icon = if (summary.isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
                     onClick = { onToggleMute(summary.friendId, summary.isMuted); onDismiss() }
                 )
 
                 ChatPopOptionItem(
-                    text = "Limpar Histórico",
+                    text = stringResource(R.string.menu_clear_history),
                     icon = Icons.Rounded.DeleteSweep,
                     textColor = iOSRed,
                     iconColor = iOSRed,
@@ -2000,7 +2005,7 @@ fun ChatPopUpMenu(
                 )
 
                 ChatPopOptionItem(
-                    text = "Excluir Chat",
+                    text = stringResource(R.string.menu_delete_chat),
                     icon = Icons.Rounded.DeleteOutline,
                     textColor = iOSRed,
                     iconColor = iOSRed,
@@ -2008,7 +2013,7 @@ fun ChatPopUpMenu(
                 )
 
                 ChatPopOptionItem(
-                    text = if (isBlocked) "Desbloquear" else "Bloquear",
+                    text = if (isBlocked) stringResource(R.string.menu_unblock) else stringResource(R.string.menu_block),
                     icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
                     textColor = if (isBlocked) null else iOSRed,
                     iconColor = if (isBlocked) null else iOSRed,
@@ -2061,14 +2066,14 @@ fun TempMessageSelectorSheet(
 ) {
     val chatColors = LocalChatColors.current
     val options = listOf(
-        0L to "Desativado",
-        15000L to "15 segundos",
-        30000L to "30 segundos",
-        60000L to "60 segundos",
-        300000L to "5 minutos",
-        600000L to "10 minutos",
-        1800000L to "30 minutos",
-        86400000L to "24 horas"
+        0L to stringResource(R.string.temp_messages_off),
+        15000L to stringResource(R.string.time_seconds_full, 15),
+        30000L to stringResource(R.string.time_seconds_full, 30),
+        60000L to stringResource(R.string.time_seconds_full, 60),
+        300000L to stringResource(R.string.time_minutes_full, 5),
+        600000L to stringResource(R.string.time_minutes_full, 10),
+        1800000L to stringResource(R.string.time_minutes_full, 30),
+        86400000L to stringResource(R.string.time_hours_full, 24)
     )
 
     Column(
@@ -2078,7 +2083,7 @@ fun TempMessageSelectorSheet(
             .padding(bottom = 16.dp)
     ) {
         Text(
-            text = "Mensagens Temporárias",
+            text = stringResource(R.string.dialog_temp_messages_title),
             modifier = Modifier.padding(16.dp),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
@@ -2102,7 +2107,7 @@ fun TempMessageSelectorSheet(
                 if (currentDuration == duration) {
                     Icon(
                         imageVector = Icons.Rounded.Check,
-                        contentDescription = "Selecionado",
+                        contentDescription = stringResource(R.string.content_description_selected),
                         tint = chatColors.primary,
                         modifier = Modifier.size(24.dp)
                     )

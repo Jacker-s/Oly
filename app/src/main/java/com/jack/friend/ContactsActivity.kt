@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
@@ -196,10 +197,10 @@ fun ContactsScreenIOS17(
             CenterAlignedTopAppBar(
                 title = {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Amigos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.contacts_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                         if (contacts.isNotEmpty()) {
                             Text(
-                                text = if (query.isBlank()) "${contacts.size} amigos" else "${filteredContacts.size} encontrados",
+                                text = if (query.isBlank()) stringResource(R.string.contacts_count, contacts.size) else stringResource(R.string.contacts_search_results_count, filteredContacts.size),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MetaGray4
                             )
@@ -208,7 +209,7 @@ fun ContactsScreenIOS17(
                 },
                 actions = {
                     IconButton(onClick = { showAddContactDialog = true }) {
-                        Icon(Icons.Rounded.PersonAdd, "Adicionar", tint = LocalChatColors.current.primary)
+                        Icon(Icons.Rounded.PersonAdd, stringResource(R.string.contacts_action_add_description), tint = LocalChatColors.current.primary)
                     }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -228,13 +229,13 @@ fun ContactsScreenIOS17(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                QuickActionIcon(Icons.Rounded.QrCodeScanner, "Escanear", colors = LocalChatColors.current) {
+                QuickActionIcon(Icons.Rounded.QrCodeScanner, stringResource(R.string.contacts_quick_scan), colors = LocalChatColors.current) {
                     showQRScanner = true
                 }
-                QuickActionIcon(Icons.Rounded.QrCode, "Meu QR", colors = LocalChatColors.current) {
+                QuickActionIcon(Icons.Rounded.QrCode, stringResource(R.string.contacts_quick_my_qr), colors = LocalChatColors.current) {
                     showMyQRSheet = true
                 }
-                QuickActionIcon(Icons.Rounded.PersonAddAlt1, "Novo Amigo", colors = LocalChatColors.current) {
+                QuickActionIcon(Icons.Rounded.PersonAddAlt1, stringResource(R.string.contacts_quick_add_new), colors = LocalChatColors.current) {
                     showAddContactDialog = true
                 }
             }
@@ -254,19 +255,19 @@ fun ContactsScreenIOS17(
                 Tab(
                     selected = selectedTab == 0,
                     onClick = { selectedTab = 0 },
-                    text = { Text("Meus Amigos", fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
+                    text = { Text(stringResource(R.string.contacts_tab_mine), fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal) }
                 )
                 Tab(
                     selected = selectedTab == 1,
                     onClick = { selectedTab = 1 },
-                    text = { Text("Descobrir", fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
+                    text = { Text(stringResource(R.string.contacts_tab_discover), fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal) }
                 )
             }
 
             IOS17SearchPill(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = if (selectedTab == 0) "Pesquisar nos amigos" else "Buscar novos usuários",
+                placeholder = if (selectedTab == 0) stringResource(R.string.contacts_search_hint_mine) else stringResource(R.string.contacts_search_hint_discover),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
             )
 
@@ -309,7 +310,7 @@ fun ContactsScreenIOS17(
                         } else {
                             item {
                                 Text(
-                                    "Pessoas próximas (50km)",
+                                    stringResource(R.string.contacts_section_nearby),
                                     style = MaterialTheme.typography.labelMedium,
                                     color = MetaGray4,
                                     modifier = Modifier.padding(16.dp)
@@ -326,7 +327,7 @@ fun ContactsScreenIOS17(
                                     onClick = { selectedProfile = user },
                                     onAddClick = { 
                                         viewModel.addContact(user.id) { success, _ -> 
-                                            if (success) Toast.makeText(context, "Amigo adicionado!", Toast.LENGTH_SHORT).show()
+                                            if (success) Toast.makeText(context, context.getString(R.string.contacts_toast_added), Toast.LENGTH_SHORT).show()
                                         }
                                     }
                                 )
@@ -344,7 +345,7 @@ fun ContactsScreenIOS17(
                                 onClick = { selectedProfile = user },
                                 onAddClick = { 
                                     viewModel.addContact(user.id) { success, _ -> 
-                                        if (success) Toast.makeText(context, "Amigo adicionado!", Toast.LENGTH_SHORT).show()
+                                        if (success) Toast.makeText(context, context.getString(R.string.contacts_toast_added), Toast.LENGTH_SHORT).show()
                                     }
                                 }
                             )
@@ -417,16 +418,16 @@ fun ContactsScreenIOS17(
         if (showDeleteDialog != null) {
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = null },
-                title = { Text("Desfazer Amizade") },
-                text = { Text("Deseja remover ${showDeleteDialog?.name} dos seus amigos?") },
+                title = { Text(stringResource(R.string.contacts_dialog_unfriend_title)) },
+                text = { Text(stringResource(R.string.contacts_dialog_unfriend_message, showDeleteDialog?.name ?: "")) },
                 confirmButton = {
                     TextButton(onClick = {
                         showDeleteDialog?.let { viewModel.deleteContact(it.id) { _, _ -> } }
                         showDeleteDialog = null
-                    }) { Text("Remover", color = iOSRed) }
+                    }) { Text(stringResource(R.string.contacts_dialog_unfriend_confirm), color = iOSRed) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showDeleteDialog = null }) { Text("Cancelar") }
+                    TextButton(onClick = { showDeleteDialog = null }) { Text(stringResource(R.string.action_cancel)) }
                 }
             )
         }
@@ -440,7 +441,7 @@ fun ContactsScreenIOS17(
                 onAdd = { username ->
                     viewModel.addContact(username) { success, err ->
                         if (success) showAddContactDialog = false
-                        else Toast.makeText(context, err ?: "Erro", Toast.LENGTH_SHORT).show()
+                        else Toast.makeText(context, err ?: context.getString(R.string.error_generic), Toast.LENGTH_SHORT).show()
                     }
                 }
             )
@@ -463,7 +464,7 @@ fun ContactsScreenIOS17(
                 onDismiss = { showQRScanner = false },
                 onResult = { id ->
                     showQRScanner = false
-                    Toast.makeText(context, "ID Encontrado: @$id", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, context.getString(R.string.contacts_toast_id_found, id), Toast.LENGTH_SHORT).show()
                     
                     // Fetch and show profile
                     viewModel.fetchUserProfile(id) { profile ->
@@ -475,7 +476,7 @@ fun ContactsScreenIOS17(
                     // Also add as contact
                     viewModel.addContact(id) { s, e ->
                         if (!s && e != null) Toast.makeText(context, e, Toast.LENGTH_SHORT).show()
-                        else if (s) Toast.makeText(context, "Amigo adicionado!", Toast.LENGTH_SHORT).show()
+                        else if (s) Toast.makeText(context, context.getString(R.string.contacts_toast_added), Toast.LENGTH_SHORT).show()
                     }
                 }
             )
@@ -544,7 +545,7 @@ private fun FriendRow(
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
-                    text = contact.status.takeIf { it.isNotBlank() } ?: "Disponível",
+                    text = contact.status.takeIf { it.isNotBlank() } ?: stringResource(R.string.contacts_status_available),
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (isBlocked) iOSRed else chatColors.textSecondary,
                     maxLines = 1,
@@ -552,7 +553,7 @@ private fun FriendRow(
                 )
                 if (contact.id.length % 3 == 0) { // Simulated mutual friends for UI beauty
                      Text(
-                        text = "• ${2 + (contact.id.length % 5)} amigos em comum",
+                        text = stringResource(R.string.contacts_mutual_friends_count, 2 + (contact.id.length % 5)),
                         style = MaterialTheme.typography.labelSmall,
                         color = chatColors.primary.copy(alpha = 0.7f),
                         fontWeight = FontWeight.Bold
@@ -568,7 +569,7 @@ private fun FriendRow(
             ) {
                 Icon(
                     Icons.Rounded.ChatBubble, 
-                    contentDescription = "Mensagem", 
+                    contentDescription = stringResource(R.string.contacts_action_message_description), 
                     tint = chatColors.primary, 
                     modifier = Modifier.size(18.dp)
                 )
@@ -619,7 +620,7 @@ private fun DiscoverFriendRow(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "@${user.id.lowercase()}",
+                        text = stringResource(R.string.profile_username_format, user.id.lowercase()),
                         style = MaterialTheme.typography.bodySmall,
                         color = chatColors.textSecondary
                     )
@@ -643,7 +644,7 @@ private fun DiscoverFriendRow(
                     shape = RoundedCornerShape(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = chatColors.primary)
                 ) {
-                    Text("Adicionar", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.contacts_action_add_description), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
             } else {
                 Surface(
@@ -651,7 +652,7 @@ private fun DiscoverFriendRow(
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
-                        "Amigo", 
+                        stringResource(R.string.contacts_status_is_friend), 
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
                         color = iOSGreen,
                         fontSize = 11.sp,
@@ -692,13 +693,13 @@ private fun DiscoverEmptyState() {
         Icon(Icons.Rounded.Public, null, modifier = Modifier.size(64.dp), tint = MetaGray4.copy(alpha = 0.3f))
         Spacer(Modifier.height(16.dp))
         Text(
-            "Descubra novas pessoas", 
+            stringResource(R.string.contacts_discover_empty_title), 
             fontWeight = FontWeight.Bold, 
             fontSize = 18.sp,
             textAlign = TextAlign.Center
         )
         Text(
-            "Digite um nome ou arroba para encontrar usuários em todo o Oly.", 
+            stringResource(R.string.contacts_discover_empty_subtitle), 
             color = MetaGray4,
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 16.dp)
@@ -742,11 +743,11 @@ private fun ContactActionSheet(
             
             HorizontalDivider(color = LocalChatColors.current.separator, thickness = 0.5.dp)
             
-            ActionItem("Enviar Mensagem", Icons.Rounded.ChatBubble, LocalChatColors.current.primary, onOpenChat)
-            ActionItem("Chamada de Áudio", Icons.Rounded.Call, LocalChatColors.current.primary) { onCall(false) }
-            ActionItem("Chamada de Vídeo", Icons.Rounded.Videocam, LocalChatColors.current.primary) { onCall(true) }
-            ActionItem(if (isBlocked) "Desbloquear" else "Bloquear", Icons.Rounded.Block, iOSRed, onBlock)
-            ActionItem("Desfazer Amizade", Icons.Rounded.PersonRemove, iOSRed, onDelete)
+            ActionItem(stringResource(R.string.contacts_sheet_message), Icons.Rounded.ChatBubble, LocalChatColors.current.primary, onOpenChat)
+            ActionItem(stringResource(R.string.contacts_sheet_audio_call), Icons.Rounded.Call, LocalChatColors.current.primary) { onCall(false) }
+            ActionItem(stringResource(R.string.contacts_sheet_video_call), Icons.Rounded.Videocam, LocalChatColors.current.primary) { onCall(true) }
+            ActionItem(if (isBlocked) stringResource(R.string.contacts_sheet_unblock) else stringResource(R.string.contacts_sheet_block), Icons.Rounded.Block, iOSRed, onBlock)
+            ActionItem(stringResource(R.string.contacts_dialog_unfriend_title), Icons.Rounded.PersonRemove, iOSRed, onDelete)
         }
     }
 }
@@ -784,13 +785,13 @@ private fun EmptyContactsState(onAddClick: () -> Unit) {
         }
         Spacer(Modifier.height(24.dp))
         Text(
-            "Sua lista está vazia", 
+            stringResource(R.string.contacts_empty_list_title), 
             fontWeight = FontWeight.ExtraBold, 
             fontSize = 20.sp,
             color = chatColors.textPrimary
         )
         Text(
-            "Adicione seus amigos para começar a conversar e compartilhar momentos.", 
+            stringResource(R.string.contacts_empty_list_subtitle), 
             color = chatColors.textSecondary, 
             textAlign = TextAlign.Center,
             fontSize = 15.sp,
@@ -806,7 +807,7 @@ private fun EmptyContactsState(onAddClick: () -> Unit) {
         ) {
             Icon(Icons.Rounded.PersonAdd, null)
             Spacer(Modifier.width(8.dp))
-            Text("Adicionar Amigos", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Text(stringResource(R.string.contacts_empty_list_button), fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
     }
 }
@@ -819,8 +820,8 @@ private fun EmptySearchState(query: String) {
     ) {
         Icon(Icons.Rounded.SearchOff, null, modifier = Modifier.size(80.dp), tint = MetaGray4.copy(alpha = 0.3f))
         Spacer(Modifier.height(16.dp))
-        Text("Nenhum resultado", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Text("Não encontramos ninguém para \"$query\"", color = MetaGray4)
+        Text(stringResource(R.string.contacts_search_empty_title), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        Text(stringResource(R.string.contacts_search_empty_subtitle, query), color = MetaGray4)
     }
 }
 

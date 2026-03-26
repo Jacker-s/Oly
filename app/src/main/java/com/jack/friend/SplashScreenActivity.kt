@@ -122,7 +122,7 @@ fun SplashScreenContent(onFinish: () -> Unit) {
                         radius = size.minDimension / 2 + 10.dp.toPx()
                     )
                 }
-                
+
                 // Anel Principal "O"
                 Canvas(modifier = Modifier.size(80.dp)) {
                     val strokeWidth = 20.dp.toPx()

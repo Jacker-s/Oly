@@ -55,6 +55,11 @@ import coil.compose.AsyncImage
 import com.jack.friend.ui.components.*
 import com.jack.friend.ui.theme.*
 
+import androidx.compose.ui.res.stringResource
+import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.os.LocaleListCompat
+import java.util.Locale
+
 class SettingsActivity : ComponentActivity() {
 
     private lateinit var billingManager: BillingManager
@@ -123,7 +128,7 @@ fun SettingsScreen(
         Scaffold(
             topBar = {
                 CenterAlignedTopAppBar(
-                    title = { Text("Configurações", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) },
+                    title = { Text(stringResource(R.string.settings_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold) },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = LocalChatColors.current.topBar)
                 )
             }
@@ -160,10 +165,10 @@ fun SettingsScreen(
                 if (!isPremium) {
                     MetaSettingsSection {
                         MetaSettingsItem(
-                            title = "Remover Anúncios",
+                            title = stringResource(R.string.settings_premium_title),
                             icon = Icons.Default.Star,
                             iconColor = Color(0xFFFFD700),
-                            subtitle = "Torne-se Premium",
+                            subtitle = stringResource(R.string.settings_premium_sub),
                             onClick = {
                                 Log.d("SettingsScreen", "Botão Remover Anúncios clicado. Activity: $activity")
                                 if (activity != null) {
@@ -177,10 +182,10 @@ fun SettingsScreen(
                     }
                 }
 
-                Text("APARÊNCIA", modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_appearance), modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
                 MetaSettingsSection {
                     MetaSettingsItem(
-                        title = "Tema de Cores",
+                        title = stringResource(R.string.settings_theme_title),
                         icon = Icons.Default.Palette,
                         iconColor = iOSPurple,
                         subtitle = AppTheme.valueOf(selectedThemeName).title,
@@ -190,7 +195,7 @@ fun SettingsScreen(
                     MetaSettingsSwitchItem(
                         icon = Icons.Default.SettingsSuggest,
                         iconColor = iOSBlue,
-                        title = "Sincronizar com Sistema",
+                        title = stringResource(R.string.settings_sync_system),
                         checked = followSystem,
                         onCheckedChange = {
                             followSystem = it
@@ -201,7 +206,7 @@ fun SettingsScreen(
                     MetaSettingsSwitchItem(
                         icon = Icons.Default.DarkMode,
                         iconColor = Color.DarkGray,
-                        title = "Modo Escuro",
+                        title = stringResource(R.string.settings_dark_mode),
                         checked = isDarkMode,
                         enabled = !followSystem,
                         onCheckedChange = {
@@ -209,15 +214,27 @@ fun SettingsScreen(
                             uiPrefs.edit().putBoolean("dark_mode", it).apply()
                         }
                     )
+                    MetaSettingsDivider()
+                    MetaSettingsItem(
+                        title = stringResource(R.string.settings_language),
+                        icon = Icons.Default.Language,
+                        iconColor = iOSBlue,
+                        subtitle = if (Locale.getDefault().language == "pt") "Português" else "English",
+                        onClick = {
+                            val nextLang = if (Locale.getDefault().language == "pt") "en" else "pt"
+                            val appLocale: LocaleListCompat = LocaleListCompat.forLanguageTags(nextLang)
+                            AppCompatDelegate.setApplicationLocales(appLocale)
+                        }
+                    )
                 }
 
-                Text("PRIVACIDADE", modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_privacy), modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
                 MetaSettingsSection {
                     MetaSettingsSwitchItem(
                         icon = Icons.Default.Timer,
                         iconColor = iOSBlue,
-                        title = "Visto por Último",
-                        subtitle = "Mostra quando você esteve online pela última vez",
+                        title = stringResource(R.string.settings_last_seen),
+                        subtitle = stringResource(R.string.settings_last_seen_sub),
                         checked = showLastSeen,
                         onCheckedChange = { viewModel.updateProfile(privacySettings = mapOf("showLastSeen" to it)) }
                     )
@@ -225,8 +242,8 @@ fun SettingsScreen(
                     MetaSettingsSwitchItem(
                         icon = Icons.Default.DoneAll,
                         iconColor = iOSBlue,
-                        title = "Confirmações de Leitura",
-                        subtitle = "Permite que outros vejam quando você leu as mensagens",
+                        title = stringResource(R.string.settings_read_receipts),
+                        subtitle = stringResource(R.string.settings_read_receipts_sub),
                         checked = showReadReceipts,
                         onCheckedChange = { viewModel.updateProfile(privacySettings = mapOf("showReadReceipts" to it)) }
                     )
@@ -234,27 +251,27 @@ fun SettingsScreen(
                     MetaSettingsSwitchItem(
                         icon = Icons.Default.OnlinePrediction,
                         iconColor = iOSGreen,
-                        title = "Status Online",
-                        subtitle = "Mostra quando você está online no momento",
+                        title = stringResource(R.string.settings_online_status),
+                        subtitle = stringResource(R.string.settings_online_status_sub),
                         checked = showOnlineStatus,
                         onCheckedChange = { viewModel.updateProfile(privacySettings = mapOf("showOnlineStatus" to it)) }
                     )
                     MetaSettingsDivider()
-                    MetaSettingsItem(title = "Usuários Bloqueados", icon = Icons.Default.Block, iconColor = MessengerBusy, onClick = { showBlockedDialog = true })
+                    MetaSettingsItem(title = stringResource(R.string.settings_blocked_users), icon = Icons.Default.Block, iconColor = MessengerBusy, onClick = { showBlockedDialog = true })
                     MetaSettingsDivider()
                     MetaSettingsSwitchItem(
                         icon = Icons.Default.VisibilityOff,
                         iconColor = iOSBlue,
-                        title = "Esconder da Pesquisa",
-                        subtitle = "Impede que outros usuários te encontrem pela busca",
+                        title = stringResource(R.string.settings_hide_search),
+                        subtitle = stringResource(R.string.settings_hide_search_sub),
                         checked = isHiddenFromSearch,
                         onCheckedChange = { viewModel.updateProfile(privacySettings = mapOf("isHiddenFromSearch" to it)) }
                     )
                 }
 
-                Text("SEGURANÇA", modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_security), modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
                 MetaSettingsSection {
-                    MetaSettingsSwitchItem(icon = Icons.Default.Lock, iconColor = WarmTextSecondary, title = "Bloqueio com PIN", checked = isPinEnabled, onCheckedChange = {
+                    MetaSettingsSwitchItem(icon = Icons.Default.Lock, iconColor = WarmTextSecondary, title = stringResource(R.string.settings_pin_lock), checked = isPinEnabled, onCheckedChange = {
                         if (it) showPinDialog = true else {
                             isPinEnabled = false
                             securityPrefs.edit().putBoolean("pin_enabled", false).apply()
@@ -262,7 +279,7 @@ fun SettingsScreen(
                     })
                     if (isPinEnabled) {
                         MetaSettingsDivider()
-                        MetaSettingsItem(title = "Usar Biometria", icon = Icons.Default.Fingerprint, iconColor = WarmPrimary, trailing = {
+                        MetaSettingsItem(title = stringResource(R.string.settings_biometrics), icon = Icons.Default.Fingerprint, iconColor = WarmPrimary, trailing = {
                             Switch(checked = isBiometricEnabled, onCheckedChange = {
                                 isBiometricEnabled = it
                                 securityPrefs.edit().putBoolean("biometric_enabled", it).apply()
@@ -271,20 +288,20 @@ fun SettingsScreen(
                     }
                 }
 
-                Text("DADOS E ARMAZENAMENTO", modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_data), modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
                 MetaSettingsSection {
                     MetaSettingsItem(
-                        title = "Limpar Cache",
+                        title = stringResource(R.string.settings_clear_cache),
                         icon = Icons.Default.CleaningServices,
                         iconColor = iOSOrange,
-                        subtitle = "Libera espaço apagando mídias temporárias",
+                        subtitle = stringResource(R.string.settings_clear_cache_sub),
                         onClick = { showClearCacheDialog = true }
                     )
                 }
 
-                Text("CONTA", modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.settings_account), modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp), style = MaterialTheme.typography.labelSmall, color = WarmPrimary, fontWeight = FontWeight.Bold)
                 MetaSettingsSection {
-                    MetaSettingsItem(title = "Sair", icon = Icons.AutoMirrored.Filled.Logout, iconColor = WarmTextSecondary, onClick = {
+                    MetaSettingsItem(title = stringResource(R.string.settings_logout), icon = Icons.AutoMirrored.Filled.Logout, iconColor = WarmTextSecondary, onClick = {
                         viewModel.logout()
                         val intent = Intent(context, MainActivity::class.java).apply {
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -292,7 +309,7 @@ fun SettingsScreen(
                         context.startActivity(intent)
                     })
                     MetaSettingsDivider()
-                    MetaSettingsItem(title = "Excluir Conta", icon = Icons.Default.DeleteForever, iconColor = MessengerBusy, textColor = MessengerBusy, onClick = { showDeleteAccountDialog = true })
+                    MetaSettingsItem(title = stringResource(R.string.settings_delete_account), icon = Icons.Default.DeleteForever, iconColor = MessengerBusy, textColor = MessengerBusy, onClick = { showDeleteAccountDialog = true })
                 }
                 Spacer(Modifier.height(130.dp))
             }
@@ -345,10 +362,10 @@ fun SettingsScreen(
         if (showBlockedDialog) {
             AlertDialog(
                 onDismissRequest = { showBlockedDialog = false },
-                title = { Text("Usuários Bloqueados") },
+                title = { Text(stringResource(R.string.settings_dialog_blocked_title)) },
                 text = {
                     if (blockedProfiles.isEmpty()) {
-                        Text("Nenhum usuário bloqueado.")
+                        Text(stringResource(R.string.settings_dialog_blocked_empty))
                     } else {
                         LazyColumn(modifier = Modifier.heightIn(max = 400.dp)) {
                             items(blockedProfiles) { profile ->
@@ -363,22 +380,22 @@ fun SettingsScreen(
                                         Text(profile.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                     TextButton(onClick = { viewModel.unblockUser(profile.id) }) {
-                                        Text("Desbloquear", color = WarmPrimary)
+                                        Text(stringResource(R.string.action_unblock), color = WarmPrimary)
                                     }
                                 }
                             }
                         }
                     }
                 },
-                confirmButton = { TextButton(onClick = { showBlockedDialog = false }) { Text("Fechar") } }
+                confirmButton = { TextButton(onClick = { showBlockedDialog = false }) { Text(stringResource(R.string.action_close)) } }
             )
         }
 
         if (showDeleteAccountDialog) {
             AlertDialog(
                 onDismissRequest = { if (!isDeletingAccount) showDeleteAccountDialog = false },
-                title = { Text("Excluir conta?") },
-                text = { Text("Esta ação não pode ser desfeita. Para sua segurança, você precisa ter feito login recentemente para excluir a conta.") },
+                title = { Text(stringResource(R.string.settings_dialog_delete_title)) },
+                text = { Text(stringResource(R.string.settings_dialog_delete_message)) },
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -401,44 +418,44 @@ fun SettingsScreen(
                         if (isDeletingAccount) {
                             CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp, color = MessengerBusy)
                         } else {
-                            Text("Excluir", color = MessengerBusy)
+                            Text(stringResource(R.string.action_delete), color = MessengerBusy)
                         }
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteAccountDialog = false }, enabled = !isDeletingAccount) {
-                        Text("Cancelar")
+                        Text(stringResource(R.string.action_cancel))
                     }
                 }
             )
         }
 
         if (showPinDialog) {
-            AlertDialog(onDismissRequest = { showPinDialog = false }, title = { Text("Definir PIN") },
-                text = { TextField(value = pinInput, onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) pinInput = it }, placeholder = { Text("0000") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()) },
+            AlertDialog(onDismissRequest = { showPinDialog = false }, title = { Text(stringResource(R.string.settings_dialog_pin_title)) },
+                text = { TextField(value = pinInput, onValueChange = { if (it.length <= 4 && it.all { c -> c.isDigit() }) pinInput = it }, placeholder = { Text(stringResource(R.string.settings_dialog_pin_placeholder)) }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), visualTransformation = PasswordVisualTransformation(), modifier = Modifier.fillMaxWidth()) },
                 confirmButton = { TextButton(onClick = { if (pinInput.length == 4) {
                     securityPrefs.edit().putBoolean("pin_enabled", true).putString("security_pin", pinInput).apply()
                     isPinEnabled = true
                     showPinDialog = false
                     pinInput = ""
-                } }) { Text("Definir") } }
+                } }) { Text(stringResource(R.string.profile_finish_button)) } }
             )
         }
 
         if (showClearCacheDialog) {
             AlertDialog(
                 onDismissRequest = { showClearCacheDialog = false },
-                title = { Text("Limpar Cache?") },
-                text = { Text("Isso apagará arquivos temporários e mídias baixadas. Suas mensagens permanecerão seguras.") },
+                title = { Text(stringResource(R.string.settings_dialog_cache_title)) },
+                text = { Text(stringResource(R.string.settings_dialog_cache_message)) },
                 confirmButton = {
                     TextButton(onClick = {
                         (context.applicationContext as? FriendApplication)?.clearAppData()
-                        Toast.makeText(context, "Cache limpo com sucesso!", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(context, context.getString(R.string.settings_toast_cache_cleared), Toast.LENGTH_SHORT).show()
                         showClearCacheDialog = false
-                    }) { Text("Limpar") }
+                    }) { Text(stringResource(R.string.action_clear)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { showClearCacheDialog = false }) { Text("Cancelar") }
+                    TextButton(onClick = { showClearCacheDialog = false }) { Text(stringResource(R.string.action_cancel)) }
                 }
             )
         }

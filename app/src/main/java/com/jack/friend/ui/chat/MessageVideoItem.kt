@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.SubcomposeAsyncImage
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.LocalChatColors
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -81,7 +83,7 @@ fun MessageVideoItem(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = Icons.Rounded.BrokenImage,
-                        contentDescription = null,
+                        contentDescription = stringResource(R.string.error_load_image),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         modifier = Modifier.size(48.dp)
                     )
@@ -100,7 +102,7 @@ fun MessageVideoItem(
         ) {
             Icon(
                 imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = "Play",
+                contentDescription = stringResource(R.string.action_play),
                 tint = Color.White,
                 modifier = Modifier.size(32.dp)
             )

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -69,7 +70,7 @@ class ProfileActivity : ComponentActivity() {
                 val myUsername by viewModel.myUsername.collectAsStateWithLifecycle("")
                 val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
                 val myStatus by viewModel.myStatus.collectAsStateWithLifecycle("")
-                val myPresenceStatus by viewModel.myPresenceStatus.collectAsStateWithLifecycle("Online")
+                val myPresenceStatus by viewModel.myPresenceStatus.collectAsStateWithLifecycle(stringResource(R.string.status_online))
                 val isHiddenFromSearch by viewModel.isHiddenFromSearch.collectAsStateWithLifecycle(false)
                 
                 val myContacts by viewModel.contacts.collectAsStateWithLifecycle(emptyList())
@@ -136,7 +137,7 @@ class ProfileActivity : ComponentActivity() {
                                     }
                                     
                                     Text(
-                                        text = "@${myUsername.lowercase()}", 
+                                        text = stringResource(R.string.profile_username_format, myUsername.lowercase()), 
                                         style = MaterialTheme.typography.titleMedium, 
                                         fontWeight = FontWeight.Bold,
                                         color = colors.textPrimary
@@ -194,8 +195,8 @@ class ProfileActivity : ComponentActivity() {
                                             modifier = Modifier.weight(1f).padding(start = 24.dp),
                                             horizontalArrangement = Arrangement.SpaceEvenly
                                         ) {
-                                            StatItem(label = "Posts", count = "${myPosts.size}", colors = colors, onClick = { selectedTab = 0 })
-                                            StatItem(label = "Amigos", count = "${myContacts.size}", colors = colors, onClick = { context.startActivity(Intent(context, ContactsActivity::class.java)); finish() })
+                                            StatItem(label = stringResource(R.string.profile_stat_posts), count = "${myPosts.size}", colors = colors, onClick = { selectedTab = 0 })
+                                            StatItem(label = stringResource(R.string.profile_stat_friends), count = "${myContacts.size}", colors = colors, onClick = { context.startActivity(Intent(context, ContactsActivity::class.java)); finish() })
                                         }
                                     }
 
@@ -205,13 +206,13 @@ class ProfileActivity : ComponentActivity() {
                                         horizontalAlignment = Alignment.Start
                                     ) {
                                         Text(
-                                            text = nameInput.ifBlank { "Oly User" },
+                                            text = nameInput.ifBlank { stringResource(R.string.profile_default_name) },
                                             fontWeight = FontWeight.Bold,
                                             style = MaterialTheme.typography.bodyLarge,
                                             color = colors.textPrimary
                                         )
                                         Text(
-                                            text = statusInput.ifBlank { "Sem biografia" },
+                                            text = statusInput.ifBlank { stringResource(R.string.profile_default_bio) },
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = colors.textPrimary
                                         )
@@ -228,21 +229,21 @@ class ProfileActivity : ComponentActivity() {
                                             colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
                                             shape = RoundedCornerShape(10.dp)
                                         ) {
-                                            Text("Editar Perfil", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Text(stringResource(R.string.profile_edit_profile), color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         }
                                         Button(
                                             onClick = {
                                                 val shareIntent = Intent(Intent.ACTION_SEND).apply {
                                                     type = "text/plain"
-                                                    putExtra(Intent.EXTRA_TEXT, "Converse comigo no Oly! Meu usuário é @$myUsername")
+                                                    putExtra(Intent.EXTRA_TEXT, context.getString(R.string.profile_share_message, myUsername))
                                                 }
-                                                context.startActivity(Intent.createChooser(shareIntent, "Compartilhar perfil"))
+                                                context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.profile_share_chooser_title)))
                                             },
                                             modifier = Modifier.weight(1f).height(40.dp),
                                             colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
                                             shape = RoundedCornerShape(10.dp)
                                         ) {
-                                            Text("Compartilhar", color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                            Text(stringResource(R.string.profile_share_button), color = colors.textPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                                         }
                                     }
 
@@ -312,7 +313,7 @@ class ProfileActivity : ComponentActivity() {
                                                 Icon(Icons.Rounded.CameraAlt, null, tint = colors.textPrimary, modifier = Modifier.padding(16.dp))
                                             }
                                             Spacer(Modifier.height(16.dp))
-                                            Text("Ainda não há publicações", fontWeight = FontWeight.Bold, color = colors.textPrimary)
+                                            Text(stringResource(R.string.profile_empty_posts), fontWeight = FontWeight.Bold, color = colors.textPrimary)
                                         }
                                     }
                                 } else {
@@ -406,10 +407,10 @@ class ProfileActivity : ComponentActivity() {
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             TextButton(onClick = { showSettingsMenu = false }) {
-                                                Text("Cancelar", color = colors.textSecondary)
+                                                Text(stringResource(R.string.action_cancel), color = colors.textSecondary)
                                             }
                                             Text(
-                                                "Editar Perfil",
+                                                stringResource(R.string.profile_edit_profile),
                                                 style = MaterialTheme.typography.titleMedium,
                                                 fontWeight = FontWeight.Bold,
                                                 color = colors.textPrimary
@@ -426,7 +427,7 @@ class ProfileActivity : ComponentActivity() {
                                                     ) { success ->
                                                         isSaving = false
                                                         if (success) {
-                                                            Toast.makeText(context, "Perfil atualizado!", Toast.LENGTH_SHORT).show()
+                                                            Toast.makeText(context, context.getString(R.string.profile_update_success), Toast.LENGTH_SHORT).show()
                                                             showSettingsMenu = false
                                                         }
                                                     }
@@ -434,7 +435,7 @@ class ProfileActivity : ComponentActivity() {
                                                 enabled = !isSaving
                                             ) {
                                                 if (isSaving) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp, color = colors.primary)
-                                                else Text("Concluir", color = colors.primary, fontWeight = FontWeight.ExtraBold)
+                                                else Text(stringResource(R.string.profile_finish_button), color = colors.primary, fontWeight = FontWeight.ExtraBold)
                                             }
                                         }
 
@@ -471,26 +472,26 @@ class ProfileActivity : ComponentActivity() {
                                         }
                                         
                                         TextButton(onClick = { photoLauncher.launch("image/*") }) {
-                                            Text("Alterar foto", color = colors.primary, fontWeight = FontWeight.Bold)
+                                            Text(stringResource(R.string.profile_change_photo), color = colors.primary, fontWeight = FontWeight.Bold)
                                         }
 
                                         Spacer(Modifier.height(16.dp))
 
-                                        MetaSettingsGroup(title = "Minha Conta", colors = colors) {
-                                            ProfileEditRow(label = "Nome", value = nameInput, onValueChange = { nameInput = it }, icon = Icons.Rounded.Person, colors = colors)
+                                        MetaSettingsGroup(title = stringResource(R.string.profile_section_account), colors = colors) {
+                                            ProfileEditRow(label = stringResource(R.string.profile_label_name), value = nameInput, onValueChange = { nameInput = it }, icon = Icons.Rounded.Person, colors = colors)
                                             HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp, color = colors.separator.copy(0.4f))
-                                            ProfileEditRow(label = "Bio", value = statusInput, onValueChange = { statusInput = it }, icon = Icons.Rounded.ChatBubbleOutline, colors = colors)
+                                            ProfileEditRow(label = stringResource(R.string.profile_label_bio), value = statusInput, onValueChange = { statusInput = it }, icon = Icons.Rounded.ChatBubbleOutline, colors = colors)
                                         }
 
                                         Spacer(Modifier.height(24.dp))
 
-                                        MetaSettingsGroup(title = "Presença & Privacidade", colors = colors) {
+                                        MetaSettingsGroup(title = stringResource(R.string.profile_section_presence), colors = colors) {
                                             PresenceSelectorRow(selectedPresence, onClick = { showPresenceMenu = true }, colors = colors)
                                             HorizontalDivider(modifier = Modifier.padding(start = 56.dp), thickness = 0.5.dp, color = colors.separator.copy(0.4f))
                                             MetaSettingsSwitchItem(
                                                 icon = Icons.Rounded.VisibilityOff,
                                                 iconColor = Color.Gray,
-                                                title = "Modo Fantasma",
+                                                title = stringResource(R.string.profile_ghost_mode),
                                                 checked = hideFromSearch,
                                                 onCheckedChange = { hideFromSearch = it }
                                             )
@@ -509,7 +510,7 @@ class ProfileActivity : ComponentActivity() {
                                             },
                                             modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp)
                                         ) {
-                                            Text("Sair da Conta", color = iOSRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                            Text(stringResource(R.string.profile_logout_button), color = iOSRed, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                                         }
                                     }
                                 }
@@ -550,14 +551,20 @@ class ProfileActivity : ComponentActivity() {
                                         modifier = Modifier.fillMaxWidth().padding(bottom = 32.dp)
                                     ) {
                                         Text(
-                                            "Status de Presença",
+                                            stringResource(R.string.profile_presence_status_title),
                                             modifier = Modifier.padding(16.dp),
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.Bold,
                                             color = colors.textPrimary
                                         )
                                         
-                                        listOf("Online", "Ocupado", "Ausente", "Invisível").forEach { status ->
+                                        val presenceOptions = listOf(
+                                            "Online" to R.string.status_online,
+                                            "Ocupado" to R.string.status_busy,
+                                            "Ausente" to R.string.status_away,
+                                            "Invisível" to R.string.status_invisible
+                                        )
+                                        presenceOptions.forEach { (status, resId) ->
                                             val color = when(status) {
                                                 "Online" -> iOSGreen
                                                 "Ocupado" -> iOSRed
@@ -576,7 +583,7 @@ class ProfileActivity : ComponentActivity() {
                                             ) {
                                                 Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(color))
                                                 Spacer(Modifier.width(16.dp))
-                                                Text(status, color = colors.textPrimary, fontWeight = if (selectedPresence == status) FontWeight.Bold else FontWeight.Normal)
+                                                Text(stringResource(resId), color = colors.textPrimary, fontWeight = if (selectedPresence == status) FontWeight.Bold else FontWeight.Normal)
                                                 Spacer(Modifier.weight(1f))
                                                 if (selectedPresence == status) {
                                                     Icon(Icons.Rounded.Check, null, tint = colors.primary)
@@ -665,8 +672,15 @@ private fun PresenceSelectorRow(selectedPresence: String, onClick: () -> Unit, c
         }
         Spacer(Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text("Status de Presença", style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
-            Text(selectedPresence, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = colors.textPrimary)
+            val presenceDisplayRes = when(selectedPresence) {
+                "Online" -> R.string.status_online
+                "Ocupado" -> R.string.status_busy
+                "Ausente" -> R.string.status_away
+                "Invisível" -> R.string.status_invisible
+                else -> R.string.status_online
+            }
+            Text(stringResource(R.string.profile_presence_status_title), style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+            Text(stringResource(presenceDisplayRes), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold, color = colors.textPrimary)
         }
         Icon(Icons.Rounded.ChevronRight, null, tint = colors.textSecondary)
     }

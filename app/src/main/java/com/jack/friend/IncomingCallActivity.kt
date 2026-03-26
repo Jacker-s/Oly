@@ -58,6 +58,7 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Message
 import androidx.compose.material.icons.filled.Videocam
+import androidx.compose.ui.res.stringResource
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -68,6 +69,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.google.firebase.database.*
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 import com.jack.friend.ui.theme.FriendTheme
 import kotlin.math.max
 import kotlin.math.roundToInt
@@ -175,7 +178,7 @@ class IncomingCallActivity : ComponentActivity() {
                 triggerTime,
                 pendingIntent
             )
-            android.widget.Toast.makeText(this, "Lembrete definido para 15 minutos", android.widget.Toast.LENGTH_SHORT).show()
+            android.widget.Toast.makeText(this, getString(R.string.call_reminder_toast), android.widget.Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Log.e(TAG, "Erro ao agendar alarme: ${e.message}")
         }
@@ -518,7 +521,7 @@ private fun IncomingCallScreen(
             
             // Header
             Text(
-                if (isVideo) "CHAMADA DE VÍDEO" else "CHAMADA DE ÁUDIO",
+                if (isVideo) stringResource(R.string.call_type_video) else stringResource(R.string.call_type_audio),
                 color = Color.White.copy(0.5f),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
@@ -573,7 +576,7 @@ private fun IncomingCallScreen(
                 )
                 
                 Text(
-                    text = "Brasil", // Example location or subtext
+                    text = stringResource(R.string.country_name_default), 
                     color = Color.White.copy(alpha = 0.5f),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
@@ -586,8 +589,8 @@ private fun IncomingCallScreen(
                 modifier = Modifier.fillMaxWidth().padding(bottom = 60.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
-                QuickActionItem(icon = Icons.Default.Alarm, label = "Lembrar", onClick = onRemind)
-                QuickActionItem(icon = Icons.Default.Message, label = "Mensagem", onClick = onMessage)
+                QuickActionItem(icon = Icons.Default.Alarm, label = stringResource(R.string.call_action_remind), onClick = onRemind)
+                QuickActionItem(icon = Icons.Default.Message, label = stringResource(R.string.call_action_message), onClick = onMessage)
             }
 
             // Main Actions
@@ -608,7 +611,7 @@ private fun IncomingCallScreen(
                         Icon(Icons.Rounded.CallEnd, null, modifier = Modifier.size(34.dp))
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text("Recusar", color = Color.White, fontSize = 14.sp)
+                    Text(stringResource(R.string.call_action_reject), color = Color.White, fontSize = 14.sp)
                 }
 
                 // Accept
@@ -623,7 +626,7 @@ private fun IncomingCallScreen(
                         Icon(if (isVideo) Icons.Default.Videocam else Icons.Rounded.Call, null, modifier = Modifier.size(34.dp))
                     }
                     Spacer(Modifier.height(12.dp))
-                    Text("Atender", color = Color.White, fontSize = 14.sp)
+                    Text(stringResource(R.string.call_action_accept), color = Color.White, fontSize = 14.sp)
                 }
             }
         }
@@ -653,10 +656,10 @@ private fun QuickMessageBottomSheet(
     onSelect: (String) -> Unit
 ) {
     val messages = listOf(
-        "Não posso falar agora.",
-        "Te ligo mais tarde.",
-        "Estou em reunião.",
-        "O que aconteceu?"
+        stringResource(R.string.call_quick_msg_1),
+        stringResource(R.string.call_quick_msg_2),
+        stringResource(R.string.call_quick_msg_3),
+        stringResource(R.string.call_quick_msg_4)
     )
 
     ModalBottomSheet(
@@ -671,7 +674,7 @@ private fun QuickMessageBottomSheet(
                 .padding(bottom = 40.dp)
         ) {
             Text(
-                "ENVIAR MENSAGEM",
+                text = stringResource(R.string.call_sheet_header),
                 modifier = Modifier.padding(16.dp),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,

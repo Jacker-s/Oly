@@ -21,7 +21,7 @@ import kotlinx.coroutines.launch
 import java.io.File
 
 class FriendApplication : Application(), Application.ActivityLifecycleCallbacks, ImageLoaderFactory {
-    
+
     private var activityCount = 0
     private val _isForeground = MutableStateFlow(false)
     val isForeground: StateFlow<Boolean> = _isForeground
@@ -37,7 +37,7 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
         super.onCreate()
         instance = this
         registerActivityLifecycleCallbacks(this)
-        
+
         // Inicializar AdMob
         val backgroundScope = CoroutineScope(Dispatchers.IO)
         backgroundScope.launch {
@@ -69,10 +69,10 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
 
             // Limpa Cache (arquivos de áudio, imagens temporárias)
             cacheDir.deleteRecursively()
-            
+
             // Limpa arquivos internos se houver
             filesDir.deleteRecursively()
-            
+
         } catch (e: Exception) {
             e.printStackTrace()
         }

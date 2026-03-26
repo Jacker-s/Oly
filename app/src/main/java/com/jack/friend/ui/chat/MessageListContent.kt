@@ -17,6 +17,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import android.content.Context
+import com.jack.friend.R
 import com.jack.friend.Message
 import com.jack.friend.UserProfile
 import com.jack.friend.ui.theme.MetaGray4
@@ -97,8 +100,9 @@ fun MessageListContent(
                 val isLastInGroup = nextMsg == null || nextMsg.senderId != message.senderId || (nextMsg.timestamp - message.timestamp > 60000)
                 
                 if (isFirstInGroup) {
-                    val dateText = formatDateHeader(message.timestamp)
-                    if (dateText != (prevMsg?.let { formatDateHeader(it.timestamp) } ?: "")) {
+                    val context = LocalContext.current
+                    val dateText = formatDateHeader(context, message.timestamp)
+                    if (dateText != (prevMsg?.let { formatDateHeader(context, it.timestamp) } ?: "")) {
                         DateHeader(dateText)
                     }
                 }
@@ -161,13 +165,20 @@ fun DateHeader(text: String) {
     )
 }
 
-fun formatDateHeader(timestamp: Long): String {
+fun formatDateHeader(context: Context, timestamp: Long): String {
     val calendar = Calendar.getInstance()
     val now = Calendar.getInstance()
     calendar.timeInMillis = timestamp
     return when {
-        calendar.get(Calendar.YEAR) == now.get(Calendar.YEAR) && calendar.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) -> "HOJE"
-        calendar.get(Calendar.YEAR) == now.get(Calendar.YEAR) && calendar.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) - 1 -> "ONTEM"
-        else -> SimpleDateFormat("d 'DE' MMMM", Locale("pt", "BR")).format(Date(timestamp)).uppercase()
+        calendar.get(Calendar.YEAR) == now.get(Calendar.YEAR) && calendar.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) -> {
+            context.getString(R.string.date_today)
+        }
+        calendar.get(Calendar.YEAR) == now.get(Calendar.YEAR) && calendar.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR) - 1 -> {
+            context.getString(R.string.date_yesterday)
+        }
+        else -> {
+            val format = context.getString(R.string.date_format)
+            SimpleDateFormat(format, Locale.getDefault()).format(Date(timestamp)).uppercase()
+        }
     }
 }

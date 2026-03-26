@@ -39,6 +39,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.jack.friend.ui.theme.LocalChatColors
 import com.jack.friend.ui.theme.iOSRed
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 
 @Composable
 fun ChatOptionsMenuSheet(
@@ -58,10 +60,10 @@ fun ChatOptionsMenuSheet(
 ) {
     val colors = LocalChatColors.current
     val durationText = when {
-        tempMessageDuration <= 0 -> "Off"
-        tempMessageDuration < 60_000 -> "${tempMessageDuration / 1000}s"
-        tempMessageDuration < 3_600_000 -> "${tempMessageDuration / 60_000}m"
-        else -> "${tempMessageDuration / 3_600_000}h"
+        tempMessageDuration <= 0 -> stringResource(R.string.time_off)
+        tempMessageDuration < 60_000 -> stringResource(R.string.time_seconds, tempMessageDuration / 1000)
+        tempMessageDuration < 3_600_000 -> stringResource(R.string.time_minutes, tempMessageDuration / 60_000)
+        else -> stringResource(R.string.time_hours, tempMessageDuration / 3_600_000)
     }
 
     Column(
@@ -87,28 +89,28 @@ fun ChatOptionsMenuSheet(
 
         SheetOption(
             icon = Icons.Rounded.AccountCircle,
-            text = "Ver Perfil",
+            text = stringResource(R.string.menu_view_profile),
             onClick = { onDismiss(); onViewInfo() }
         )
         SheetOption(
             icon = Icons.Rounded.PushPin,
-            text = if (isPinned) "Desafixar" else "Fixar",
+            text = if (isPinned) stringResource(R.string.action_unpin) else stringResource(R.string.action_pin),
             onClick = { onDismiss(); onTogglePin() }
         )
         SheetOption(
             icon = if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
-            text = if (isMuted) "Ativar Sons" else "Silenciar",
+            text = if (isMuted) stringResource(R.string.action_unmute) else stringResource(R.string.action_mute),
             onClick = { onDismiss(); onToggleMute() }
         )
         SheetOption(
             icon = Icons.Rounded.Timer,
-            text = "Mensagens Temporárias",
+            text = stringResource(R.string.action_temp_messages),
             trailingText = durationText,
             onClick = { onDismiss(); onToggleTempMessages() }
         )
         SheetOption(
             icon = Icons.Rounded.Star,
-            text = "Mensagens Favoritas",
+            text = stringResource(R.string.action_starred_messages),
             onClick = { onDismiss(); onStarredMessages() }
         )
 
@@ -116,12 +118,12 @@ fun ChatOptionsMenuSheet(
 
         SheetOption(
             icon = Icons.Rounded.DeleteSweep,
-            text = "Limpar Conversa",
+            text = stringResource(R.string.action_clear_chat),
             onClick = { onDismiss(); onClearChat() }
         )
         SheetOption(
             icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
-            text = if (isBlocked) "Desbloquear" else "Bloquear",
+            text = if (isBlocked) stringResource(R.string.action_unblock) else stringResource(R.string.action_block),
             contentColor = iOSRed,
             onClick = { onDismiss(); onBlockToggle() }
         )

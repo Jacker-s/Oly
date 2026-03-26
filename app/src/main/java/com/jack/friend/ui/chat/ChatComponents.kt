@@ -1,5 +1,6 @@
 package com.jack.friend.ui.chat
 
+import android.content.Context
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -13,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Brush
@@ -28,6 +30,8 @@ import coil.compose.AsyncImage
 import com.jack.friend.ChatSummary
 import com.jack.friend.UserProfile
 import com.jack.friend.UserStatus
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -70,7 +74,7 @@ fun MetaStatusRow(
         ) {
             Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp)) {
                 Text(
-                    "Meu Status",
+                    stringResource(R.string.status_my_status_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.ExtraBold,
                     color = LocalChatColors.current.textPrimary,
@@ -102,7 +106,7 @@ fun MetaStatusRow(
                             )
                         }
                         Spacer(Modifier.width(16.dp))
-                        Text("Ver Status", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.status_action_view), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     }
                 }
 
@@ -131,7 +135,7 @@ fun MetaStatusRow(
                             )
                         }
                         Spacer(Modifier.width(16.dp))
-                        Text("Adicionar Novo", style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.status_action_add_new), style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
                     }
                 }
                 Spacer(Modifier.height(24.dp))
@@ -194,7 +198,7 @@ fun MetaStatusRow(
                         }
                     }
                 }
-                Text("Meu status", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
+                Text(stringResource(R.string.status_label_my_status), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(top = 4.dp), maxLines = 1)
             }
         }
 
@@ -354,7 +358,7 @@ fun MetaChatItem(
                 }
 
                 Text(
-                    text = formatChatTime(summary.timestamp),
+                    text = formatChatTime(LocalContext.current, summary.timestamp),
                     style = MaterialTheme.typography.labelSmall,
                     color = if (summary.hasUnread) chatColors.primary else MetaGray4
                 )
@@ -365,11 +369,13 @@ fun MetaChatItem(
                 modifier = Modifier.padding(top = 2.dp)
             ) {
                 val lastMessageText = if (summary.isTyping) {
-                    "Digitando..."
-                } else if (summary.lastMessage == "Conversa limpa" || summary.lastMessage == "Conversa apagada") {
-                    summary.lastMessage
+                    stringResource(R.string.chat_status_typing)
+                } else if (summary.lastMessage == "Conversa limpa") {
+                    stringResource(R.string.chat_status_history_cleared)
+                } else if (summary.lastMessage == "Conversa apagada") {
+                    stringResource(R.string.chat_status_history_deleted)
                 } else {
-                    val prefix = if (summary.lastSenderId == myId) "Você: " else ""
+                    val prefix = if (summary.lastSenderId == myId) stringResource(R.string.chat_last_message_prefix_you) else ""
                     "$prefix${summary.lastMessage}"
                 }
 
@@ -414,7 +420,7 @@ fun MetaChatItem(
     }
 }
 
-private fun formatChatTime(timestamp: Long): String {
+private fun formatChatTime(context: Context, timestamp: Long): String {
     if (timestamp == 0L) return ""
     val now = Calendar.getInstance()
     val chatTime = Calendar.getInstance().apply { timeInMillis = timestamp }
@@ -430,7 +436,7 @@ private fun formatChatTime(timestamp: Long): String {
             val diffDays = (now.timeInMillis - chatTime.timeInMillis) / (24 * 60 * 60 * 1000)
             when {
                 diffDays < 1 -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-                diffDays < 2 -> "Ontem"
+                diffDays < 2 -> context.getString(R.string.date_yesterday)
                 diffDays < 7 -> SimpleDateFormat("EEE", Locale.getDefault()).format(Date(timestamp))
                 else -> SimpleDateFormat("dd/MM/yy", Locale.getDefault()).format(Date(timestamp))
             }

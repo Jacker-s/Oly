@@ -22,43 +22,44 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
+import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.LocalChatColors
 
 sealed class BottomBarScreen(
     val route: String,
-    val title: String,
+    val titleRes: Int,
     val unselectedIcon: ImageVector,
     val selectedIcon: ImageVector
 ) {
 
     object Home : BottomBarScreen(
-        "home", "Chats", 
+        "home", R.string.bottom_nav_chats, 
         Icons.Outlined.ChatBubbleOutline, 
         Icons.Rounded.ChatBubble
     )
 
     object Feed : BottomBarScreen(
-        "feed", "Feed",
+        "feed", R.string.bottom_nav_feed,
         Icons.Outlined.Explore,
         Icons.Rounded.Explore
     )
     object Contacts : BottomBarScreen(
-        "contacts", "Amigos", 
+        "contacts", R.string.bottom_nav_friends, 
         Icons.Outlined.Person, 
         Icons.Rounded.Person
     )
     object Search : BottomBarScreen(
-        "search", "Busca", 
+        "search", R.string.bottom_nav_search, 
         Icons.Outlined.Search, 
         Icons.Rounded.Search
     )
     object Calls : BottomBarScreen(
-        "calls", "Ligações", 
+        "calls", R.string.bottom_nav_calls, 
         Icons.Outlined.Phone, 
         Icons.Rounded.Phone
     )
     object Settings : BottomBarScreen(
-        "settings", "Ajustes", 
+        "settings", R.string.bottom_nav_settings, 
         Icons.Outlined.Settings, 
         Icons.Rounded.Settings
     )
@@ -161,7 +162,7 @@ fun ResponsiveFloatingDock(
                         ) {
                             Icon(
                                 imageVector = if (isSelected) screen.selectedIcon else screen.unselectedIcon,
-                                contentDescription = screen.title,
+                                contentDescription = stringResource(screen.titleRes),
                                 modifier = Modifier
                                     .size(26.dp)
                                     .graphicsLayer {

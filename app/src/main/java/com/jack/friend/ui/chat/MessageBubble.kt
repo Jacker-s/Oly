@@ -65,6 +65,8 @@ import com.jack.friend.ui.theme.LocalChatColors
 import com.jack.friend.ui.theme.MessengerBlue
 import com.jack.friend.ui.theme.MetaGray4
 import com.jack.friend.ui.theme.iOSRed
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -212,7 +214,7 @@ fun MetaMessageBubble(
                 if (message.isSticker) {
                     AsyncImage(
                         model = message.stickerUrl,
-                        contentDescription = "Sticker",
+                        contentDescription = stringResource(R.string.label_sticker),
                         modifier = Modifier.size(160.dp).combinedClickable(
                             onClick = { },
                             onLongClick = {
@@ -275,7 +277,7 @@ fun MetaMessageBubble(
                                         Box(modifier = Modifier.width(3.dp).height(36.dp).background(if (isMe) Color.White.copy(0.7f) else chatColors.primary, RoundedCornerShape(2.dp)))
                                         Column(modifier = Modifier.padding(start = 12.dp)) {
                                             Text(message.replyToName ?: "", color = if (isMe) Color.White.copy(0.9f) else chatColors.primary, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp)
-                                            val replyText = message.replyToText ?: if (message.imageUrl != null) "📷 Imagem" else if (message.audioUrl != null) "🎤 Áudio" else if (message.videoUrl != null) "📹 Vídeo" else ""
+                                            val replyText = message.replyToText ?: if (message.imageUrl != null) stringResource(R.string.attachment_image) else if (message.audioUrl != null) stringResource(R.string.attachment_audio) else if (message.videoUrl != null) stringResource(R.string.label_video) else ""
                                             Text(replyText, color = (if (isMe) Color.White else textColor).copy(0.8f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                         }
                                     }
@@ -327,7 +329,7 @@ fun MetaMessageBubble(
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     if (message.isEdited) {
                                         Text(
-                                            "editada",
+                                            stringResource(R.string.message_edited),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = textColor.copy(alpha = 0.5f),
                                             modifier = Modifier.padding(end = 4.dp)
@@ -451,7 +453,7 @@ fun AdMobBubble() {
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "Publicidade",
+                            text = stringResource(R.string.label_publicity),
                             style = MaterialTheme.typography.labelSmall,
                             color = chatColors.primary,
                             fontWeight = FontWeight.Bold,
@@ -523,7 +525,7 @@ fun FileBubble(message: Message, isMe: Boolean) {
                 if (FileDownloader.isDownloaded(context, message.fileName ?: "")) {
                     FileDownloader.openFile(context, message.fileName ?: "")
                 } else {
-                    FileDownloader.downloadFile(context, message.fileUrl ?: "", message.fileName ?: "Arquivo")
+                    FileDownloader.downloadFile(context, message.fileUrl ?: "", message.fileName ?: context.getString(R.string.media_file))
                 }
             }
     ) {
@@ -548,7 +550,7 @@ fun FileBubble(message: Message, isMe: Boolean) {
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    message.fileName ?: "Arquivo",
+                    message.fileName ?: stringResource(R.string.media_file),
                     color = contentColor,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp,
@@ -587,7 +589,7 @@ fun LocationBubble(message: Message, isMe: Boolean) {
             .clip(RoundedCornerShape(16.dp))
             .background(if (isMe) Color.White.copy(0.15f) else colors.separator.copy(0.3f))
             .clickable {
-                val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}(${message.locationName ?: "Localização"})")
+                val gmmIntentUri = Uri.parse("geo:${message.latitude},${message.longitude}?q=${message.latitude},${message.longitude}(${message.locationName ?: context.getString(R.string.label_location)})")
                 val mapIntent = Intent(Intent.ACTION_VIEW, gmmIntentUri)
                 mapIntent.setPackage("com.google.android.apps.maps")
                 try { context.startActivity(mapIntent) } catch (e: Exception) {
@@ -598,7 +600,7 @@ fun LocationBubble(message: Message, isMe: Boolean) {
         // Mapa Preview
         AsyncImage(
             model = mapUrl,
-            contentDescription = "Mapa",
+            contentDescription = stringResource(R.string.content_description_map),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(140.dp),
@@ -612,7 +614,7 @@ fun LocationBubble(message: Message, isMe: Boolean) {
             Icon(Icons.Rounded.LocationOn, null, tint = colors.primary, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                message.locationName ?: "Localização compartilhada",
+                message.locationName ?: stringResource(R.string.label_location_shared),
                 color = contentColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 14.sp,
@@ -785,21 +787,21 @@ fun SwiftUIMessageMenu(isMe: Boolean, isStarred: Boolean = false, onDismiss: () 
                         modifier = Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(26.dp))
                     ) {
                         Column {
-                            SwiftUIMenuItem("Responder", Icons.AutoMirrored.Rounded.Reply, onClick = onReply)
+                            SwiftUIMenuItem(stringResource(R.string.menu_reply), Icons.AutoMirrored.Rounded.Reply, onClick = onReply)
                             SwiftUIDivider()
                             if (isMe) {
-                                SwiftUIMenuItem("Editar", Icons.Rounded.Edit, onClick = onEdit)
+                                SwiftUIMenuItem(stringResource(R.string.menu_edit), Icons.Rounded.Edit, onClick = onEdit)
                                 SwiftUIDivider()
                             }
-                            SwiftUIMenuItem("Fixar", Icons.Rounded.PushPin, onClick = onPin)
+                            SwiftUIMenuItem(stringResource(R.string.menu_pin), Icons.Rounded.PushPin, onClick = onPin)
                             SwiftUIDivider()
-                            SwiftUIMenuItem("Copiar", Icons.Rounded.ContentCopy, onClick = onCopy)
+                            SwiftUIMenuItem(stringResource(R.string.menu_copy), Icons.Rounded.ContentCopy, onClick = onCopy)
                             SwiftUIDivider()
-                            SwiftUIMenuItem(if (isStarred) "Desfavoritar" else "Favoritar", if (isStarred) Icons.Rounded.StarOutline else Icons.Rounded.Star, onClick = onStar)
+                            SwiftUIMenuItem(if (isStarred) stringResource(R.string.menu_unstar) else stringResource(R.string.menu_star), if (isStarred) Icons.Rounded.StarOutline else Icons.Rounded.Star, onClick = onStar)
                             SwiftUIDivider()
-                            SwiftUIMenuItem("Traduzir", Icons.Rounded.Translate, onClick = { /* TODO */ })
+                            SwiftUIMenuItem(stringResource(R.string.menu_translate), Icons.Rounded.Translate, onClick = { /* TODO */ })
                             SwiftUIDivider()
-                            SwiftUIMenuItem("Remover", Icons.Rounded.Delete, color = iOSRed, onClick = onDelete)
+                            SwiftUIMenuItem(stringResource(R.string.menu_remove), Icons.Rounded.Delete, color = iOSRed, onClick = onDelete)
                         }
                     }
                 } else {

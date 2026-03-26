@@ -30,6 +30,8 @@ import com.jack.friend.ui.chat.MetaUserItem
 import com.jack.friend.ui.theme.LocalChatColors
 import com.jack.friend.ui.theme.iOSGreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 
 @Composable
 fun SearchScreen(
@@ -62,7 +64,7 @@ fun SearchScreen(
             ) {
                 item {
                     Text(
-                        "Pessoas Próximas",
+                        stringResource(R.string.search_nearby_people),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = chatColors.textPrimary,
@@ -79,7 +81,7 @@ fun SearchScreen(
 
                 item {
                     Text(
-                        "Sugestões para você",
+                        stringResource(R.string.search_suggestions_for_you),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = chatColors.textPrimary,
@@ -98,7 +100,7 @@ fun SearchScreen(
                 if (suggestedUsers.isEmpty()) {
                     item {
                         Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                            Text("Busque por @username para encontrar amigos", color = chatColors.textSecondary, fontSize = 14.sp)
+                            Text(stringResource(R.string.search_empty_hint), color = chatColors.textSecondary, fontSize = 14.sp)
                         }
                     }
                 }
@@ -194,7 +196,7 @@ fun NearbyUsersRow(users: List<UserProfile>, onUserClick: (UserProfile) -> Unit)
                         )
                         Spacer(Modifier.width(2.dp))
                         Text(
-                            user.status.ifBlank { "Perto" },
+                            user.status.ifBlank { stringResource(R.string.search_nearby_label) },
                             fontSize = 11.sp,
                             color = chatColors.primary,
                             maxLines = 1,
@@ -259,7 +261,7 @@ fun SuggestionItem(
             ) {
                 Icon(Icons.Rounded.PersonAdd, null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Adicionar", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.action_add_friend), fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
     }

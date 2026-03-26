@@ -15,6 +15,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "135221802523-br7hrho0uf90kg26lcegr2fpahkounkr.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.jack.friend",
+            "certificate_hash": "391c9ce2bc5c3bec89984473c7ea22826fb7683d"
+          }
+        },
+        {
           "client_id": "135221802523-fl381le8p7cf5agsshqtps78cal57427.apps.googleusercontent.com",
           "client_type": 3
         }

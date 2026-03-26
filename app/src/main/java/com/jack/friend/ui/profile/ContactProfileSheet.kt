@@ -1,5 +1,6 @@
 package com.jack.friend.ui.profile
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
@@ -40,6 +41,8 @@ import com.jack.friend.FeedPostCard
 import com.jack.friend.UserProfile
 import com.jack.friend.ui.chat.MediaViewerItem
 import com.jack.friend.ui.chat.MediaViewerScreen
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.*
 import java.text.SimpleDateFormat
 import java.util.*
@@ -84,8 +87,8 @@ fun IOS17ContactProfileSheet(
     val presenceText = remember(user.isOnline, user.isVisibleOnline, user.lastActive) {
         when {
             user.isOnline && user.isVisibleOnline -> user.presenceStatus
-            user.showLastSeen && user.lastActive > 0L -> "visto por último ${formatLastSeen(user.lastActive)}"
-            else -> "Offline"
+            user.showLastSeen && user.lastActive > 0L -> context.getString(R.string.profile_last_seen, formatLastSeen(context, user.lastActive))
+            else -> context.getString(R.string.status_offline)
         }
     }
 
@@ -175,7 +178,7 @@ fun IOS17ContactProfileSheet(
                         ) {
                             AsyncImage(
                                 model = user.photoUrl,
-                                contentDescription = "Avatar",
+                                contentDescription = stringResource(R.string.content_description_avatar),
                                 modifier = Modifier.fillMaxSize().clickable { fullScreenPhotoUrl = user.photoUrl },
                                 contentScale = ContentScale.Crop
                             )
@@ -218,10 +221,10 @@ fun IOS17ContactProfileSheet(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
-                    ModernActionButton("Mensagem", Icons.Rounded.ChatBubble, colors.primary) { onMessage(user) }
-                    ModernActionButton("Ligação", Icons.Rounded.Call, colors.primary) { onAudioCall(user) }
-                    ModernActionButton("Vídeo", Icons.Rounded.Videocam, colors.primary) { onVideoCall(user) }
-                    ModernActionButton(if (isMuted) "Ativar" else "Silenciar", if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, if (isMuted) iOSOrange else colors.textSecondary) { onToggleMute() }
+                    ModernActionButton(stringResource(R.string.profile_action_message), Icons.Rounded.ChatBubble, colors.primary) { onMessage(user) }
+                    ModernActionButton(stringResource(R.string.profile_action_call), Icons.Rounded.Call, colors.primary) { onAudioCall(user) }
+                    ModernActionButton(stringResource(R.string.profile_action_video), Icons.Rounded.Videocam, colors.primary) { onVideoCall(user) }
+                    ModernActionButton(if (isMuted) stringResource(R.string.profile_action_unmute) else stringResource(R.string.profile_action_mute), if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff, if (isMuted) iOSOrange else colors.textSecondary) { onToggleMute() }
                 }
 
                 Spacer(Modifier.height(16.dp))
@@ -229,7 +232,7 @@ fun IOS17ContactProfileSheet(
                 // BIO Card
                 ProfileCard(colors) {
                     Text(
-                        text = user.status.ifBlank { "Olá! Estou usando o Oly." },
+                        text = user.status.ifBlank { stringResource(R.string.profile_default_status) },
                         modifier = Modifier.padding(16.dp),
                         fontSize = 15.sp,
                         color = colors.textPrimary,
@@ -240,7 +243,7 @@ fun IOS17ContactProfileSheet(
                 Spacer(Modifier.height(16.dp))
 
                 // MEDIA/LINKS PREVIEW (Simulated or Real)
-                SectionTitle("Mídias, Links e Docs")
+                SectionTitle(stringResource(R.string.profile_section_media))
                 Row(
                     modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -265,19 +268,19 @@ fun IOS17ContactProfileSheet(
                 Spacer(Modifier.height(24.dp))
                 
                 // SECURITY SECTIONS
-                SectionTitle("Segurança e Configurações")
+                SectionTitle(stringResource(R.string.profile_section_security))
                 ProfileCard(colors) {
-                    SettingsRow(Icons.Rounded.Lock, "Criptografia de ponta a ponta", "Suas conversas são privadas", colors)
+                    SettingsRow(Icons.Rounded.Lock, stringResource(R.string.profile_encryption_title), stringResource(R.string.profile_encryption_subtitle), colors)
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp), 0.5.dp, colors.separator.copy(0.2f))
-                    SettingsRow(Icons.Rounded.History, "Mensagens Temporárias", "Desativadas", colors)
+                    SettingsRow(Icons.Rounded.History, stringResource(R.string.dialog_temp_messages_title), stringResource(R.string.profile_temp_messages_subtitle_off), colors)
                     HorizontalDivider(Modifier.padding(horizontal = 16.dp), 0.5.dp, colors.separator.copy(0.2f))
-                    SettingsRow(Icons.Rounded.Group, "$mutualGroups grupos em comum", "Vocês participam dos mesmos chats", colors)
+                    SettingsRow(Icons.Rounded.Group, stringResource(R.string.profile_mutual_groups, mutualGroups), stringResource(R.string.profile_mutual_groups_subtitle), colors)
                 }
 
                 Spacer(Modifier.height(24.dp))
                 
                 // SOCIAL FEED SECTION
-                SectionTitle("Publicações")
+                SectionTitle(stringResource(R.string.profile_section_posts))
                 if (userPosts.isNotEmpty()) {
                     userPosts.forEach { post ->
                         FeedPostCard(
@@ -293,7 +296,7 @@ fun IOS17ContactProfileSheet(
                     }
                 } else {
                     Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                        Text("Ainda não compartilhou nada no Feed", color = colors.textSecondary, fontSize = 14.sp)
+                        Text(stringResource(R.string.profile_no_posts), color = colors.textSecondary, fontSize = 14.sp)
                     }
                 }
 
@@ -375,20 +378,20 @@ private fun ActionItem(icon: ImageVector, label: String, colors: ChatColors, con
     }
 }
 
-private fun formatLastSeen(lastActive: Long): String {
+private fun formatLastSeen(context: Context, lastActive: Long): String {
     val now = Calendar.getInstance()
     val c = Calendar.getInstance().apply { timeInMillis = lastActive }
-    val timeFmt = SimpleDateFormat("HH:mm", Locale("pt", "BR")).format(Date(lastActive))
+    val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(lastActive))
     val sameYear = now.get(Calendar.YEAR) == c.get(Calendar.YEAR)
     val dayNow = now.get(Calendar.DAY_OF_YEAR)
     val dayThen = c.get(Calendar.DAY_OF_YEAR)
 
     return when {
-        sameYear && dayNow == dayThen -> "hoje às $timeFmt"
-        sameYear && dayNow == dayThen + 1 -> "ontem às $timeFmt"
+        sameYear && dayNow == dayThen -> context.getString(R.string.profile_last_seen_today, timeFmt)
+        sameYear && dayNow == dayThen + 1 -> context.getString(R.string.profile_last_seen_yesterday, timeFmt)
         else -> {
-            val dateFmt = SimpleDateFormat("d MMM", Locale("pt", "BR")).format(Date(lastActive))
-            "$dateFmt às $timeFmt"
+            val dateFmt = SimpleDateFormat(context.getString(R.string.date_format), Locale.getDefault()).format(Date(lastActive))
+            context.getString(R.string.profile_last_seen_at, "$dateFmt $timeFmt")
         }
     }
 }

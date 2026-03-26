@@ -2,5 +2,4 @@
 <paths>
     <external-path name="my_images" path="Android/data/com.jack.friend/files/Pictures" />
     <cache-path name="my_cache_images" path="." />
-    <external-files-path name="my_downloads" path="Download/Wappi" />
 </paths>

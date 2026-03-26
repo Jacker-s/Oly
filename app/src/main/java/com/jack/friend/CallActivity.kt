@@ -24,6 +24,7 @@ import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -500,10 +501,10 @@ fun MetaCallScreen(
                     Spacer(Modifier.height(12.dp))
                     
                     val statusText = when (status) {
-                        "RINGING" -> if (isOutgoing) "Chamando..." else "Recebendo..."
+                        "RINGING" -> if (isOutgoing) stringResource(R.string.call_status_ringing) else stringResource(R.string.call_status_incoming)
                         "CONNECTED" -> formattedDuration
-                        "MUTED" -> "Silenciado"
-                        else -> "Conectando..."
+                        "MUTED" -> stringResource(R.string.call_status_muted)
+                        else -> stringResource(R.string.call_status_connecting)
                     }
                     Text(statusText, color = Color.White.copy(0.6f), fontSize = 17.sp, fontWeight = FontWeight.Medium)
                 }

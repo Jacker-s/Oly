@@ -10,7 +10,7 @@ android {
 
     defaultConfig {
         applicationId = "com.jack.friend"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
          versionCode = 44
         versionName = "2.2.1"

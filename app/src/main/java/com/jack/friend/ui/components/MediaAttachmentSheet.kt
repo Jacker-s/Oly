@@ -26,6 +26,8 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.jack.friend.ChatViewModel
 import com.jack.friend.LocalMedia
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.LocalChatColors
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -79,7 +81,7 @@ fun MediaAttachmentSheet(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = if (isStatus) "Publicar no Status" else "Compartilhar Mídia",
+                    text = if (isStatus) stringResource(R.string.attachment_status_title) else stringResource(R.string.attachment_media_title),
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.ExtraBold,
                     color = colors.textPrimary,
@@ -96,7 +98,7 @@ fun MediaAttachmentSheet(
                         shape = RoundedCornerShape(16.dp),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
                     ) {
-                        Text("Enviar (${selectedUris.size})", fontWeight = FontWeight.Bold, color = Color.White)
+                        Text(stringResource(R.string.attachment_action_send_count, selectedUris.size), fontWeight = FontWeight.Bold, color = Color.White)
                     }
                 }
             }
@@ -159,7 +161,7 @@ fun MediaAttachmentSheet(
                                 ) {
                                     Row(modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(10.dp))
-                                        Text("VÍDEO", color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
+                                        Text(stringResource(R.string.attachment_label_video), color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Black)
                                     }
                                 }
                             }
@@ -182,14 +184,14 @@ fun MediaAttachmentSheet(
                 ) {
                     PremiumActionCard(
                         icon = Icons.Rounded.PhotoCamera,
-                        label = "Câmera",
+                        label = stringResource(R.string.attachment_action_camera),
                         gradient = Brush.linearGradient(listOf(Color(0xFF6200EE), Color(0xFF3700B3))),
                         modifier = Modifier.weight(1f),
                         onClick = { onOpenCamera(); onDismiss() }
                     )
                     PremiumActionCard(
                         icon = Icons.Rounded.Image,
-                        label = "Galeria",
+                        label = stringResource(R.string.attachment_action_gallery),
                         gradient = Brush.linearGradient(listOf(Color(0xFF03DAC6), Color(0xFF018786))),
                         modifier = Modifier.weight(1f),
                         onClick = { onOpenGallery(); onDismiss() }
@@ -202,14 +204,14 @@ fun MediaAttachmentSheet(
                     ) {
                         PremiumActionCard(
                             icon = Icons.Rounded.AttachFile,
-                            label = "Documento",
+                            label = stringResource(R.string.attachment_action_document),
                             gradient = Brush.linearGradient(listOf(Color(0xFFFF9800), Color(0xFFF57C00))),
                             modifier = Modifier.weight(1f),
                             onClick = { onDismiss(); onOpenFile() }
                         )
                         PremiumActionCard(
                             icon = Icons.Rounded.LocationOn,
-                            label = "Localização",
+                            label = stringResource(R.string.attachment_action_location),
                             gradient = Brush.linearGradient(listOf(Color(0xFF4CAF50), Color(0xFF388E3C))),
                             modifier = Modifier.weight(1f),
                             onClick = { onDismiss(); onShareLocation() }

@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.google.firebase.database.FirebaseDatabase
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 
 @Composable
 fun StickerPicker(
@@ -72,7 +74,7 @@ fun StickerPicker(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(12.dp))
-                    Text("Carregando Stickers...", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
+                    Text(stringResource(R.string.stickers_loading), style = MaterialTheme.typography.labelMedium, color = Color.Gray)
                 }
             }
         } else {
@@ -109,7 +111,7 @@ fun StickerPicker(
                         ) {
                             AsyncImage(
                                 model = stickerUrl,
-                                contentDescription = "Sticker",
+                                contentDescription = stringResource(R.string.label_sticker),
                                 modifier = Modifier.fillMaxSize(),
                                 contentScale = ContentScale.Fit
                             )

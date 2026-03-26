@@ -15,6 +15,10 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.fragment.app.FragmentActivity
@@ -53,6 +57,8 @@ class MainActivity : FragmentActivity() {
             FriendTheme {
                 mainViewModel = viewModel()
                 val isUserLoggedIn by mainViewModel.isUserLoggedIn.collectAsStateWithLifecycle()
+                val isProfileChecked by mainViewModel.isProfileChecked.collectAsStateWithLifecycle()
+                val myUsername by mainViewModel.myUsername.collectAsStateWithLifecycle()
                 val isPremium by billingManager.isPremiumPurchased.collectAsStateWithLifecycle()
 
                 var showAdNoticeDialog by remember { mutableStateOf(false) }
@@ -131,10 +137,16 @@ class MainActivity : FragmentActivity() {
                     }
                 }
 
-                if (!isUserLoggedIn) {
-                    LaunchedEffect(Unit) {
-                        startActivity(Intent(this@MainActivity, LoginActivity::class.java))
-                        finish()
+                if (!isUserLoggedIn || (isProfileChecked && myUsername.isEmpty())) {
+                    LaunchedEffect(isUserLoggedIn, isProfileChecked, myUsername) {
+                        if (!isUserLoggedIn || (isProfileChecked && myUsername.isEmpty())) {
+                            startActivity(Intent(this@MainActivity, LoginActivity::class.java))
+                            finish()
+                        }
+                    }
+                } else if (!isProfileChecked) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
                     }
                 } else {
                     SecurityWrapper(

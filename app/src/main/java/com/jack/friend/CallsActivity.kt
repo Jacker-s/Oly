@@ -43,6 +43,8 @@ import java.util.Locale
 import java.util.UUID
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.rounded.*
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 
 class CallsActivity : androidx.fragment.app.FragmentActivity() {
 
@@ -166,7 +168,7 @@ fun CallsScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         SegmentedControl(
-                            items = listOf("Todas", "Perdidas"),
+                            items = listOf(stringResource(R.string.calls_tab_all), stringResource(R.string.calls_tab_missed)),
                             selectedIndex = selectedTab,
                             onItemSelection = { selectedTab = it },
                             modifier = Modifier.width(180.dp)
@@ -174,12 +176,12 @@ fun CallsScreen(
                     },
                     navigationIcon = {
                         TextButton(onClick = { showDeleteAllDialog = true }) {
-                            Text("Limpar", color = chatColors.primary, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.calls_action_clear), color = chatColors.primary, fontWeight = FontWeight.Medium)
                         }
                     },
                     actions = {
                         IconButton(onClick = { showContactPicker = true }) {
-                            Icon(Icons.Rounded.Call, "Nova Chamada", tint = chatColors.primary)
+                            Icon(Icons.Rounded.Call, stringResource(R.string.calls_new_call), tint = chatColors.primary)
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
@@ -188,7 +190,7 @@ fun CallsScreen(
                 )
 
                 Text(
-                    "Chamadas",
+                    stringResource(R.string.calls_title),
                     style = MaterialTheme.typography.displaySmall,
                     fontWeight = FontWeight.ExtraBold,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -198,7 +200,7 @@ fun CallsScreen(
                 IOS17SearchPill(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    placeholder = "Busca",
+                    placeholder = stringResource(R.string.hint_search),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                 )
             }
@@ -231,17 +233,17 @@ fun CallsScreen(
     if (showDeleteAllDialog) {
         AlertDialog(
             onDismissRequest = { showDeleteAllDialog = false },
-            title = { Text("Limpar Histórico") },
-            text = { Text("Deseja apagar todo o seu histórico de chamadas?") },
+            title = { Text(stringResource(R.string.calls_dialog_clear_title)) },
+            text = { Text(stringResource(R.string.calls_dialog_clear_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     val db = FirebaseDatabase.getInstance().reference
                     calls.forEach { db.child("calls").child(it.roomId).removeValue() }
                     showDeleteAllDialog = false
-                }) { Text("Limpar Tudo", color = Color.Red) }
+                }) { Text(stringResource(R.string.calls_dialog_clear_all), color = Color.Red) }
             },
             dismissButton = {
-                TextButton(onClick = { showDeleteAllDialog = false }) { Text("Cancelar") }
+                TextButton(onClick = { showDeleteAllDialog = false }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -249,16 +251,16 @@ fun CallsScreen(
     logToDelete?.let { log ->
         AlertDialog(
             onDismissRequest = { logToDelete = null },
-            title = { Text("Excluir") },
-            text = { Text("Remover esta chamada do histórico?") },
+            title = { Text(stringResource(R.string.calls_dialog_delete_title)) },
+            text = { Text(stringResource(R.string.calls_dialog_delete_message)) },
             confirmButton = {
                 TextButton(onClick = {
                     FirebaseDatabase.getInstance().reference.child("calls").child(log.roomId).removeValue()
                     logToDelete = null
-                }) { Text("Excluir", color = Color.Red) }
+                }) { Text(stringResource(R.string.action_delete), color = Color.Red) }
             },
             dismissButton = {
-                TextButton(onClick = { logToDelete = null }) { Text("Cancelar") }
+                TextButton(onClick = { logToDelete = null }) { Text(stringResource(R.string.action_cancel)) }
             }
         )
     }
@@ -331,7 +333,7 @@ fun EmptyCallsState(isSearch: Boolean) {
             )
             Spacer(Modifier.height(16.dp))
             Text(
-                if (isSearch) "Nenhum resultado" else "Sem chamadas recentes",
+                if (isSearch) stringResource(R.string.contacts_search_empty_title) else stringResource(R.string.calls_empty_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = chatColors.textSecondary
             )
@@ -387,20 +389,20 @@ private fun CallRowItem(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = if (log.isOutgoing) "Efetuada" else "Recebida",
+                        text = if (log.isOutgoing) stringResource(R.string.calls_status_outgoing) else stringResource(R.string.calls_status_incoming_log),
                         style = MaterialTheme.typography.bodySmall,
                         color = chatColors.textSecondary
                     )
                     log.durationSec?.let {
                         if (it > 0) {
-                            Text(" • ${formatDuration(it)}", style = MaterialTheme.typography.bodySmall, color = chatColors.textSecondary)
+                            Text(" • ${formatDuration(LocalContext.current, it)}", style = MaterialTheme.typography.bodySmall, color = chatColors.textSecondary)
                         }
                     }
                 }
             }
 
             Text(
-                text = formatCallTime(log.timeMs),
+                text = formatCallTime(LocalContext.current, log.timeMs),
                 style = MaterialTheme.typography.bodySmall,
                 color = chatColors.textSecondary
             )
@@ -424,7 +426,7 @@ fun ContactPickerForCall(
 ) {
     val chatColors = LocalChatColors.current
     Column(modifier = Modifier.fillMaxHeight(0.8f).padding(16.dp)) {
-        Text("Iniciar Chamada", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
+        Text(stringResource(R.string.calls_picker_title), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold)
         Spacer(Modifier.height(16.dp))
         LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(contacts) { user ->
@@ -458,7 +460,7 @@ fun ContactPickerForCall(
     }
 }
 
-private fun formatCallTime(timestamp: Long): String {
+private fun formatCallTime(context: android.content.Context, timestamp: Long): String {
     if (timestamp == 0L) return ""
     val now = System.currentTimeMillis()
     val diff = now - timestamp
@@ -466,15 +468,18 @@ private fun formatCallTime(timestamp: Long): String {
 
     return when {
         diff < dayMs -> SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(timestamp))
-        diff < 2 * dayMs -> "Ontem"
+        diff < 2 * dayMs -> context.getString(R.string.date_yesterday)
         diff < 7 * dayMs -> SimpleDateFormat("EEEE", Locale.getDefault()).format(Date(timestamp))
         else -> SimpleDateFormat("dd/MM/yy", Locale.getDefault()).format(Date(timestamp))
     }
 }
 
-private fun formatDuration(seconds: Long): String {
+private fun formatDuration(context: android.content.Context, seconds: Long): String {
     val mins = seconds / 60
     val secs = seconds % 60
-    return if (mins > 0) "${mins}m ${secs}s" else "${secs}s"
+    return if (mins > 0) {
+        context.getString(R.string.duration_format_min_sec, mins, secs)
+    } else {
+        context.getString(R.string.duration_format_sec, secs)
+    }
 }
-

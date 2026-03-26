@@ -20,6 +20,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
+import com.jack.friend.R
+import androidx.compose.ui.res.stringResource
 import com.jack.friend.ui.theme.LocalChatColors
 
 @Composable
@@ -60,7 +62,7 @@ fun MessageImageItem(
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.BrokenImage,
-                        contentDescription = "Erro ao carregar imagem",
+                        contentDescription = stringResource(R.string.error_load_image),
                         tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
                         modifier = Modifier.size(48.dp)
                     )

@@ -147,6 +147,9 @@ class ChatViewModel : ViewModel() {
     private val _myUsername = MutableStateFlow("")
     val myUsername: StateFlow<String> = _myUsername
 
+    private val _isProfileChecked = MutableStateFlow(false)
+    val isProfileChecked: StateFlow<Boolean> = _isProfileChecked
+
     private val _myId = MutableStateFlow(auth.currentUser?.uid ?: "")
     val myId: StateFlow<String> = _myId
 
@@ -263,7 +266,7 @@ class ChatViewModel : ViewModel() {
             val isBlocked = blocked.contains(post.authorId)
             val isOwner = post.authorId == me
             val isMutual = mutuals.contains(post.authorId)
-            
+
             !isBlocked && (post.isPublic || isOwner || isMutual)
         }.sortedByDescending { it.timestamp }
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
@@ -334,6 +337,7 @@ class ChatViewModel : ViewModel() {
     init {
         loadRecentEmojis()
         if (auth.currentUser != null) setupUserSession()
+        else _isProfileChecked.value = true
     }
 
     override fun onCleared() {
@@ -444,8 +448,12 @@ class ChatViewModel : ViewModel() {
                 } else {
                     logE("Username não encontrado para o UID: $uid")
                 }
+                _isProfileChecked.value = true
             }
-            .addOnFailureListener { logE("Erro setupUserSession: ${it.message}", it) }
+            .addOnFailureListener { 
+                logE("Erro setupUserSession: ${it.message}", it)
+                _isProfileChecked.value = true
+            }
     }
 
     private fun updateFcmToken(username: String) {
@@ -550,8 +558,8 @@ class ChatViewModel : ViewModel() {
         _contacts.value = emptyList()
         _searchResults.value = emptyList()
         _rawStatuses.value = emptyList()
-        _blockedUsers.value = emptyList()
         _blockedProfiles.value = emptyList()
+        _isProfileChecked.value = false
     }
 
     private fun removeListeners() {
@@ -582,6 +590,7 @@ class ChatViewModel : ViewModel() {
         pinnedMessageListener = null
 
         targetProfileListener?.let { l ->
+            val t = safeTarget()
             if (t.isNotEmpty()) db.child("users").child(t).removeEventListener(l)
         }
         targetProfileListener = null
@@ -1412,7 +1421,7 @@ class ChatViewModel : ViewModel() {
                     logD("Loaded ${profiles.size} contact profiles for $username")
                     _contacts.value = profiles
                     profiles.forEach { syncFriendPresence(it.id) }
-                
+
                     // Check mutual status
                     if (username.isNotEmpty()) {
                         // Limpar listeners antigos que não estão mais na lista
@@ -1690,31 +1699,21 @@ class ChatViewModel : ViewModel() {
 
                 db.child("uid_to_username").child(uid).get().addOnSuccessListener { snapshot ->
                     if (snapshot.exists()) {
+                        val username = snapshot.getValue(String::class.java).orEmpty()
+                        _myUsername.value = username
                         _isUserLoggedIn.value = true
                         setupUserSession()
                         callback(true, null)
                     } else {
-                        val emailBase = user?.email?.split("@")?.get(0)?.uppercase()
-                            ?: UUID.randomUUID().toString().take(8).uppercase()
-
-                        val profile = UserProfile(
-                            id = emailBase,
-                            uid = uid,
-                            name = user?.displayName ?: emailBase,
-                            photoUrl = user?.photoUrl?.toString(),
-                            isOnline = true
-                        )
-
-                        viewModelScope.launch(errorHandler) {
-                            try {
-                                db.child("uid_to_username").child(uid).setValue(emailBase).await()
-                                db.child("users").child(emailBase).setValue(profile).await()
-                                _isUserLoggedIn.value = true
-                                setupUserSession()
-                                callback(true, null)
-                            } catch (e: Exception) {}
-                        }
+                        // NEW USER via Google - Do NOT create profile here to avoid username conflicts
+                        // Instead, signal that profile setup is required
+                        _myUsername.value = ""
+                        _isUserLoggedIn.value = true
+                        _myId.value = uid
+                        callback(true, "NEED_PROFILE")
                     }
+                }.addOnFailureListener {
+                    callback(false, getString(R.string.error_db_permission, it.message ?: ""))
                 }
             } else callback(false, task.exception?.message)
         }
@@ -2050,7 +2049,7 @@ class ChatViewModel : ViewModel() {
             db.child("feeds").child(postId).child("shares").child(username).setValue(true)
         }
     }
-    
+
     fun addFeedComment(postId: String, text: String) {
         val username = _myUsername.value
         if (username.isEmpty() || text.isBlank()) return
@@ -2058,7 +2057,7 @@ class ChatViewModel : ViewModel() {
         val allMentions = extractMentions(text)
         val friends = _mutualContactIds.value
         val validMentions = allMentions.filter { friends.contains(it) }
-        
+
         viewModelScope.launch {
             try {
                 val ref = db.child("feeds").child(postId)
@@ -2235,7 +2234,7 @@ class ChatViewModel : ViewModel() {
 
                 // Fetch the list directly. Filtering locally to avoid index dependency.
                 val snapshot = db.child("notifications").child(username).get().await()
-                
+
                 if (snapshot.exists()) {
                     val updates = mutableMapOf<String, Any?>()
                     snapshot.children.forEach { child ->

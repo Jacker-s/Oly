@@ -37,6 +37,8 @@ import com.jack.friend.Message
 import com.jack.friend.ui.theme.LocalChatColors
 import com.jack.friend.ui.theme.MetaGray4
 import com.jack.friend.ui.theme.iOSRed
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 import kotlin.math.roundToInt
 
 @Composable
@@ -99,13 +101,18 @@ fun PinnedHeader(message: Message, onUnpin: () -> Unit, onClick: (Message) -> Un
             Spacer(modifier = Modifier.width(8.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Mensagem Fixada",
+                    stringResource(R.string.message_pinned_header),
                     color = LocalChatColors.current.primary,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    message.text.ifEmpty { if (message.imageUrl != null) "📷 Imagem" else if (message.audioUrl != null) "🎤 Áudio" else if (message.videoUrl != null) "📹 Vídeo" else "Mídia" },
+                    message.text.ifEmpty { 
+                        if (message.imageUrl != null) stringResource(R.string.attachment_image) 
+                        else if (message.audioUrl != null) stringResource(R.string.attachment_audio) 
+                        else if (message.videoUrl != null) stringResource(R.string.label_video) 
+                        else stringResource(R.string.media_placeholder) 
+                    },
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     fontSize = 13.sp,
@@ -145,12 +152,12 @@ fun ReplyHeader(replyingTo: Message?, editingMessage: Message?, onCancel: () -> 
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = if (editingMessage != null) "Editar mensagem" else (replyingTo?.senderName ?: ""),
+                    text = if (editingMessage != null) stringResource(R.string.message_edit_header) else (replyingTo?.senderName ?: ""),
                     color = LocalChatColors.current.primary,
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 12.sp
                 )
-                val text = editingMessage?.text ?: replyingTo?.text ?: if (replyingTo?.imageUrl != null) "📷 Imagem" else if (replyingTo?.audioUrl != null) "🎤 Áudio" else if (replyingTo?.videoUrl != null) "📹 Vídeo" else if (replyingTo?.isSticker == true) "Sticker" else ""
+                val text = editingMessage?.text ?: replyingTo?.text ?: if (replyingTo?.imageUrl != null) stringResource(R.string.attachment_image) else if (replyingTo?.audioUrl != null) stringResource(R.string.attachment_audio) else if (replyingTo?.videoUrl != null) stringResource(R.string.label_video) else if (replyingTo?.isSticker == true) stringResource(R.string.label_sticker) else ""
                 Text(
                     text = text,
                     maxLines = 1,
@@ -240,17 +247,17 @@ fun MetaInput(
                                 Spacer(Modifier.weight(1f))
                                 if (!isLocked) {
                                     Text(
-                                        text = if (isCancelled) "Solte para cancelar" else "< Deslize para cancelar",
+                                        text = if (isCancelled) stringResource(R.string.recording_release_to_cancel) else stringResource(R.string.recording_swipe_to_cancel),
                                         color = MetaGray4,
                                         fontSize = 12.sp,
                                         modifier = Modifier.offset { IntOffset(dragX.roundToInt().coerceAtMost(0), 0) }
                                     )
                                 } else {
-                                    Text("Gravando...", color = iOSRed, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                                    Text(stringResource(R.string.recording_status), color = iOSRed, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
                                 }
                             }
                         } else {
-                            if (text.isEmpty()) Text("Mensagem", color = MetaGray4, style = MaterialTheme.typography.bodyLarge)
+                            if (text.isEmpty()) Text(stringResource(R.string.hint_message), color = MetaGray4, style = MaterialTheme.typography.bodyLarge)
                             BasicTextField(value = text, onValueChange = onValueChange, modifier = Modifier.fillMaxWidth(), textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface), cursorBrush = SolidColor(LocalChatColors.current.primary))
                         }
                     }

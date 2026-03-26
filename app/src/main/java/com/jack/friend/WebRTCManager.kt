@@ -32,9 +32,14 @@ class WebRTCManager(
     companion object {
         private const val TAG = "WebRTCManager"
         fun initialize(context: Context) {
-            val options = PeerConnectionFactory.InitializationOptions.builder(context)
-                .createInitializationOptions()
-            PeerConnectionFactory.initialize(options)
+            try {
+                val options = PeerConnectionFactory.InitializationOptions.builder(context)
+                    .createInitializationOptions()
+                PeerConnectionFactory.initialize(options)
+                Log.d(TAG, "WebRTC initialized successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to initialize WebRTC", e)
+            }
         }
     }
 
@@ -49,8 +54,6 @@ class WebRTCManager(
             .setUseHardwareAcousticEchoCanceler(true)
             .setUseHardwareNoiseSuppressor(true)
             .setAudioSource(android.media.MediaRecorder.AudioSource.MIC)
-            .setUseStereoInput(true)
-            .setUseStereoOutput(true)
             .createAudioDeviceModule()
 
         peerConnectionFactory = PeerConnectionFactory.builder()
@@ -62,52 +65,74 @@ class WebRTCManager(
     }
 
     fun startCall() {
-        createPeerConnection()
-        setupLocalStream()
-        
-        val constraints = MediaConstraints().apply {
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
-            mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (isVideo) "true" else "false"))
-        }
-        
-        peerConnection?.createOffer(object : SimpleSdpObserver() {
-            override fun onCreateSuccess(sdp: SessionDescription?) {
-                val modifiedSdp = sdp?.let { SessionDescription(it.type, modifySdp(it.description)) }
-                peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
-                    override fun onSetSuccess() {
-                        database.child("offer").setValue(mapOf("type" to modifiedSdp?.type?.canonicalForm(), "sdp" to modifiedSdp?.description))
-                    }
-                }, modifiedSdp)
+        Log.d(TAG, "Starting call...")
+        // Limpa dados antigos da sala antes de começar
+        database.removeValue().addOnCompleteListener {
+            createPeerConnection()
+            setupLocalStream()
+            
+            val constraints = MediaConstraints().apply {
+                mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
+                mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (isVideo) "true" else "false"))
             }
-        }, constraints)
-        
-        listenForAnswer()
-        listenForIceCandidates()
+            
+            peerConnection?.createOffer(object : SimpleSdpObserver() {
+                override fun onCreateSuccess(sdp: SessionDescription?) {
+                    Log.d(TAG, "Offer created successfully")
+                    val modifiedSdp = sdp?.let { SessionDescription(it.type, modifySdp(it.description)) }
+                    peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
+                        override fun onSetSuccess() {
+                            Log.d(TAG, "Local description (offer) set")
+                            database.child("offer").setValue(mapOf(
+                                "type" to modifiedSdp?.type?.canonicalForm(), 
+                                "sdp" to modifiedSdp?.description
+                            ))
+                        }
+                    }, modifiedSdp)
+                }
+            }, constraints)
+            
+            listenForAnswer()
+            listenForIceCandidates()
+        }
     }
 
     fun answerCall() {
+        Log.d(TAG, "Answering call...")
         createPeerConnection()
         setupLocalStream()
         
-        database.child("offer").addListenerForSingleValueEvent(object : ValueEventListener {
+        // Usa um ValueEventListener para esperar a offer se ela ainda não estiver lá
+        database.child("offer").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (!snapshot.exists()) return
+                
                 val type = snapshot.child("type").getValue(String::class.java)
                 val sdp = snapshot.child("sdp").getValue(String::class.java)
-                if (type != null && sdp != null) {
+                
+                if (type != null && sdp != null && peerConnection?.remoteDescription == null) {
+                    Log.d(TAG, "Offer received, setting remote description")
                     val sessionDescription = SessionDescription(SessionDescription.Type.fromCanonicalForm(type), sdp)
                     peerConnection?.setRemoteDescription(object : SimpleSdpObserver() {
                         override fun onSetSuccess() {
+                            Log.d(TAG, "Remote description (offer) set, creating answer")
                             drainIceCandidates()
+                            
                             val constraints = MediaConstraints().apply {
                                 mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"))
                                 mandatory.add(MediaConstraints.KeyValuePair("OfferToReceiveVideo", if (isVideo) "true" else "false"))
                             }
+                            
                             peerConnection?.createAnswer(object : SimpleSdpObserver() {
                                 override fun onCreateSuccess(answerDescription: SessionDescription?) {
                                     val modifiedSdp = answerDescription?.let { SessionDescription(it.type, modifySdp(it.description)) }
                                     peerConnection?.setLocalDescription(object : SimpleSdpObserver() {
                                         override fun onSetSuccess() {
-                                            database.child("answer").setValue(mapOf("type" to modifiedSdp?.type?.canonicalForm(), "sdp" to modifiedSdp?.description))
+                                            Log.d(TAG, "Local description (answer) set")
+                                            database.child("answer").setValue(mapOf(
+                                                "type" to modifiedSdp?.type?.canonicalForm(), 
+                                                "sdp" to modifiedSdp?.description
+                                            ))
                                             database.child("status").setValue("CONNECTED")
                                         }
                                     }, modifiedSdp)
@@ -180,6 +205,7 @@ class WebRTCManager(
         peerConnection = peerConnectionFactory?.createPeerConnection(rtcConfig, object : PeerConnection.Observer {
             override fun onIceCandidate(candidate: IceCandidate?) {
                 candidate?.let {
+                    Log.d(TAG, "onIceCandidate: sending candidate to Firebase")
                     database.child(localCandidatesPath).push().setValue(mapOf(
                         "sdpMid" to it.sdpMid,
                         "sdpMLineIndex" to it.sdpMLineIndex,
@@ -190,6 +216,7 @@ class WebRTCManager(
             
             override fun onTrack(transceiver: RtpTransceiver?) {
                 val track = transceiver?.receiver?.track()
+                Log.d(TAG, "onTrack received: ${track?.kind()}")
                 if (track?.kind() == "audio") {
                     onRemoteStream()
                 } else if (track?.kind() == "video" && remoteVideoView != null) {
@@ -199,6 +226,7 @@ class WebRTCManager(
             }
             
             override fun onIceConnectionChange(state: PeerConnection.IceConnectionState?) {
+                Log.d(TAG, "onIceConnectionChange: $state")
                 if (state == PeerConnection.IceConnectionState.CONNECTED) {
                     database.child("status").setValue("CONNECTED")
                 }
@@ -218,11 +246,14 @@ class WebRTCManager(
     private fun listenForAnswer() {
         database.child("answer").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
+                if (!snapshot.exists()) return
                 val type = snapshot.child("type").getValue(String::class.java)
                 val sdp = snapshot.child("sdp").getValue(String::class.java)
                 if (type != null && sdp != null && peerConnection?.signalingState() == PeerConnection.SignalingState.HAVE_LOCAL_OFFER) {
+                    Log.d(TAG, "Answer received, setting remote description")
                     peerConnection?.setRemoteDescription(object : SimpleSdpObserver() {
                         override fun onSetSuccess() {
+                            Log.d(TAG, "Remote description (answer) set")
                             drainIceCandidates()
                         }
                     }, SessionDescription(SessionDescription.Type.fromCanonicalForm(type), sdp))
@@ -241,8 +272,10 @@ class WebRTCManager(
                 if (candidate != null && mid != null) {
                     val iceCandidate = IceCandidate(mid, idx, candidate)
                     if (peerConnection?.remoteDescription != null) {
+                        Log.d(TAG, "Adding ICE candidate to peer connection")
                         peerConnection?.addIceCandidate(iceCandidate)
                     } else {
+                        Log.d(TAG, "Remote description not set yet, buffering ICE candidate")
                         pendingIceCandidates.add(iceCandidate)
                     }
                 }
@@ -255,19 +288,16 @@ class WebRTCManager(
     }
 
     private fun drainIceCandidates() {
+        Log.d(TAG, "Draining ${pendingIceCandidates.size} pending ICE candidates")
         pendingIceCandidates.forEach { peerConnection?.addIceCandidate(it) }
         pendingIceCandidates.clear()
     }
 
-    // ✅ Melhora a qualidade alterando o SDP para bitrates maiores
     private fun modifySdp(sdp: String): String {
         var modified = sdp
-        // Áudio HD (Opus 128kbps)
         modified = modified.replace("useinbandfec=1", "useinbandfec=1;stereo=1;maxaveragebitrate=128000")
         
-        // Vídeo HD (Aumenta o limite de banda se houver vídeo)
         if (isVideo) {
-            // Insere b=AS:2500 após m=video (2.5 Mbps para HD)
             val lines = modified.split("\r\n").toMutableList()
             var videoLineIndex = -1
             for (i in lines.indices) {
@@ -284,26 +314,16 @@ class WebRTCManager(
         return modified
     }
 
-    // ✅ Alterna o áudio local
     fun toggleMute(isMuted: Boolean) {
-        Log.d(TAG, "toggleMute: $isMuted")
         localAudioTrack?.setEnabled(!isMuted)
     }
 
-    // ✅ Alterna o vídeo local (Câmera)
     fun toggleVideo(isCameraOff: Boolean) {
-        Log.d(TAG, "toggleVideo: isCameraOff=$isCameraOff")
         localVideoTrack?.setEnabled(!isCameraOff)
     }
 
-    // ✅ Troca entre câmera frontal e traseira
     fun switchCamera() {
-        Log.d(TAG, "switchCamera")
-        (videoCapturer as? VideoCapturer)?.let { capturer ->
-            if (capturer is CameraVideoCapturer) {
-                capturer.switchCamera(null)
-            }
-        }
+        (videoCapturer as? CameraVideoCapturer)?.switchCamera(null)
     }
 
     fun onDestroy() {

@@ -45,6 +45,8 @@ import com.jack.friend.ui.theme.MetaGray4
 import com.jack.friend.ui.theme.iOSGreen
 import com.jack.friend.ui.theme.iOSOrange
 import com.jack.friend.ui.theme.iOSRed
+import androidx.compose.ui.res.stringResource
+import com.jack.friend.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -97,7 +99,7 @@ fun ChatTopBar(
                         }
                     } else if (!isSearching) {
                         Text(
-                            if (showContacts) "Amigos" else "Conversas",
+                            if (showContacts) stringResource(R.string.title_friends) else stringResource(R.string.title_chats),
                             style = MaterialTheme.typography.headlineSmall,
                             fontWeight = FontWeight.Black,
                             letterSpacing = (-0.5).sp
@@ -146,7 +148,7 @@ fun ChatTopBar(
                         }
                     } else if (!isSearching) {
                         IconButton(onClick = { onSearchActiveChange(true) }) {
-                            Icon(Icons.Rounded.Search, contentDescription = "Pesquisar", tint = colors.primary, modifier = Modifier.size(28.dp))
+                            Icon(Icons.Rounded.Search, contentDescription = stringResource(R.string.hint_search), tint = colors.primary, modifier = Modifier.size(28.dp))
                         }
                     }
                 },
@@ -191,7 +193,7 @@ fun ChatHeaderTitle(targetProfile: UserProfile?, currentChat: ChatSummary?, isTa
             )
             if (isTargetTyping) {
                 Text(
-                    "Digitando...",
+                    stringResource(R.string.status_typing),
                     style = MaterialTheme.typography.labelSmall,
                     color = LocalChatColors.current.primary,
                     fontWeight = FontWeight.Medium
@@ -211,6 +213,14 @@ fun PresenceIndicator(profile: UserProfile) {
         "Ausente" -> iOSOrange
         else -> MetaGray4
     }
+    val presenceLabel = when (profile.presenceStatus) {
+        "Online" -> stringResource(R.string.status_online)
+        "Ocupado" -> stringResource(R.string.status_busy)
+        "Ausente" -> stringResource(R.string.status_away)
+        "Invisível" -> stringResource(R.string.status_invisible)
+        else -> profile.presenceStatus
+    }
+
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (profile.isOnline && profile.presenceStatus != "Invisível") {
             Box(
@@ -222,14 +232,14 @@ fun PresenceIndicator(profile: UserProfile) {
             )
             Spacer(Modifier.width(6.dp))
             Text(
-                profile.presenceStatus,
+                presenceLabel,
                 style = MaterialTheme.typography.labelSmall,
                 color = presenceColor,
                 fontWeight = FontWeight.Bold
             )
         } else {
             Text(
-                "Offline",
+                stringResource(R.string.status_offline),
                 style = MaterialTheme.typography.labelSmall,
                 color = MetaGray4,
                 fontWeight = FontWeight.Medium
