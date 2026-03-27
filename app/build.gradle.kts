@@ -12,7 +12,7 @@ android {
         applicationId = "com.jack.friend"
         minSdk = 26
         targetSdk = 35
-         versionCode = 44
+        versionCode = 45
         versionName = "2.2.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

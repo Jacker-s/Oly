@@ -59,17 +59,14 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
         )
         MediaManager.init(this, config)
 
-        // INICIAR O SERVIÇO DE MENSAGENS/CHAMADAS
+        // INICIAR O SERVIÇO DE MENSAGENS/CHAMADAS COMO BACKGROUND SERVICE
+        // Removemos o startForegroundService para não exibir a notificação fixa
         startMessagingService()
     }
 
     private fun startMessagingService() {
         val intent = Intent(this, MessagingService::class.java)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
+        startService(intent)
     }
 
     fun clearAppData() {

@@ -862,10 +862,11 @@ fun NewPostBox(
 
             Spacer(Modifier.height(7.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    PostActionIcon(icon = Icons.Rounded.AddPhotoAlternate, color = colors.primary, label = stringResource(R.string.post_action_media), onClick = onMediaOptionClick)
-                    PostActionIcon(icon = Icons.Rounded.EmojiEmotions, color = Color(0xFFFFC107), label = stringResource(R.string.post_action_emoji), onClick = onEmojiToggle)
+                Row(modifier = Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    PostActionIcon(modifier = Modifier.weight(1f), icon = Icons.Rounded.AddPhotoAlternate, color = colors.primary, label = stringResource(R.string.post_action_media), onClick = onMediaOptionClick)
+                    PostActionIcon(modifier = Modifier.weight(1f), icon = Icons.Rounded.EmojiEmotions, color = Color(0xFFFFC107), label = stringResource(R.string.post_action_emoji), onClick = onEmojiToggle)
                     PostActionIcon(
+                        modifier = Modifier.weight(1f),
                         icon = if (isPublic) Icons.Rounded.Public else Icons.Rounded.Lock,
                         color = if (isPublic) colors.primary else Color.Gray,
                         label = if (isPublic) stringResource(R.string.post_privacy_public) else stringResource(R.string.post_privacy_private),
@@ -889,17 +890,25 @@ fun NewPostBox(
 }
 
 @Composable
-fun PostActionIcon(icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, label: String, onClick: () -> Unit) {
+fun PostActionIcon(modifier: Modifier = Modifier, icon: androidx.compose.ui.graphics.vector.ImageVector, color: Color, label: String, onClick: () -> Unit) {
     Row(
-        modifier = Modifier
+        modifier = modifier
             .clip(RoundedCornerShape(10.dp))
             .clickable { onClick() }
-            .padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 6.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center
     ) {
-        Icon(icon, null, tint = color, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = LocalChatColors.current.textSecondary)
+        Icon(icon, null, tint = color, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(
+            label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = LocalChatColors.current.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
@@ -1316,13 +1325,15 @@ fun FeedPostCard(
                                     size = 22.dp
                                 )
                             }
-                             Spacer(Modifier.width(8.dp))
+                             Spacer(Modifier.width(6.dp))
                             val currentLikeCount = post.likes.filter { it.value }.size
                             Text(
                                 if (currentLikeCount > 0) stringResource(R.string.post_action_like_count, currentLikeCount) else stringResource(R.string.post_action_like),
                                 fontWeight = FontWeight.ExtraBold,
-                                fontSize = 14.sp,
-                                color = if (hasLiked) Color(0xFFEF5350) else colors.textSecondary
+                                fontSize = 13.sp,
+                                color = if (hasLiked) Color(0xFFEF5350) else colors.textSecondary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
@@ -1365,12 +1376,14 @@ fun FeedPostCard(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         WappiCommentIcon(tint = colors.textSecondary, size = 22.dp)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                         val currentCommentCount = post.comments.size
                         Text(
                             if (currentCommentCount > 0) stringResource(R.string.post_action_comment_count, currentCommentCount) else stringResource(R.string.post_action_comment),
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
@@ -1385,12 +1398,14 @@ fun FeedPostCard(
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         WappiShareIcon(tint = colors.textSecondary, size = 22.dp)
-                        Spacer(Modifier.width(8.dp))
+                        Spacer(Modifier.width(6.dp))
                         val currentShareCount = post.shares.size
                         Text(
                             if (currentShareCount > 0) stringResource(R.string.post_action_send_count, currentShareCount) else stringResource(R.string.post_action_send),
                             fontWeight = FontWeight.ExtraBold,
-                            fontSize = 14.sp
+                            fontSize = 13.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }

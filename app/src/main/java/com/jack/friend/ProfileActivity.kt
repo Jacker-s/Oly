@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
@@ -461,17 +462,31 @@ private fun HeroSection(
                 onClick = onEditClick,
                 modifier = Modifier.weight(1f).height(42.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground)
+                colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
+                contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
-                Text(stringResource(R.string.profile_edit_profile), color = colors.textPrimary, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.profile_edit_profile),
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Button(
                 onClick = onShareClick,
                 modifier = Modifier.weight(1f).height(42.dp),
                 shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground)
+                colors = ButtonDefaults.buttonColors(containerColor = colors.secondaryBackground),
+                contentPadding = PaddingValues(horizontal = 8.dp)
             ) {
-                Text(stringResource(R.string.profile_share_button), color = colors.textPrimary, fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.profile_share_button),
+                    color = colors.textPrimary,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
         }
 
@@ -491,9 +506,15 @@ private fun HeroSection(
 
 @Composable
 private fun HeroStat(count: String, label: String, colors: ChatColors) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(max = 100.dp)) {
         Text(count, fontWeight = FontWeight.Black, fontSize = 20.sp, color = colors.textPrimary)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = colors.textSecondary)
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textSecondary,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 

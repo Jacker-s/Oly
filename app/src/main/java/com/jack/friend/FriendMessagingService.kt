@@ -29,7 +29,7 @@ class FriendMessagingService : FirebaseMessagingService() {
 
     companion object {
         private const val CHANNEL_ID = "MESSAGES_CHANNEL_V24"
-        private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V25"
+        private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V30"
         private const val TAG = "FriendMessagingService"
         const val KEY_TEXT_REPLY = "key_text_reply"
         private const val PREFS_NAME = "friend_prefs"
@@ -335,6 +335,7 @@ class FriendMessagingService : FirebaseMessagingService() {
                     ).apply {
                         description = getString(R.string.notification_channel_description)
                         enableVibration(true)
+                        lockscreenVisibility = Notification.VISIBILITY_PUBLIC
                     }
                 )
             }

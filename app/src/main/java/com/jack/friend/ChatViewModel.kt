@@ -203,6 +203,9 @@ class ChatViewModel : ViewModel() {
     private val _isScreenshotDisabled = MutableStateFlow(false)
     val isScreenshotDisabled: StateFlow<Boolean> = _isScreenshotDisabled
 
+    private val _isVerified = MutableStateFlow(false)
+    val isVerified: StateFlow<Boolean> = _isVerified
+
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
     val messages: StateFlow<List<Message>> = _messages
 
@@ -245,8 +248,8 @@ class ChatViewModel : ViewModel() {
         val contactIds = contactsList.map { it.id }.toSet()
 
         raw.filter { now - it.timestamp < STATUS_TTL_MS && !blocked.contains(it.userId) }
-           .filter { it.userId == me || contactIds.contains(it.userId) }
-           .sortedByDescending { it.timestamp }
+            .filter { it.userId == me || contactIds.contains(it.userId) }
+            .sortedByDescending { it.timestamp }
     }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _localMedia = MutableStateFlow<List<LocalMedia>>(emptyList())
@@ -469,8 +472,8 @@ class ChatViewModel : ViewModel() {
         db.child("uid_to_username").child(uid).get()
             .addOnSuccessListener { snapshot ->
                 val username = snapshot.getValue(String::class.java).orEmpty()
-            logD("setupUserSession: fetched username='$username'")
-            if (username.isNotEmpty()) {
+                logD("setupUserSession: fetched username='$username'")
+                if (username.isNotEmpty()) {
                     _myUsername.value = username
 
                     // Habilitar keepSynced para carregamento instantâneo (Cache)
@@ -484,13 +487,13 @@ class ChatViewModel : ViewModel() {
                     listenToChats(username)
                     listenToCallLogs(username)
                     listenToContacts(username)
-                listenToStatuses(username)
-                listenToFeeds()
-                listenToNotifications(username)
-                startPeriodicFeedRefresh()
-                triggerPrivateAudienceMigration()
-                setupPresence(username)
-                updateFcmToken(username)
+                    listenToStatuses(username)
+                    listenToFeeds()
+                    listenToNotifications(username)
+                    startPeriodicFeedRefresh()
+                    triggerPrivateAudienceMigration()
+                    setupPresence(username)
+                    updateFcmToken(username)
 
                     // Aplicar target pendente se existir (vindo de notificação)
                     pendingTargetId?.let {
@@ -503,7 +506,7 @@ class ChatViewModel : ViewModel() {
                 }
                 _isProfileChecked.value = true
             }
-            .addOnFailureListener { 
+            .addOnFailureListener {
                 logE("Erro setupUserSession: ${it.message}", it)
                 _isProfileChecked.value = true
             }
@@ -1145,7 +1148,7 @@ class ChatViewModel : ViewModel() {
                     audioUrl = url,
                     audioDurationSeconds = durationMs / 1000,
                     timestamp = System.currentTimeMillis(),
-        
+
                     senderName = _myName.value,
                     tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                 )
@@ -1186,7 +1189,7 @@ class ChatViewModel : ViewModel() {
                             receiverId = target,
                             imageUrl = url,
                             timestamp = System.currentTimeMillis(),
-                
+
                             senderName = _myName.value,
                             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                         )
@@ -1215,7 +1218,7 @@ class ChatViewModel : ViewModel() {
                             receiverId = target,
                             videoUrl = url,
                             timestamp = System.currentTimeMillis(),
-                
+
                             senderName = _myName.value,
                             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                         )
@@ -1247,7 +1250,7 @@ class ChatViewModel : ViewModel() {
                             fileName = fileName,
                             fileSize = fileSize,
                             timestamp = System.currentTimeMillis(),
-                
+
                             senderName = _myName.value,
                             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                         )
@@ -1274,7 +1277,7 @@ class ChatViewModel : ViewModel() {
                 longitude = lng,
                 locationName = name,
                 timestamp = System.currentTimeMillis(),
-    
+
                 senderName = _myName.value,
                 tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
             )
@@ -1505,9 +1508,9 @@ class ChatViewModel : ViewModel() {
                 val incomingIds = incomingChats.map { it.friendId }.toSet()
                 val localOnlyChats = currentChats.filter {
                     it.friendId.isNotBlank() &&
-                    !blocked.contains(it.friendId) &&
-                    it.friendId != "SYSTEM_AD" &&
-                    !incomingIds.contains(it.friendId)
+                            !blocked.contains(it.friendId) &&
+                            it.friendId != "SYSTEM_AD" &&
+                            !incomingIds.contains(it.friendId)
                 }
 
                 val mergedChats = (mergedFromIncoming + localOnlyChats)
@@ -1545,56 +1548,56 @@ class ChatViewModel : ViewModel() {
                 logD("Contacts listener for $username received ${ids.size} IDs: $ids")
 
                 viewModelScope.launch(errorHandler) {
-                try {
-                    val profiles = ids.filter { it.isNotBlank() && !blocked.contains(it) }
-                        .mapNotNull { id -> db.child("users").child(id).get().await().getValue(UserProfile::class.java) }
+                    try {
+                        val profiles = ids.filter { it.isNotBlank() && !blocked.contains(it) }
+                            .mapNotNull { id -> db.child("users").child(id).get().await().getValue(UserProfile::class.java) }
 
-                    logD("Loaded ${profiles.size} contact profiles for $username")
-                    _contacts.value = profiles
-                    profiles.forEach { syncFriendPresence(it.id) }
+                        logD("Loaded ${profiles.size} contact profiles for $username")
+                        _contacts.value = profiles
+                        profiles.forEach { syncFriendPresence(it.id) }
 
-                    // Check mutual status
-                    if (username.isNotEmpty()) {
-                        // Limpar listeners antigos que não estão mais na lista
-                        val currentIds = profiles.map { it.id }.toSet()
-                        val toRemove = mutualListeners.keys.filter { !currentIds.contains(it) }
-                        toRemove.forEach { id ->
-                            mutualListeners[id]?.let { db.child("contacts").child(id).child(username).removeEventListener(it) }
-                            mutualListeners.remove(id)
-                            val newMutuals = _mutualContactIds.value.toMutableSet()
-                            newMutuals.remove(id)
-                            _mutualContactIds.value = newMutuals
-                        }
+                        // Check mutual status
+                        if (username.isNotEmpty()) {
+                            // Limpar listeners antigos que não estão mais na lista
+                            val currentIds = profiles.map { it.id }.toSet()
+                            val toRemove = mutualListeners.keys.filter { !currentIds.contains(it) }
+                            toRemove.forEach { id ->
+                                mutualListeners[id]?.let { db.child("contacts").child(id).child(username).removeEventListener(it) }
+                                mutualListeners.remove(id)
+                                val newMutuals = _mutualContactIds.value.toMutableSet()
+                                newMutuals.remove(id)
+                                _mutualContactIds.value = newMutuals
+                            }
 
-                        profiles.forEach { contact ->
-                            if (!mutualListeners.containsKey(contact.id)) {
-                                val listener = object : ValueEventListener {
-                                    override fun onDataChange(snapshot: DataSnapshot) {
-                                        val isMutual = snapshot.exists()
-                                        logD("Mutual check update: ${contact.id} -> $username mutual=$isMutual")
-                                        val newMutuals = _mutualContactIds.value.toMutableSet()
-                                        if (isMutual) newMutuals.add(contact.id) else newMutuals.remove(contact.id)
-                                        _mutualContactIds.value = newMutuals
-                                        triggerPrivateAudienceMigration()
+                            profiles.forEach { contact ->
+                                if (!mutualListeners.containsKey(contact.id)) {
+                                    val listener = object : ValueEventListener {
+                                        override fun onDataChange(snapshot: DataSnapshot) {
+                                            val isMutual = snapshot.exists()
+                                            logD("Mutual check update: ${contact.id} -> $username mutual=$isMutual")
+                                            val newMutuals = _mutualContactIds.value.toMutableSet()
+                                            if (isMutual) newMutuals.add(contact.id) else newMutuals.remove(contact.id)
+                                            _mutualContactIds.value = newMutuals
+                                            triggerPrivateAudienceMigration()
+                                        }
+                                        override fun onCancelled(error: DatabaseError) {
+                                            logE("Mutual check PERMISSION ERROR for ${contact.id}: ${error.message}")
+                                        }
                                     }
-                                    override fun onCancelled(error: DatabaseError) {
-                                        logE("Mutual check PERMISSION ERROR for ${contact.id}: ${error.message}")
-                                    }
+                                    mutualListeners[contact.id] = listener
+                                    db.child("contacts").child(contact.id).child(username).addValueEventListener(listener)
                                 }
-                                mutualListeners[contact.id] = listener
-                                db.child("contacts").child(contact.id).child(username).addValueEventListener(listener)
                             }
                         }
+                    } catch (e: Exception) {
+                        logE("Error loading contact profiles: ${e.message}", e)
                     }
-                } catch (e: Exception) {
-                    logE("Error loading contact profiles: ${e.message}", e)
                 }
             }
+            override fun onCancelled(error: DatabaseError) {
+                logE("Contacts listener error: ${error.message}")
+            }
         }
-        override fun onCancelled(error: DatabaseError) {
-            logE("Contacts listener error: ${error.message}")
-        }
-    }
 
         logD("Attaching contacts listener for $username")
         db.child("contacts").child(username).addValueEventListener(contactsListener!!)
@@ -1719,6 +1722,17 @@ class ChatViewModel : ViewModel() {
         }
 
         val me = _myUsername.value
+        val isSystemDeletion = lastMsgText == getString(R.string.chat_summary_deleted) || 
+                               lastMsgText == getString(R.string.chat_status_history_deleted)
+
+        if (isSystemDeletion && msg.senderId == me) {
+            val currentChats = _activeChats.value.toMutableList()
+            if (currentChats.removeIf { it.friendId == target }) {
+                _activeChats.value = currentChats.sortedWith(compareByDescending<ChatSummary> { it.isPinned }.thenByDescending { it.timestamp })
+            }
+            return
+        }
+
         val incomingFromTarget = msg.senderId == target
         val shouldMarkUnread = incomingFromTarget && markUnreadForIncoming && _targetId.value != target
 
@@ -2389,10 +2403,10 @@ class ChatViewModel : ViewModel() {
                         // Notificações de Feed: Mostrar UI/Toast/Notificação se forem recentes
                         val similar = newList.filter {
                             it.postId == notif.postId &&
-                            it.type == notif.type &&
-                            !it.isRead &&
-                            it.id != notif.id &&
-                            it.fromId != notif.fromId
+                                    it.type == notif.type &&
+                                    !it.isRead &&
+                                    it.id != notif.id &&
+                                    it.fromId != notif.fromId
                         }
 
                         val isForeground = FriendApplication.instance.isForeground.value
@@ -2434,7 +2448,7 @@ class ChatViewModel : ViewModel() {
 
                 // 3. Atualizar o próprio nó de chat (que o usuário TEM permissão de escrita)
                 updateLocalSummaryAfterReceipt(target = friendId, msg = lastMsg, markUnreadForIncoming = true)
-                
+
                 // 4. Se NÃO estou no chat com essa pessoa, mostrar popup in-app em foreground
                 // e notificação do sistema apenas em background.
                 if (_targetId.value != friendId) {
@@ -2522,9 +2536,9 @@ class ChatViewModel : ViewModel() {
         feedsListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 logD("Feed data received: ${snapshot.childrenCount} items")
-                val list = snapshot.children.mapNotNull { 
+                val list = snapshot.children.mapNotNull {
                     try {
-                        it.getValue(FeedPost::class.java) 
+                        it.getValue(FeedPost::class.java)
                     } catch (e: Exception) {
                         logE("Error parsing FeedPost ${it.key}: ${e.message}")
                         null
@@ -2859,7 +2873,7 @@ class ChatViewModel : ViewModel() {
                     receiverId = target,
                     text = if (isVideo) getString(R.string.chat_call_video) else getString(R.string.chat_call_audio),
                     timestamp = now,
-        
+
                     senderName = _myName.value,
                     senderPhotoUrl = _myPhotoUrl.value,
                     callRoomId = roomId,

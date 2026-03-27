@@ -6,7 +6,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
-import android.content.pm.ServiceInfo
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
@@ -25,10 +24,8 @@ class MessagingService : Service() {
     private var blockedUsers = mutableSetOf<String>()
 
     companion object {
-        private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V14"
+        private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V30"
         private const val MSG_CHANNEL_ID = "MESSAGE_CHANNEL_V1"
-        private const val SILENT_CHANNEL_ID = "silent_service_channel"
-        private const val FOREGROUND_ID = 1001
         private const val CALL_NOTIF_ID = 1002
         private const val TAG = "MessagingService"
     }
@@ -36,21 +33,7 @@ class MessagingService : Service() {
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
-        startSilentForeground()
         auth.currentUser?.let { setupUserListener(it.uid) }
-    }
-
-    private fun startSilentForeground() {
-        val notification = NotificationCompat.Builder(this, SILENT_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(getString(R.string.app_name))
-            .setContentText("Ativo para chamadas e mensagens")
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
-            startForeground(FOREGROUND_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
-        else
-            startForeground(FOREGROUND_ID, notification)
     }
 
     private fun setupUserListener(uid: String) {
@@ -66,7 +49,6 @@ class MessagingService : Service() {
     }
 
     private var feedNotificationsListener: ChildEventListener? = null
-    // Guarda os IDs já processados nesta sessão para não renotificar
     private val processedFeedNotifIds = mutableSetOf<String>()
 
     private fun listenForFeedNotifications(username: String) {
@@ -78,7 +60,7 @@ class MessagingService : Service() {
                 processedFeedNotifIds.add(notif.id)
 
                 val sinceMs = System.currentTimeMillis() - notif.timestamp
-                if (sinceMs > 60_000) return // Ignorar notificações com mais de 1 min
+                if (sinceMs > 60_000) return 
 
                 if (!FriendApplication.isAppInForeground) {
                     FeedNotificationHelper.showFeedInteractionNotification(applicationContext, notif)
@@ -122,34 +104,7 @@ class MessagingService : Service() {
 
     private fun handleMessageSnapshot(snapshot: DataSnapshot, username: String) {
         val summary = snapshot.getValue(ChatSummary::class.java) ?: return
-
-        // Ignorar se o remetente estiver bloqueado
         if (blockedUsers.contains(summary.friendId)) return
-
-        if (!FriendApplication.isAppInForeground) {
-            // A notificação de nova mensagem agora é tratada inteiramente pelo FriendMessagingService (FCM)
-            // para evitar notificações duplicadas e permitir notificações estilo WhatsApp.
-        }
-    }
-
-    private fun showNewMessageNotification(summary: ChatSummary) {
-        val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        val pendingIntent = PendingIntent.getActivity(this, summary.friendId.hashCode(), intent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-
-        val builder = NotificationCompat.Builder(this, MSG_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(summary.friendName ?: summary.friendId)
-            .setContentText(summary.lastMessage)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setAutoCancel(true)
-            .setContentIntent(pendingIntent)
-            .setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION))
-
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(summary.friendId.hashCode(), builder.build())
     }
 
     private fun listenForCallSignals(username: String) {
@@ -157,8 +112,6 @@ class MessagingService : Service() {
         callNotificationListener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val m = snapshot.getValue(Message::class.java) ?: return
-
-                // Ignorar chamada se o autor estiver bloqueado
                 if (blockedUsers.contains(m.senderId)) {
                     signalsRef.removeValue()
                     return
@@ -177,17 +130,14 @@ class MessagingService : Service() {
     private fun showIncomingCall(message: Message) {
         val intent = Intent(this, IncomingCallActivity::class.java).apply {
             putExtra("callMessage", message)
-            putExtra("isVideo", message.callType == "VIDEO") // Passar se é chamada de vídeo
+            putExtra("isVideo", message.callType == "VIDEO")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         }
 
-        if (FriendApplication.isAppInForeground) {
-            try {
-                startActivity(intent)
-            } catch (e: Exception) {
-                Log.e(TAG, "Erro ao abrir Activity: ${e.message}")
-            }
-            return
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Erro ao abrir Activity diretamente: ${e.message}")
         }
 
         val acceptIntent = Intent(this, CallActivity::class.java).apply {
@@ -196,7 +146,7 @@ class MessagingService : Service() {
             putExtra("targetPhotoUrl", message.senderPhotoUrl)
             putExtra("isOutgoing", false)
             putExtra("isAcceptedFromNotification", true)
-            putExtra("isVideo", message.callType == "VIDEO") // Passar se é chamada de vídeo
+            putExtra("isVideo", message.callType == "VIDEO")
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         val acceptPI = PendingIntent.getActivity(this, 1, acceptIntent, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -212,7 +162,7 @@ class MessagingService : Service() {
 
         val builder = NotificationCompat.Builder(this, CALL_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle("Chamada ${if (message.callType == "VIDEO") "de vídeo " else ""}de ${message.senderName ?: message.senderId}") // Título dinâmico
+            .setContentTitle("Chamada ${if (message.callType == "VIDEO") "de vídeo " else ""}de ${message.senderName ?: message.senderId}")
             .setContentText("Toque para atender")
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setCategory(NotificationCompat.CATEGORY_CALL)
@@ -224,7 +174,9 @@ class MessagingService : Service() {
             .addAction(R.drawable.ic_call, "Atender", acceptPI)
             .addAction(R.drawable.ic_call_end, "Recusar", rejectPI)
 
-        (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).notify(CALL_NOTIF_ID, builder.build())
+        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+        nm.notify(CALL_NOTIF_ID, builder.build())
+        
         message.callRoomId?.let { monitorCallStatus(it) }
     }
 
@@ -259,12 +211,11 @@ class MessagingService : Service() {
             }
             nm.createNotificationChannel(callChannel)
 
-            nm.createNotificationChannel(NotificationChannel(MSG_CHANNEL_ID, "Mensagens", NotificationManager.IMPORTANCE_HIGH).apply {
+            val msgChannel = NotificationChannel(MSG_CHANNEL_ID, "Mensagens", NotificationManager.IMPORTANCE_HIGH).apply {
                 description = "Notificações de novas mensagens de chat"
                 enableVibration(true)
-            })
-
-            nm.createNotificationChannel(NotificationChannel(SILENT_CHANNEL_ID, "Serviço", NotificationManager.IMPORTANCE_MIN))
+            }
+            nm.createNotificationChannel(msgChannel)
         }
     }
 

@@ -63,9 +63,11 @@ fun MessageListContent(
             
             if (messageCount >= nextAdThreshold) {
                 // Adiciona um marcador de anúncio que será renderizado via AdMob
+                // Usamos um ID composto único baseado na mensagem anterior e no seed
+                val adId = "ad_after_${message.id.ifEmpty { message.timestamp.toString() }}_${System.identityHashCode(message)}"
                 result.add(
                     Message(
-                        id = "ad_item_${message.id}_$seed",
+                        id = adId,
                         isAd = true,
                         timestamp = message.timestamp,
                         senderId = "SYSTEM_AD"
@@ -87,7 +89,15 @@ fun MessageListContent(
         contentPadding = PaddingValues(top = 16.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
-        itemsIndexed(messagesWithAds, key = { _, m -> m.id }) { index, message ->
+        itemsIndexed(
+            items = messagesWithAds, 
+            key = { index, m -> 
+                // Fallback robusto: se o id estiver vazio, usamos timestamp + index para garantir unicidade
+                val baseId = m.id.ifEmpty { "msg_${m.timestamp}_$index" }
+                // Diferenciar chaves de anúncios e mensagens normais
+                if (m.isAd) "key_ad_$baseId" else "key_msg_$baseId"
+            }
+        ) { index, message ->
             if (message.isAd) {
                 // Renderiza o banner retangular AdMob
                 AdMobBubble()

@@ -34,19 +34,19 @@ fun MetaTextField(
     keyboardType: KeyboardType = KeyboardType.Text
 ) {
     val chatColors = LocalChatColors.current
-    
+
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         placeholder = { Text(placeholder, color = chatColors.textSecondary.copy(alpha = 0.5f), fontSize = 15.sp) },
         modifier = Modifier.fillMaxWidth(),
-        leadingIcon = { 
+        leadingIcon = {
             Icon(
-                icon, 
-                null, 
-                tint = if (value.isNotEmpty()) chatColors.primary else chatColors.textSecondary.copy(alpha = 0.4f), 
+                icon,
+                null,
+                tint = if (value.isNotEmpty()) chatColors.primary else chatColors.textSecondary.copy(alpha = 0.4f),
                 modifier = Modifier.size(22.dp)
-            ) 
+            )
         },
         visualTransformation = if (isPassword) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = keyboardType),
@@ -78,7 +78,7 @@ fun AddContactDialog(
 ) {
     var username by remember { mutableStateOf("") }
     val chatColors = LocalChatColors.current
-    
+
     // Garantir que comece com @ se o usuário digitar algo
     val onUsernameChange: (String) -> Unit = { input ->
         val clean = if (input.startsWith("@")) input.substring(1) else input
@@ -102,7 +102,7 @@ fun AddContactDialog(
             Column(modifier = Modifier.heightIn(max = 400.dp)) {
                 MetaTextField(username, onUsernameChange, "@usuario", icon)
                 Spacer(Modifier.height(16.dp))
-                
+
                 if (searchResults.isNotEmpty()) {
                     Text("Sugestões", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold, color = chatColors.primary)
                     Spacer(Modifier.height(8.dp))
@@ -112,7 +112,7 @@ fun AddContactDialog(
                     ) {
                         items(searchResults.take(5)) { user ->
                             Surface(
-                                modifier = Modifier.fillMaxWidth().clickable { 
+                                modifier = Modifier.fillMaxWidth().clickable {
                                     username = "@${user.id}"
                                 },
                                 shape = RoundedCornerShape(12.dp),

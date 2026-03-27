@@ -97,25 +97,29 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
 
-                val permissionsToRequest = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    arrayOf(
-                        Manifest.permission.CAMERA,
-                        Manifest.permission.RECORD_AUDIO,
-                        Manifest.permission.POST_NOTIFICATIONS,
-                        Manifest.permission.READ_MEDIA_IMAGES,
-                        Manifest.permission.READ_MEDIA_VIDEO,
-                        Manifest.permission.READ_MEDIA_AUDIO,
-                        Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
-                    )
-                } else {
-                    arrayOf(
+                val permissionsToRequest = remember {
+                    val list = mutableListOf(
                         Manifest.permission.CAMERA,
                         Manifest.permission.RECORD_AUDIO,
                         Manifest.permission.READ_EXTERNAL_STORAGE,
                         Manifest.permission.ACCESS_FINE_LOCATION,
                         Manifest.permission.ACCESS_COARSE_LOCATION
                     )
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        list.add(Manifest.permission.POST_NOTIFICATIONS)
+                        list.add(Manifest.permission.READ_MEDIA_IMAGES)
+                        list.add(Manifest.permission.READ_MEDIA_VIDEO)
+                        list.add(Manifest.permission.READ_MEDIA_AUDIO)
+                    } else {
+                        list.add(Manifest.permission.READ_EXTERNAL_STORAGE)
+                    }
+
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        list.add(Manifest.permission.BLUETOOTH_CONNECT)
+                    }
+
+                    list.toTypedArray()
                 }
 
                 val multiplePermissionResultLauncher = rememberLauncherForActivityResult(
@@ -286,4 +290,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-

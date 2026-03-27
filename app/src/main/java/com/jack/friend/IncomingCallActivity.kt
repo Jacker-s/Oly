@@ -113,11 +113,11 @@ class IncomingCallActivity : AppCompatActivity() {
     private var isVideoCall: Boolean = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        showOnLockScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).cancel(1002)
 
-        showOnLockScreen()
         initVibrator()
         acquireWakeLock()
 
@@ -252,7 +252,11 @@ class IncomingCallActivity : AppCompatActivity() {
                         WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
             )
         }
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or WindowManager.LayoutParams.FLAG_SECURE)
+        window.addFlags(
+            WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_ALLOW_LOCK_WHILE_SCREEN_ON or
+                    WindowManager.LayoutParams.FLAG_SECURE
+        )
     }
 
     /**
