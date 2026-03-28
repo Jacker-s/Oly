@@ -23,12 +23,15 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Comment
 import androidx.compose.material.icons.automirrored.rounded.Feed
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
@@ -72,6 +75,7 @@ import androidx.compose.ui.window.Popup
 import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.foundation.layout.WindowInsets
 import com.jack.friend.ui.chat.MetaStatusRow
 import com.jack.friend.ui.chat.StatusViewer
 import com.jack.friend.ui.chat.StatusComposer
@@ -165,13 +169,14 @@ fun FeedScreen(
 
     val pullToRefreshState = rememberPullToRefreshState()
 
-    // Inteligência: Inserir anúncios reais do AdMob entre os posts (apenas se não for premium)
     val feedItems = remember(feedPosts, isPremium) {
         val items = mutableListOf<Any>()
         feedPosts.forEachIndexed { index, post ->
             items.add(post)
-            // Inserir anúncio a cada 5 posts se não for premium
-            if (!isPremium && (index + 1) % 5 == 0) {
+            // Inserir anúncio logo após o primeiro post se não for premium
+            if (!isPremium && index == 0 && feedPosts.size > 1) {
+                items.add("ADMOB_BANNER")
+            } else if (!isPremium && (index + 1) % 10 == 0) { // Menos frequente depois
                 items.add("ADMOB_BANNER")
             }
         }
@@ -502,25 +507,38 @@ fun FeedScreen(
                                         onInteractionsClick = { interactingPost = it }
                                     )
                                 }
-                                is String -> {
+                                 is String -> {
                                     if (item == "ADMOB_BANNER") {
                                         Surface(
-                                            modifier = Modifier.fillMaxWidth(),
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                                             color = colors.secondaryBackground
                                         ) {
-                                            Column(
-                                                modifier = Modifier.padding(vertical = 16.dp),
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Text(
-                                                    stringResource(R.string.feed_sponsored_label),
-                                                    fontSize = 11.sp,
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = colors.textSecondary,
-                                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp).align(Alignment.Start)
-                                                )
+                                            Column(modifier = Modifier.padding(16.dp)) {
+                                                // Sponsored Header (Looks like a post)
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .size(40.dp)
+                                                            .clip(CircleShape)
+                                                            .background(colors.primary.copy(alpha = 0.1f)),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Icon(Icons.Rounded.Campaign, null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                                                    }
+                                                    Spacer(Modifier.width(12.dp))
+                                                    Column {
+                                                        Text("Patrocinado", fontWeight = FontWeight.Bold, fontSize = 15.sp, color = colors.textPrimary)
+                                                        Text("Sugestão para você", fontSize = 12.sp, color = colors.textSecondary)
+                                                    }
+                                                }
+                                                
+                                                Spacer(Modifier.height(12.dp))
+                                                Text("Conheça as novidades e ofertas exclusivas dos nossos parceiros!", fontSize = 15.sp, color = colors.textPrimary)
+                                                Spacer(Modifier.height(12.dp))
+                                                
                                                 AdMobBanner(
-                                                    modifier = Modifier.fillMaxWidth()
+                                                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)),
+                                                    adSize = com.google.android.gms.ads.AdSize.MEDIUM_RECTANGLE
                                                 )
                                             }
                                         }
@@ -1050,31 +1068,16 @@ fun FeedPostCard(
                     Icon(Icons.Rounded.MoreHoriz, null, tint = colors.textSecondary)
                 }
 
-                DropdownMenu(
-                    expanded = showOptions,
-                    onDismissRequest = { showOptions = false },
-                    modifier = Modifier.background(colors.secondaryBackground),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    if (post.authorId == myUsername) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.post_menu_delete), fontWeight = FontWeight.Medium) },
-                            onClick = { viewModel.deleteFeedPost(post.id); showOptions = false },
-                            leadingIcon = { Icon(Icons.Rounded.DeleteOutline, null, tint = Color.Red) }
-                        )
-                    }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_copy), fontWeight = FontWeight.Medium) },
-                        onClick = {
+                if (showOptions) {
+                    PostOptionsSheet(
+                        post = post,
+                        myUsername = myUsername,
+                        viewModel = viewModel,
+                        onDismiss = { showOptions = false },
+                        onCopy = {
                             clipboard.setText(AnnotatedString(post.text))
                             showOptions = false
-                        },
-                        leadingIcon = { Icon(Icons.Rounded.ContentCopy, null) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.post_menu_report), fontWeight = FontWeight.Medium) },
-                        onClick = { showOptions = false },
-                        leadingIcon = { Icon(Icons.Rounded.Flag, null) }
+                        }
                     )
                 }
             }
@@ -1445,29 +1448,50 @@ fun FeedPostCard(
                 }
             }
 
-            // Comments Section (Refined)
+            // Comments Section (Visual Threading)
             AnimatedVisibility(visible = showComments, enter = expandVertically(), exit = shrinkVertically()) {
                 Column(modifier = Modifier.background(colors.background.copy(alpha = 0.4f)).padding(bottom = 8.dp)) {
                     val commentList = post.comments.values.sortedBy { it.timestamp }
+                    var replyingTo by remember { mutableStateOf<FeedComment?>(null) }
 
                     if (commentList.isNotEmpty()) {
-                        commentList.forEach { comment ->
-                            CommentItem(
-                                postId = post.id,
-                                comment = comment,
-                                myUsername = myUsername,
-                                colors = colors,
-                                onAuthorClick = onAuthorClick,
-                                viewModel = viewModel,
-                                onReply = { authorId ->
-                                    val mention = "@$authorId "
-                                    val currentText = commentTextFieldValue.text
-                                    if (!currentText.contains(mention)) {
-                                        val newText = mention + currentText
-                                        commentTextFieldValue = TextFieldValue(newText, TextRange(newText.length))
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 400.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            // Logic for grouping comments (1-level nesting for interlinking)
+                            val topLevel = commentList.filter { it.replyToId == null }
+                            val replies = commentList.filter { it.replyToId != null }.groupBy { it.replyToId }
+
+                            topLevel.forEach { parentComment ->
+                                CommentItem(
+                                    postId = post.id,
+                                    comment = parentComment,
+                                    myUsername = myUsername,
+                                    colors = colors,
+                                    onAuthorClick = onAuthorClick,
+                                    viewModel = viewModel,
+                                    onReply = { replyingTo = parentComment }
+                                )
+                                
+                                // Show replies visually interlinked
+                                replies[parentComment.id]?.forEach { reply ->
+                                    Box(modifier = Modifier.padding(start = 38.dp)) {
+                                        CommentItem(
+                                            postId = post.id,
+                                            comment = reply,
+                                            myUsername = myUsername,
+                                            colors = colors,
+                                            onAuthorClick = onAuthorClick,
+                                            viewModel = viewModel,
+                                            onReply = { replyingTo = parentComment },
+                                            isReply = true
+                                        )
                                     }
                                 }
-                            )
+                            }
                         }
                     }
 
@@ -1487,6 +1511,32 @@ fun FeedPostCard(
                             },
                             colors = colors
                         )
+
+                        // Visual indicator for replyingTo
+                        AnimatedVisibility(visible = replyingTo != null) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(colors.primary.copy(alpha = 0.05f))
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.Reply, null, tint = colors.primary, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        text = stringResource(R.string.post_replying_to, replyingTo?.authorName ?: ""),
+                                        fontSize = 12.sp,
+                                        color = colors.primary,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                                IconButton(onClick = { replyingTo = null }, modifier = Modifier.size(20.dp)) {
+                                    Icon(Icons.Rounded.Close, null, tint = colors.textSecondary, modifier = Modifier.size(14.dp))
+                                }
+                            }
+                        }
 
                         Surface(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -1531,8 +1581,14 @@ fun FeedPostCard(
                                 IconButton(
                                     onClick = {
                                         if (commentTextFieldValue.text.isNotBlank()) {
-                                            viewModel.addFeedComment(post.id, commentTextFieldValue.text.trim())
+                                            viewModel.addFeedComment(
+                                                post.id, 
+                                                commentTextFieldValue.text.trim(),
+                                                replyToId = replyingTo?.id,
+                                                replyToName = replyingTo?.authorName
+                                            )
                                             commentTextFieldValue = TextFieldValue("")
+                                            replyingTo = null
                                             haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
                                         }
                                     },
@@ -1565,7 +1621,8 @@ fun CommentItem(
     colors: com.jack.friend.ui.theme.ChatColors,
     onAuthorClick: (UserProfile) -> Unit,
     viewModel: ChatViewModel,
-    onReply: (String) -> Unit = {}
+    onReply: (String) -> Unit = {},
+    isReply: Boolean = false
 ) {
     val haptic = LocalHapticFeedback.current
     val clipboard = LocalClipboardManager.current
@@ -1700,6 +1757,120 @@ fun CommentItem(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PostOptionsSheet(
+    post: FeedPost,
+    myUsername: String,
+    viewModel: ChatViewModel,
+    onDismiss: () -> Unit,
+    onCopy: () -> Unit
+) {
+    val colors = LocalChatColors.current
+    
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = colors.background,
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
+        dragHandle = { BottomSheetDefaults.DragHandle(color = colors.separator.copy(alpha = 0.2f)) }
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 48.dp)
+        ) {
+            Text(
+                text = "Opções do Post",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Black,
+                color = colors.textPrimary,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+
+            ActionOptionItem(
+                text = "Copiar Texto",
+                icon = Icons.Rounded.ContentCopy,
+                iconBgColor = Color(0xFF007AFF).copy(alpha = 0.1f),
+                iconColor = Color(0xFF007AFF),
+                onClick = onCopy
+            )
+
+            ActionOptionItem(
+                text = "Denunciar Post",
+                icon = Icons.Rounded.Flag,
+                iconBgColor = Color(0xFFFF9500).copy(alpha = 0.1f),
+                iconColor = Color(0xFFFF9500),
+                onClick = onDismiss
+            )
+
+            if (post.authorId == myUsername) {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = colors.separator.copy(alpha = 0.05f), thickness = 0.5.dp)
+                Spacer(Modifier.height(12.dp))
+
+                ActionOptionItem(
+                    text = "Apagar Post",
+                    icon = Icons.Rounded.DeleteOutline,
+                    iconBgColor = Color.Red.copy(alpha = 0.1f),
+                    iconColor = Color.Red,
+                    textColor = Color.Red,
+                    onClick = { viewModel.deleteFeedPost(post.id); onDismiss() }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun ActionOptionItem(
+    text: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    onClick: () -> Unit,
+    textColor: Color? = null,
+    iconBgColor: Color? = null,
+    iconColor: Color? = null
+) {
+    val colors = LocalChatColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .clickable { onClick() }
+            .padding(vertical = 12.dp, horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .background(iconBgColor ?: colors.separator.copy(alpha = 0.1f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor ?: colors.textPrimary,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Bold,
+            color = textColor ?: colors.textPrimary,
+            modifier = Modifier.weight(1f)
+        )
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = colors.textSecondary.copy(alpha = 0.2f),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
 @Composable
 fun FullscreenImageViewer(url: String, onDismiss: () -> Unit) {
     Box(
@@ -1731,6 +1902,8 @@ fun FullscreenImageViewer(url: String, onDismiss: () -> Unit) {
     }
 }
 
+
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SharePostSheet(
@@ -1745,85 +1918,122 @@ fun SharePostSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = colors.background,
-        shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
         dragHandle = { BottomSheetDefaults.DragHandle() }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 36.dp)
+                .padding(bottom = 40.dp)
         ) {
-            Text(
-                text = stringResource(R.string.share_title),
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Black,
-                color = colors.textPrimary
-            )
+            Row(
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Rounded.Share, null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    text = stringResource(R.string.share_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Black,
+                    color = colors.textPrimary
+                )
+            }
 
             if (contacts.isEmpty()) {
-                Box(Modifier.fillMaxWidth().height(160.dp), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxWidth().height(140.dp), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.share_no_friends), color = colors.textSecondary)
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 350.dp)) {
-                    itemsIndexed(contacts) { _, friend ->
-                        Row(
+                // Recent Contacts Row
+                Text(
+                    "Contatos Recentes",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = colors.textSecondary,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+                )
+                
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)
+                ) {
+                    items(contacts) { friend ->
+                        Column(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable {
+                                .width(70.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
                                     viewModel.shareFeedPost(post, friend.id)
                                     android.widget.Toast.makeText(context, context.getString(R.string.share_toast_sent, friend.name), android.widget.Toast.LENGTH_SHORT).show()
                                     onDismiss()
-                                }
-                                .padding(horizontal = 20.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                },
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            AsyncImage(
-                                model = friend.photoUrl,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp).clip(CircleShape).background(colors.separator),
-                                contentScale = ContentScale.Crop
-                            )
-                            Spacer(Modifier.width(16.dp))
-                            Text(friend.name, fontWeight = FontWeight.Bold, color = colors.textPrimary, fontSize = 16.sp)
-                            Spacer(Modifier.weight(1f))
-                            Surface(color = colors.primary.copy(0.12f), shape = RoundedCornerShape(20.dp)) {
-                                Text(stringResource(R.string.post_action_send), color = colors.primary, modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp), fontWeight = FontWeight.Black, fontSize = 12.sp)
+                            Box(contentAlignment = Alignment.BottomEnd) {
+                                AsyncImage(
+                                    model = friend.photoUrl,
+                                    contentDescription = null,
+                                    modifier = Modifier
+                                        .size(60.dp)
+                                        .clip(CircleShape)
+                                        .background(colors.separator.copy(0.2f)),
+                                    contentScale = ContentScale.Crop
+                                )
+                                Surface(
+                                    color = colors.primary,
+                                    shape = CircleShape,
+                                    modifier = Modifier.size(20.dp).border(2.dp, colors.background, CircleShape)
+                                ) {
+                                    Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(12.dp))
+                                }
                             }
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                friend.name.split(" ").first(),
+                                fontSize = 12.sp,
+                                color = colors.textPrimary,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                         }
                     }
                 }
             }
 
-            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp), color = colors.separator.copy(0.15f))
+            Spacer(Modifier.height(24.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 24.dp), color = colors.separator.copy(0.1f), thickness = 0.5.dp)
+            Spacer(Modifier.height(24.dp))
 
-            Row(
+            // External Share Option
+            OutlinedButton(
+                onClick = {
+                    val shareText = context.getString(R.string.share_external_text, post.text, post.authorId)
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, shareText)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_chooser_title)))
+                    onDismiss()
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        val shareText = context.getString(R.string.share_external_text, post.text, post.authorId)
-                        val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                            type = "text/plain"
-                            putExtra(Intent.EXTRA_TEXT, shareText)
-                        }
-                        context.startActivity(Intent.createChooser(shareIntent, context.getString(R.string.share_chooser_title)))
-                        onDismiss()
-                    }
-                    .padding(20.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 24.dp),
+                shape = RoundedCornerShape(16.dp),
+                border = BorderStroke(1.dp, colors.primary.copy(0.3f)),
+                contentPadding = PaddingValues(16.dp)
             ) {
-                Surface(
-                    color = colors.primary.copy(0.05f),
-                    shape = CircleShape,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Share, null, tint = colors.textPrimary, modifier = Modifier.size(20.dp))
-                    }
-                }
-                Spacer(Modifier.width(16.dp))
-                Text(stringResource(R.string.share_external_action), fontWeight = FontWeight.Bold, color = colors.textPrimary, fontSize = 16.sp)
+                Icon(Icons.Rounded.IosShare, null, tint = colors.primary, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    stringResource(R.string.share_external_action),
+                    fontWeight = FontWeight.Bold,
+                    color = colors.primary
+                )
             }
         }
     }

@@ -33,9 +33,20 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.PopupProperties
 import coil.compose.AsyncImage
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.animation.*
+import androidx.compose.ui.draw.alpha
+import androidx.compose.animation.core.*
 import com.jack.friend.ChatSummary
 import com.jack.friend.ProfileActivity
 import com.jack.friend.UserProfile
@@ -64,9 +75,19 @@ fun ChatTopBar(
     onSearchActiveChange: (Boolean) -> Unit,
     onCallClick: () -> Unit,
     onVideoCallClick: () -> Unit,
-    onOptionClick: () -> Unit,
     onAddContact: () -> Unit,
     onChatHeaderClick: () -> Unit,
+    // Opções do menu
+    isMuted: Boolean = false,
+    isPinned: Boolean = false,
+    tempMessageDuration: Long = 0L,
+    isBlocked: Boolean = false,
+    onToggleMute: () -> Unit = {},
+    onTogglePin: () -> Unit = {},
+    onToggleTempMessages: () -> Unit = {},
+    onClearChat: () -> Unit = {},
+    onBlockToggle: () -> Unit = {},
+    onStarredMessages: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val colors = LocalChatColors.current
@@ -139,8 +160,35 @@ fun ChatTopBar(
                         IconButton(onClick = onVideoCallClick) {
                             Icon(Icons.Rounded.VideoCall, null, tint = colors.primary, modifier = Modifier.size(28.dp))
                         }
-                        IconButton(onClick = onOptionClick) {
-                            Icon(Icons.Rounded.MoreHoriz, null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                        
+                        var menuExpanded by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { menuExpanded = true }) {
+                                Icon(Icons.Rounded.MoreHoriz, null, tint = colors.primary, modifier = Modifier.size(24.dp))
+                            }
+                            
+                            DropdownMenu(
+                                expanded = menuExpanded,
+                                onDismissRequest = { menuExpanded = false },
+                                offset = DpOffset(0.dp, 8.dp),
+                                containerColor = colors.secondaryBackground,
+                                shape = RoundedCornerShape(20.dp),
+                                properties = PopupProperties(focusable = true)
+                            ) {
+                                ChatOptionsMenuSheet(
+                                    isMuted = isMuted,
+                                    isPinned = isPinned,
+                                    tempMessageDuration = tempMessageDuration,
+                                    isBlocked = isBlocked,
+                                    onDismiss = { menuExpanded = false },
+                                    onToggleMute = onToggleMute,
+                                    onTogglePin = onTogglePin,
+                                    onToggleTempMessages = onToggleTempMessages,
+                                    onClearChat = onClearChat,
+                                    onBlockToggle = onBlockToggle,
+                                    onStarredMessages = onStarredMessages
+                                )
+                            }
                         }
                     } else if (showContacts) {
                         IconButton(onClick = { onAddContact() }) {

@@ -61,6 +61,12 @@ import androidx.core.os.LocaleListCompat
 import java.util.Locale
 
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
+import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.rewarded.RewardItem
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -101,6 +107,30 @@ fun SettingsScreen(
     var selectedThemeName by remember { mutableStateOf(uiPrefs.getString("app_theme", AppTheme.DEFAULT.name) ?: AppTheme.DEFAULT.name) }
 
     val isPremium by (billingManager?.isPremiumPurchased?.collectAsStateWithLifecycle(false) ?: remember { mutableStateOf(false) })
+    var rewardedInterstitialAd by remember { mutableStateOf<RewardedInterstitialAd?>(null) }
+
+    fun loadRewardedAd() {
+        val adRequest = AdRequest.Builder().build()
+        RewardedInterstitialAd.load(
+            context,
+            "ca-app-pub-7931782163570852/4548820606", // ID de Teste para Intersticial Premiado
+            adRequest,
+            object : RewardedInterstitialAdLoadCallback() {
+                override fun onAdLoaded(ad: RewardedInterstitialAd) {
+                    rewardedInterstitialAd = ad
+                }
+                override fun onAdFailedToLoad(loadAdError: LoadAdError) {
+                    rewardedInterstitialAd = null
+                }
+            }
+        )
+    }
+
+    LaunchedEffect(Unit) {
+        if (!isPremium) {
+            loadRewardedAd()
+        }
+    }
 
     FriendTheme {
         val myName by viewModel.myName.collectAsStateWithLifecycle("")
@@ -282,7 +312,24 @@ fun SettingsScreen(
                         title = stringResource(R.string.settings_hide_search),
                         subtitle = stringResource(R.string.settings_hide_search_sub),
                         checked = isHiddenFromSearch,
-                        onCheckedChange = { viewModel.updateProfile(privacySettings = mapOf("isHiddenFromSearch" to it)) }
+                        onCheckedChange = { checked ->
+                            if (checked && !isPremium) {
+                                if (rewardedInterstitialAd != null) {
+                                    val act = (activity ?: (context as? Activity))
+                                    act?.let { a ->
+                                        rewardedInterstitialAd?.show(a, OnUserEarnedRewardListener { 
+                                            viewModel.updateProfile(privacySettings = mapOf("isHiddenFromSearch" to true))
+                                            loadRewardedAd()
+                                        })
+                                    }
+                                } else {
+                                    Toast.makeText(context, "Anúncio ainda não carregou. Tente em instantes.", Toast.LENGTH_SHORT).show()
+                                    loadRewardedAd()
+                                }
+                            } else {
+                                viewModel.updateProfile(privacySettings = mapOf("isHiddenFromSearch" to checked))
+                            }
+                        }
                     )
                 }
 

@@ -1,10 +1,11 @@
 package com.jack.friend.ui.components
 
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.automirrored.rounded.Comment
-import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Favorite
+import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.ChatBubbleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -27,41 +28,41 @@ private fun WappiIcon(
 fun WappiLikeIcon(
     filled: Boolean = false,
     tint: Color,
-    size: Dp = 20.dp,
+    size: Dp = 24.dp,
     modifier: Modifier = Modifier
 ) {
     Icon(
-        imageVector = if (filled) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+        imageVector = if (filled) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
         contentDescription = null,
         tint = tint,
-        modifier = modifier
+        modifier = modifier.size(size)
     )
 }
 
 @Composable
 fun WappiCommentIcon(
     tint: Color,
-    size: Dp = 20.dp,
+    size: Dp = 24.dp,
     modifier: Modifier = Modifier
 ) {
     Icon(
-        imageVector = Icons.AutoMirrored.Rounded.Comment,
+        imageVector = Icons.Rounded.ChatBubbleOutline,
         contentDescription = null,
         tint = tint,
-        modifier = modifier
+        modifier = modifier.size(size)
     )
 }
 
 @Composable
 fun WappiShareIcon(
     tint: Color,
-    size: Dp = 20.dp,
+    size: Dp = 24.dp,
     modifier: Modifier = Modifier
 ) {
     Icon(
-        imageVector = Icons.AutoMirrored.Rounded.Send,
+        imageVector = Icons.Rounded.Share,
         contentDescription = null,
         tint = tint,
-        modifier = modifier
+        modifier = modifier.size(size)
     )
 }

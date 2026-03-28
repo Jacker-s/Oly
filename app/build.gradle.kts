@@ -124,6 +124,7 @@ dependencies {
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
     implementation(libs.play.services.mlkit.barcode.scanning)
+    implementation(libs.androidx.compose.foundation)
 
     // CameraX
     val camerax_version = "1.4.1"

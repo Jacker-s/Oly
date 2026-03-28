@@ -271,6 +271,7 @@
     <string name="post_action_send_count">Enviar (%1$d)</string>
     <string name="post_hint_comment">Seu comentário...</string>
     <string name="post_action_reply">Responder</string>
+    <string name="post_replying_to">Respondendo a %1$s</string>
     <string name="post_comment_menu_copy">Copiar comentário</string>
     <string name="post_comment_menu_delete">Excluir</string>
 

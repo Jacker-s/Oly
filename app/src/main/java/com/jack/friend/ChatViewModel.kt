@@ -39,6 +39,8 @@ import org.json.JSONArray
 import org.jsoup.Jsoup
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
+import java.net.HttpURLConnection
 import java.net.URL
 import java.util.UUID
 import java.util.regex.Pattern
@@ -2181,9 +2183,7 @@ class ChatViewModel : ViewModel() {
             val status = snapshot.getValue(UserStatus::class.java)
             if (status != null) {
                 val urlToDelete = if (status.isVideo) status.videoUrl else status.imageUrl
-                if (!urlToDelete.isNullOrEmpty()) {
-                    deleteFromFirebaseStorage(urlToDelete)
-                }
+                deleteFromServer(urlToDelete)
             }
             db.child("status").child(statusId).removeValue()
         }
@@ -2291,6 +2291,15 @@ class ChatViewModel : ViewModel() {
     fun deleteFeedPost(postId: String) {
         viewModelScope.launch {
             try {
+                // Antes de apagar do DB, limpamos as mídias do servidor
+                val snapshot = db.child("feeds").child(postId).get().await()
+                val post = snapshot.getValue(FeedPost::class.java)
+                if (post != null) {
+                    post.photoUrls.forEach { deleteFromServer(it) }
+                    if (post.photoUrl != null && !post.photoUrls.contains(post.photoUrl)) {
+                        deleteFromServer(post.photoUrl)
+                    }
+                }
                 db.child("feeds").child(postId).removeValue().await()
             } catch (e: Exception) {
                 logE("Error deleting feed post: ${e.message}")
@@ -2340,7 +2349,7 @@ class ChatViewModel : ViewModel() {
         }
     }
 
-    fun addFeedComment(postId: String, text: String) {
+    fun addFeedComment(postId: String, text: String, replyToId: String? = null, replyToName: String? = null) {
         val username = _myUsername.value
         if (username.isEmpty() || text.isBlank()) return
 
@@ -2358,10 +2367,12 @@ class ChatViewModel : ViewModel() {
                     authorPhotoUrl = _myPhotoUrl.value,
                     text = text,
                     timestamp = System.currentTimeMillis(),
-                    mentions = allMentions
+                    mentions = allMentions,
+                    replyToId = replyToId,
+                    replyToName = replyToName
                 )
 
-                logD("Adding comment to post $postId: $text")
+                logD("Adding comment to post $postId: $text (Reply to: $replyToId)")
                 ref.child("comments").child(commentId).setValue(comment).await()
                 logD("Comment added successfully")
 
@@ -2878,9 +2889,87 @@ class ChatViewModel : ViewModel() {
     }
 
     private fun deleteMessageMedia(msg: Message) {
-        msg.imageUrl?.let { deleteFromFirebaseStorage(it) }
-        msg.videoUrl?.let { deleteFromFirebaseStorage(it) }
-        msg.audioUrl?.let { deleteFromFirebaseStorage(it) }
+        deleteFromServer(msg.imageUrl)
+        deleteFromServer(msg.videoUrl)
+        deleteFromServer(msg.videoThumbnailUrl)
+        deleteFromServer(msg.audioUrl)
+        deleteFromServer(msg.stickerUrl)
+        deleteFromServer(msg.fileUrl)
+        deleteFromServer(msg.mediaUrl)
+        // Link preview image is usually a third party URL, but we try anyway
+        msg.linkPreview?.imageUrl?.let { deleteFromServer(it) }
+    }
+
+    private fun deleteFromServer(url: String?) {
+        if (url.isNullOrEmpty()) return
+        if (url.contains("firebasestorage.googleapis.com")) {
+            deleteFromFirebaseStorage(url)
+        } else if (url.contains("cloudinary.com")) {
+            deleteFromCloudinary(url)
+        }
+    }
+
+    private fun deleteFromCloudinary(url: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                val publicId = extractCloudinaryPublicId(url) ?: return@launch
+                val resourceType = if (url.contains("/video/")) "video" else "image"
+                
+                val timestamp = System.currentTimeMillis() / 1000
+                // IMPORTANTE: A Cloudinary exige assinatura SHA-1 para destruir recursos via API em clientes "comuns"
+                val signatureStr = "public_id=$publicId&timestamp=$timestamp${CloudinaryConfig.API_SECRET}"
+                val hashedSignature = MessageDigest.getInstance("SHA-1")
+                    .digest(signatureStr.toByteArray())
+                    .joinToString("") { "%02x".format(it) }
+
+                val deleteUrl = "https://api.cloudinary.com/v1_1/${CloudinaryConfig.CLOUD_NAME}/$resourceType/destroy"
+                val body = "public_id=$publicId&timestamp=$timestamp&api_key=${CloudinaryConfig.API_KEY}&signature=$hashedSignature"
+                
+                val connection = URL(deleteUrl).openConnection() as HttpURLConnection
+                connection.requestMethod = "POST"
+                connection.doOutput = true
+                connection.outputStream.write(body.toByteArray())
+                
+                if (connection.responseCode == 200) {
+                    logD("Mídia Cloudinary deletada: $publicId")
+                } else {
+                    logE("Erro Cloudinary Delete: ${connection.responseCode}")
+                }
+            } catch (e: Exception) {
+                logE("Cloudinary Delete Exception: ${e.message}")
+            }
+        }
+    }
+
+    private fun extractCloudinaryPublicId(url: String): String? {
+        return try {
+            val parts = url.split("/")
+            val uploadIndex = parts.indexOf("upload")
+            if (uploadIndex != -1) {
+                // O public_id começa após o upload/ e qualquer transformação ou versão (v1234567)
+                var startIndex = uploadIndex + 1
+                while (startIndex < parts.size) {
+                    val part = parts[startIndex]
+                    // Pular transformações (ex: w_500, c_fill) e versão (v17000000)
+                    if (part.startsWith("v") && part.substring(1).all { it.isDigit() }) {
+                        startIndex++
+                        break // O public_id começa IMEDIATAMENTE após a versão
+                    } else if (part.contains("_") || part.contains(",")) {
+                        startIndex++ // Provável transformação
+                    } else {
+                        break // Começamos o public_id
+                    }
+                }
+                
+                val publicIdParts = parts.subList(startIndex, parts.size)
+                if (publicIdParts.isEmpty()) return null
+                
+                val lastPart = publicIdParts.last().substringBeforeLast(".")
+                val folderParts = publicIdParts.dropLast(1)
+                
+                if (folderParts.isEmpty()) lastPart else folderParts.joinToString("/") + "/" + lastPart
+            } else null
+        } catch (e: Exception) { null }
     }
 
     private fun deleteFromFirebaseStorage(url: String) {

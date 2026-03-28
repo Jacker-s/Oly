@@ -97,6 +97,11 @@ import com.google.android.gms.location.LocationServices
 import android.Manifest
 import com.jack.friend.R
 import androidx.compose.ui.res.stringResource
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.LoadAdError
+import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 
 /**
  * Main screen for the chat functionality, handling both the conversation list and individual chat sessions.
@@ -109,6 +114,7 @@ fun ChatScreen(
     activity: Activity? = null
 ) {
     val myUsername by viewModel.myUsername.collectAsStateWithLifecycle("")
+    val isPremium by (billingManager?.isPremiumPurchased?.collectAsStateWithLifecycle(false) ?: remember { mutableStateOf(false) })
     val myPhotoUrl by viewModel.myPhotoUrl.collectAsStateWithLifecycle(null)
     val targetId by viewModel.targetId.collectAsStateWithLifecycle("")
     val targetProfileState by viewModel.targetProfile.collectAsStateWithLifecycle(null)
@@ -159,6 +165,57 @@ fun ChatScreen(
     val bottomScreens = remember { listOf(BottomBarScreen.Feed, BottomBarScreen.Home, BottomBarScreen.Contacts, BottomBarScreen.Calls, BottomBarScreen.Settings) }
     var currentBottomRoute by remember { mutableStateOf(BottomBarScreen.Feed.route) }
     val pagerState = rememberPagerState(initialPage = 0, pageCount = { bottomScreens.size })
+
+    // Logica de Anuncio Premiado para Stories
+    var rewardedStoryAd by remember { mutableStateOf<RewardedInterstitialAd?>(null) }
+    var isAdLoading by remember { mutableStateOf(false) }
+
+    fun loadStoryAd() {
+        if (isPremium || isAdLoading) return
+        isAdLoading = true
+        val adRequest = AdRequest.Builder().build()
+        RewardedInterstitialAd.load(context, "ca-app-pub-7931782163570852/1428917414", adRequest, object : RewardedInterstitialAdLoadCallback() {
+            override fun onAdLoaded(ad: RewardedInterstitialAd) { 
+                rewardedStoryAd = ad 
+                isAdLoading = false
+            }
+            override fun onAdFailedToLoad(err: LoadAdError) { 
+                rewardedStoryAd = null 
+                isAdLoading = false
+                // Tenta recarregar dps de 5 segundos se ainda estiver vendo stories
+                scope.launch {
+                    delay(5000)
+                    if (viewingStatuses != null && !isPremium && rewardedStoryAd == null) {
+                        loadStoryAd()
+                    }
+                }
+            }
+        })
+    }
+    
+    LaunchedEffect(Unit) { if (!isPremium) loadStoryAd() }
+    
+    // Tenta carregar se abrir stories e não houver um pronto
+    LaunchedEffect(viewingStatuses) {
+        if (viewingStatuses != null && rewardedStoryAd == null && !isPremium) {
+            loadStoryAd()
+        }
+    }
+
+    val dismissStatusesWithAd = {
+        if (rewardedStoryAd != null && !isPremium) {
+            val act = activity ?: (context as? Activity)
+            act?.let { a ->
+                rewardedStoryAd?.show(a, OnUserEarnedRewardListener { 
+                    rewardedStoryAd = null
+                    loadStoryAd()
+                    viewingStatuses = null // Fecha DEPOIS do anuncio para parecer um story
+                })
+            } ?: run { viewingStatuses = null }
+        } else {
+            viewingStatuses = null
+        }
+    }
 
     val openFeed by viewModel.openFeed.collectAsStateWithLifecycle(false)
 
@@ -328,7 +385,7 @@ fun ChatScreen(
             showEmojiPicker -> showEmojiPicker = false
             showStickerPicker -> showStickerPicker = false
             showChatInfo -> showChatInfo = false
-            viewingStatuses != null -> viewingStatuses = null
+            viewingStatuses != null -> dismissStatusesWithAd()
             mediaViewerItem != null -> mediaViewerItem = null
             targetId.isNotEmpty() -> viewModel.setTargetId("")
             isSearching -> {
@@ -349,6 +406,7 @@ fun ChatScreen(
         topBar = {
             if (viewingStatuses == null && !showChatInfo && !showInAppCamera && !showModernGallery && mediaViewerItem == null && searchingUserProfile == null && statusItemsToCompose == null && !showInAppStatusCamera && !showInAppStatusGallery) {
                 if (targetId.isNotEmpty() || currentBottomRoute == BottomBarScreen.Home.route || currentBottomRoute == BottomBarScreen.Search.route) {
+                    val currentChat = activeChats.find { it.friendId == targetId }
                     ChatTopBar(
                         targetId = targetId, targetProfile = targetProfileState, activeChats = activeChats, myPhotoUrl = myPhotoUrl,
                         isTargetTyping = isTargetTyping, showContacts = false, isSearching = isSearching, searchInput = searchInput,
@@ -356,9 +414,19 @@ fun ChatScreen(
                         onSearchChange = { searchInput = it; viewModel.searchUsers(it) },
                         onSearchActiveChange = { isSearching = it; if (!it) currentBottomRoute = BottomBarScreen.Feed.route },
                         onCallClick = { callLogic(false) }, onVideoCallClick = { callLogic(true) },
-                        onOptionClick = { showOptionsMenu = true },
                         onAddContact = { showAddContactDialog = true },
-                        onChatHeaderClick = { showChatInfo = true }
+                        onChatHeaderClick = { showChatInfo = true },
+                        // Novos parâmetros para o DropdownMenu
+                        isMuted = currentChat?.isMuted ?: false,
+                        isPinned = currentChat?.isPinned ?: false,
+                        tempMessageDuration = tempMessageDuration,
+                        isBlocked = blockedUsers.contains(targetId),
+                        onToggleMute = { viewModel.toggleMuteChat(targetId, currentChat?.isMuted ?: false) },
+                        onTogglePin = { viewModel.togglePinChat(targetId, currentChat?.isPinned ?: false) },
+                        onToggleTempMessages = { showTempMessageSelector = true },
+                        onClearChat = { showClearChatDialog = true },
+                        onBlockToggle = { if (blockedUsers.contains(targetId)) viewModel.unblockUser(targetId) else viewModel.blockUser(targetId) },
+                        onStarredMessages = { showStarredMessages = true }
                     )
                 }
             }
@@ -481,30 +549,6 @@ fun ChatScreen(
                         )
                     }
 
-                    if (showOptionsMenu) {
-                        val currentChat = activeChats.find { it.friendId == targetId }
-                        ModalBottomSheet(
-                            onDismissRequest = { showOptionsMenu = false },
-                            containerColor = LocalChatColors.current.secondaryBackground,
-                            shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp)
-                        ) {
-                            ChatOptionsMenuSheet(
-                                isMuted = currentChat?.isMuted ?: false,
-                                isPinned = currentChat?.isPinned ?: false,
-                                tempMessageDuration = tempMessageDuration,
-                                isBlocked = blockedUsers.contains(targetId),
-                                onDismiss = { showOptionsMenu = false },
-                                onViewInfo = { showChatInfo = true },
-                                onToggleMute = { viewModel.toggleMuteChat(targetId, currentChat?.isMuted ?: false) },
-                                onTogglePin = { viewModel.togglePinChat(targetId, currentChat?.isPinned ?: false) },
-                                onToggleTempMessages = { showTempMessageSelector = true },
-                                onClearChat = { showClearChatDialog = true },
-                                onBlockToggle = { if (blockedUsers.contains(targetId)) viewModel.unblockUser(targetId) else viewModel.blockUser(targetId) },
-                                onStarredMessages = { showOptionsMenu = false; showStarredMessages = true },
-                                onSendTestAd = { viewModel.sendTestAd() }
-                            )
-                        }
-                    }
 
                     if (showTempMessageSelector) {
                         ModalBottomSheet(
@@ -747,7 +791,9 @@ fun ChatScreen(
                     userStatuses = currentViewingStatuses,
                     myUsername = myUsername,
                     viewModel = viewModel,
-                    onClose = { viewingStatuses = null },
+                    isPremium = isPremium,
+                    rewardedStoryAd = rewardedStoryAd,
+                    onClose = { dismissStatusesWithAd() },
                     onDelete = { id ->
                         viewModel.deleteStatus(id)
                         // Feedback instantâneo local
@@ -1389,11 +1435,20 @@ fun StatusViewer(
     userStatuses: List<UserStatus>,
     myUsername: String,
     viewModel: ChatViewModel,
+    isPremium: Boolean = false,
+    rewardedStoryAd: RewardedInterstitialAd? = null,
     onClose: () -> Unit,
     onDelete: (String) -> Unit
 ) {
+    val showAdItem = !isPremium && rewardedStoryAd != null
+    val effectiveSize = if (showAdItem) userStatuses.size + 1 else userStatuses.size
     var currentIndex by remember { mutableIntStateOf(0) }
-    val currentStatus = userStatuses.getOrNull(currentIndex) ?: return
+    val isAdIndex = currentIndex == userStatuses.size && showAdItem
+    val currentStatus = if (isAdIndex) {
+        UserStatus(username = "Wappi Ads", caption = "Publicidade Patrocinada")
+    } else {
+        userStatuses.getOrNull(currentIndex) ?: return
+    }
     var progress by remember { mutableFloatStateOf(0f) }
     var showViewers by remember { mutableStateOf(false) }
     var containerSize by remember { mutableStateOf(androidx.compose.ui.unit.IntSize.Zero) }
@@ -1408,6 +1463,11 @@ fun StatusViewer(
 
     LaunchedEffect(currentIndex, effectiveIsPaused) {
         progress = 0f
+        if (isAdIndex) {
+            kotlinx.coroutines.delay(1000)
+            onClose()
+            return@LaunchedEffect
+        }
         if (effectiveIsPaused || currentStatus.isVideo) return@LaunchedEffect
 
         val duration = 6000L
@@ -1421,7 +1481,7 @@ fun StatusViewer(
                 progress = (accumulatedTime.toFloat() / duration).coerceIn(0f, 1f)
             }
         }
-        if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
+        if (currentIndex < effectiveSize - 1) currentIndex++ else onClose()
     }
 
     Box(modifier = Modifier
@@ -1446,7 +1506,7 @@ fun StatusViewer(
                         if (currentIndex > 0) currentIndex-- else onClose()
                         progress = 0f
                     } else {
-                        if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
+                        if (currentIndex < effectiveSize - 1) currentIndex++ else onClose()
                         progress = 0f
                     }
                 }
@@ -1455,11 +1515,19 @@ fun StatusViewer(
     ) {
         // --- Media Content ---
         Box(modifier = Modifier.fillMaxSize()) {
-            if (currentStatus.isVideo && currentStatus.videoUrl != null) {
+            if (isAdIndex) {
+                 Box(modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF1D2671), Color(0xFFC33764)))), contentAlignment = Alignment.Center) {
+                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                         Icon(Icons.Rounded.Star, null, tint = Color.White.copy(0.3f), modifier = Modifier.size(120.dp))
+                         Spacer(Modifier.height(20.dp))
+                         Text("Wappi Ads", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 24.sp)
+                     }
+                 }
+            } else if (currentStatus.isVideo && currentStatus.videoUrl != null) {
                 VideoStatusPlayer(
                     url = currentStatus.videoUrl!!,
                     onComplete = {
-                        if (currentIndex < userStatuses.size - 1) currentIndex++ else onClose()
+                        if (currentIndex < effectiveSize - 1) currentIndex++ else onClose()
                     },
                     isPaused = effectiveIsPaused,
                     onProgress = { progress = it }
@@ -1544,7 +1612,7 @@ fun StatusViewer(
                     .padding(horizontal = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                userStatuses.forEachIndexed { index, _ ->
+                for (index in 0 until effectiveSize) {
                     val barProgress = when {
                         index < currentIndex -> 1f
                         index == currentIndex -> progress
@@ -1589,14 +1657,14 @@ fun StatusViewer(
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(
-                        currentStatus.username,
+                        if (isAdIndex) "Patrocinado" else currentStatus.username,
                         color = Color.White,
                         fontWeight = FontWeight.ExtraBold,
                         style = MaterialTheme.typography.titleMedium,
                         letterSpacing = (-0.2).sp
                     )
                     Text(
-                        SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentStatus.timestamp)),
+                        if (isAdIndex) "Wappi Ads" else SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(currentStatus.timestamp)),
                         color = Color.White.copy(0.7f),
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -1921,7 +1989,7 @@ fun ChatPopUpMenu(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp),
+                        .padding(top = 24.dp, bottom = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -1929,69 +1997,98 @@ fun ChatPopUpMenu(
                             model = summary.friendPhotoUrl,
                             contentDescription = null,
                             modifier = Modifier
-                                .size(70.dp)
+                                .size(76.dp)
                                 .clip(CircleShape)
                                 .background(chatColors.separator),
                             contentScale = ContentScale.Crop
                         )
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(12.dp))
                         Text(
-                            text = summary.friendName ?: summary.friendId,
-                            style = MaterialTheme.typography.titleMedium,
+                            text = summary.displayName,
+                            style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
                             color = chatColors.textPrimary
                         )
-                        Text(
-                            text = if (summary.isOnline) stringResource(R.string.status_online) else stringResource(R.string.status_last_seen_recent),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (summary.isOnline) iOSGreen else chatColors.textSecondary
-                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (summary.isOnline) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .clip(CircleShape)
+                                        .background(iOSGreen)
+                                )
+                                Spacer(Modifier.width(6.dp))
+                            }
+                            Text(
+                                text = if (summary.isOnline) "Online" else "Visto por último recentemente",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = chatColors.textSecondary
+                            )
+                        }
                     }
                 }
 
+                Column(
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                ) {
+                   // Ações Principais
+                    ChatPopOptionItem(
+                        text = "Abrir Conversa",
+                        icon = Icons.AutoMirrored.Rounded.Chat,
+                        iconBgColor = chatColors.primary.copy(alpha = 0.1f),
+                        iconColor = chatColors.primary,
+                        onClick = { onOpen(summary); onDismiss() }
+                    )
 
-                ChatPopOptionItem(
-                    text = stringResource(R.string.menu_open_chat),
-                    icon = Icons.AutoMirrored.Rounded.Chat,
-                    onClick = { onOpen(summary); onDismiss() }
-                )
+                    ChatPopOptionItem(
+                        text = if (summary.isPinned) "Desafixar" else "Fixar Chat",
+                        icon = if (summary.isPinned) Icons.Rounded.PushPin else Icons.Rounded.PushPin,
+                        iconBgColor = Color(0xFFFF9500).copy(alpha = 0.1f),
+                        iconColor = Color(0xFFFF9500),
+                        onClick = { onTogglePin(summary.friendId, summary.isPinned); onDismiss() }
+                    )
 
-                ChatPopOptionItem(
-                    text = if (summary.isPinned) stringResource(R.string.menu_unpin_chat) else stringResource(R.string.menu_pin_chat),
-                    icon = Icons.Rounded.PushPin,
-                    iconColor = if (summary.isPinned) chatColors.primary else null,
-                    onClick = { onTogglePin(summary.friendId, summary.isPinned); onDismiss() }
-                )
+                    ChatPopOptionItem(
+                        text = if (summary.isMuted) "Ativar Notificações" else "Silenciar",
+                        icon = if (summary.isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+                        iconBgColor = Color(0xFF5856D6).copy(alpha = 0.1f),
+                        iconColor = Color(0xFF5856D6),
+                        onClick = { onToggleMute(summary.friendId, summary.isMuted); onDismiss() }
+                    )
 
-                ChatPopOptionItem(
-                    text = if (summary.isMuted) stringResource(R.string.menu_unmute_chat) else stringResource(R.string.menu_mute_chat),
-                    icon = if (summary.isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
-                    onClick = { onToggleMute(summary.friendId, summary.isMuted); onDismiss() }
-                )
+                    Spacer(Modifier.height(12.dp))
+                    HorizontalDivider(color = chatColors.separator, thickness = 0.5.dp)
+                    Spacer(Modifier.height(12.dp))
 
-                ChatPopOptionItem(
-                    text = stringResource(R.string.menu_clear_history),
-                    icon = Icons.Rounded.DeleteSweep,
-                    textColor = iOSRed,
-                    iconColor = iOSRed,
-                    onClick = { onClear(summary); onDismiss() }
-                )
+                    // Ações de Limpeza/Segurança
+                    ChatPopOptionItem(
+                        text = "Limpar Histórico",
+                        icon = Icons.Rounded.DeleteSweep,
+                        iconBgColor = iOSRed.copy(alpha = 0.1f),
+                        iconColor = iOSRed,
+                        textColor = iOSRed,
+                        onClick = { onClear(summary); onDismiss() }
+                    )
 
-                ChatPopOptionItem(
-                    text = stringResource(R.string.menu_delete_chat),
-                    icon = Icons.Rounded.DeleteOutline,
-                    textColor = iOSRed,
-                    iconColor = iOSRed,
-                    onClick = { onDelete(summary); onDismiss() }
-                )
+                    ChatPopOptionItem(
+                        text = "Apagar Conversa",
+                        icon = Icons.Rounded.DeleteOutline,
+                        iconBgColor = iOSRed.copy(alpha = 0.1f),
+                        iconColor = iOSRed,
+                        textColor = iOSRed,
+                        onClick = { onDelete(summary); onDismiss() }
+                    )
 
-                ChatPopOptionItem(
-                    text = if (isBlocked) stringResource(R.string.menu_unblock) else stringResource(R.string.menu_block),
-                    icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
-                    textColor = if (isBlocked) null else iOSRed,
-                    iconColor = if (isBlocked) null else iOSRed,
-                    onClick = { onBlockToggle(summary.friendId); onDismiss() }
-                )
+                    ChatPopOptionItem(
+                        text = if (isBlocked) "Desbloquear Usuário" else "Bloquear",
+                        icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
+                        iconBgColor = if (isBlocked) Color.Gray.copy(alpha = 0.1f) else iOSRed.copy(alpha = 0.1f),
+                        iconColor = if (isBlocked) Color.Gray else iOSRed,
+                        textColor = if (isBlocked) null else iOSRed,
+                        onClick = { onBlockToggle(summary.friendId); onDismiss() }
+                    )
+                }
+                Spacer(Modifier.height(12.dp))
             }
         }
     }
@@ -2006,28 +2103,48 @@ fun ChatPopOptionItem(
     icon: ImageVector,
     onClick: () -> Unit,
     textColor: Color? = null,
+    iconBgColor: Color? = null,
     iconColor: Color? = null
 ) {
     val chatColors = LocalChatColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() }
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(vertical = 10.dp, horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = iconColor ?: chatColors.textPrimary.copy(alpha = 0.7f),
-            modifier = Modifier.size(22.dp)
-        )
-        Spacer(Modifier.width(16.dp))
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(iconBgColor ?: chatColors.separator.copy(alpha = 0.3f)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = iconColor ?: chatColors.textPrimary.copy(alpha = 0.8f),
+                modifier = Modifier.size(18.dp)
+            )
+        }
+        
+        Spacer(Modifier.width(14.dp))
+        
         Text(
             text = text,
             color = textColor ?: chatColors.textPrimary,
-            fontWeight = FontWeight.Medium,
-            fontSize = 16.sp
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            modifier = Modifier.weight(1f)
+        )
+        
+        Icon(
+            imageVector = Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = chatColors.textSecondary.copy(alpha = 0.3f),
+            modifier = Modifier.size(16.dp)
         )
     }
 }

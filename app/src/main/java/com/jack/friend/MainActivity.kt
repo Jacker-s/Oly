@@ -34,9 +34,15 @@ import com.google.android.play.core.install.model.UpdateAvailability
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.LocationServices
 import androidx.core.app.ActivityCompat
+import com.google.android.gms.ads.MobileAds
+import com.google.android.gms.ads.AdRequest
+import com.google.android.gms.ads.OnUserEarnedRewardListener
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAd
+import com.google.android.gms.ads.rewardedinterstitial.RewardedInterstitialAdLoadCallback
 import com.jack.friend.ui.chat.ChatScreen
 import com.jack.friend.ui.chat.SecurityWrapper
 import com.jack.friend.ui.theme.FriendTheme
+import kotlinx.coroutines.delay
 
 class MainActivity : AppCompatActivity() {
     private lateinit var mainViewModel: ChatViewModel
@@ -61,6 +67,25 @@ class MainActivity : AppCompatActivity() {
                 val isProfileChecked by mainViewModel.isProfileChecked.collectAsStateWithLifecycle()
                 val myUsername by mainViewModel.myUsername.collectAsStateWithLifecycle()
                 val isPremium by billingManager.isPremiumPurchased.collectAsStateWithLifecycle()
+
+                LaunchedEffect(Unit) {
+                    MobileAds.initialize(this@MainActivity)
+                }
+
+                // Carregar e mostrar anúncio premiado após 2 minutos de uso se não for premium
+                LaunchedEffect(isPremium) {
+                    if (!isPremium) {
+                        delay(120_000) // 2 minutos
+                        val adRequest = AdRequest.Builder().build()
+                        RewardedInterstitialAd.load(this@MainActivity, "ca-app-pub-7931782163570852/1428917414", adRequest, object : RewardedInterstitialAdLoadCallback() {
+                            override fun onAdLoaded(ad: RewardedInterstitialAd) {
+                                ad.show(this@MainActivity) { rewardItem ->
+                                    // Recompensa processada (se houver lógica específica futura)
+                                }
+                            }
+                        })
+                    }
+                }
 
                 var showAdNoticeDialog by remember { mutableStateOf(false) }
 
@@ -163,6 +188,7 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 var showOverlayDialog by remember { mutableStateOf(false) }
+                var showBatteryOptimizationDialog by remember { mutableStateOf(false) }
 
                 val overlayLauncher = rememberLauncherForActivityResult(
                     contract = ActivityResultContracts.StartActivityForResult()
@@ -173,28 +199,38 @@ class MainActivity : AppCompatActivity() {
                 LaunchedEffect(Unit) {
                     if (!Settings.canDrawOverlays(this@MainActivity)) {
                         showOverlayDialog = true
+                    } else {
+                        val powerManager = getSystemService(POWER_SERVICE) as android.os.PowerManager
+                        if (!powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                            showBatteryOptimizationDialog = true
+                        }
                     }
                 }
 
-                if (showOverlayDialog) {
+                if (showBatteryOptimizationDialog) {
                     AlertDialog(
-                        onDismissRequest = { showOverlayDialog = false },
-                        title = { Text("Chamadas em Segundo Plano") },
-                        text = { Text("Para que você receba chamadas instantaneamente em qualquer lugar, o Oly precisa da permissão de 'Sobreposição'. Deseja configurar?") },
+                        onDismissRequest = { showBatteryOptimizationDialog = false },
+                        title = { Text("Mensagens em Segundo Plano") },
+                        text = { Text("Para garantir que você receba mensagens mesmo quando o app estiver fechado, o Oly precisa ser removido das 'Otimizações de Bateria'. Deseja configurar?") },
                         confirmButton = {
                             Button(onClick = {
-                                showOverlayDialog = false
-                                val intent = Intent(
-                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                                    Uri.parse("package:$packageName")
-                                )
-                                overlayLauncher.launch(intent)
+                                showBatteryOptimizationDialog = false
+                                try {
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:$packageName")
+                                    }
+                                    startActivity(intent)
+                                } catch (e: Exception) {
+                                    // Fallback para as configurações gerais se falhar
+                                    val intent = Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                                    startActivity(intent)
+                                }
                             }) {
-                                Text("Configurar")
+                                Text("Remover Otimização")
                             }
                         },
                         dismissButton = {
-                            TextButton(onClick = { showOverlayDialog = false }) {
+                            TextButton(onClick = { showBatteryOptimizationDialog = false }) {
                                 Text("Agora não")
                             }
                         }

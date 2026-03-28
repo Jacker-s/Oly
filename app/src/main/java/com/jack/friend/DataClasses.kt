@@ -151,7 +151,9 @@ data class FeedComment(
     var text: String = "",
     var timestamp: Long = 0L,
     var likes: Map<String, Boolean> = emptyMap(),
-    var mentions: List<String> = emptyList()
+    var mentions: List<String> = emptyList(),
+    var replyToId: String? = null,
+    var replyToName: String? = null
 )
 
 @IgnoreExtraProperties

@@ -26,14 +26,41 @@ class MessagingService : Service() {
     companion object {
         private const val CALL_CHANNEL_ID = "CALL_CHANNEL_V30"
         private const val MSG_CHANNEL_ID = "MESSAGE_CHANNEL_V1"
+        private const val SERVICE_CHANNEL_ID = "SERVICE_CHANNEL_V1"
         private const val CALL_NOTIF_ID = 1002
+        private const val SERVICE_NOTIF_ID = 1003
         private const val TAG = "MessagingService"
     }
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannels()
+        startServiceForeground()
         auth.currentUser?.let { setupUserListener(it.uid) }
+    }
+
+    private fun startServiceForeground() {
+        val intent = Intent(this, MainActivity::class.java)
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, intent, PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setContentTitle("Wappi está ativo")
+            .setContentText("Recebendo mensagens e chamadas em segundo plano")
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE)
+            .setContentIntent(pendingIntent)
+            .setOngoing(true)
+            .setSilent(true)
+            .build()
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(SERVICE_NOTIF_ID, notification, android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
+        } else {
+            startForeground(SERVICE_NOTIF_ID, notification)
+        }
     }
 
     private fun setupUserListener(uid: String) {
@@ -216,6 +243,12 @@ class MessagingService : Service() {
                 enableVibration(true)
             }
             nm.createNotificationChannel(msgChannel)
+
+            val serviceChannel = NotificationChannel(SERVICE_CHANNEL_ID, "Serviço em Segundo Plano", NotificationManager.IMPORTANCE_MIN).apply {
+                description = "Mantém o app ativo para receber alertas"
+                setShowBadge(false)
+            }
+            nm.createNotificationChannel(serviceChannel)
         }
     }
 

@@ -63,14 +63,17 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
             // Pode falhar se já tiver sido chamado
         }
 
-        // INICIAR O SERVIÇO DE MENSAGENS/CHAMADAS COMO BACKGROUND SERVICE
-        // Removemos o startForegroundService para não exibir a notificação fixa
+        // INICIAR O SERVIÇO DE MENSAGENS/CHAMADAS COMO FOREGROUND SERVICE
         startMessagingService()
     }
 
     private fun startMessagingService() {
         val intent = Intent(this, MessagingService::class.java)
-        startService(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            startForegroundService(intent)
+        } else {
+            startService(intent)
+        }
     }
 
     fun clearAppData() {

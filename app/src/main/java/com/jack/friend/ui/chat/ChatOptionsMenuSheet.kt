@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountCircle
 import androidx.compose.material.icons.rounded.Block
@@ -27,6 +28,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -49,7 +51,6 @@ fun ChatOptionsMenuSheet(
     tempMessageDuration: Long,
     isBlocked: Boolean,
     onDismiss: () -> Unit,
-    onViewInfo: () -> Unit,
     onToggleMute: () -> Unit,
     onTogglePin: () -> Unit,
     onToggleTempMessages: () -> Unit,
@@ -68,37 +69,19 @@ fun ChatOptionsMenuSheet(
 
     Column(
         modifier = Modifier
+            .width(260.dp)
+            .clip(RoundedCornerShape(24.dp))
             .background(colors.secondaryBackground)
-            .navigationBarsPadding()
-            .padding(bottom = 8.dp)
+            .padding(vertical = 8.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Box(
-                modifier = Modifier
-                    .width(40.dp)
-                    .height(5.dp)
-                    .clip(CircleShape)
-                    .background(colors.separator)
-            )
-        }
-
         SheetOption(
-            icon = Icons.Rounded.AccountCircle,
-            text = stringResource(R.string.menu_view_profile),
-            onClick = { onDismiss(); onViewInfo() }
-        )
-        SheetOption(
-            icon = Icons.Rounded.PushPin,
+            icon = if (isPinned) Icons.Rounded.PushPin else Icons.Rounded.PushPin,
             text = if (isPinned) stringResource(R.string.action_unpin) else stringResource(R.string.action_pin),
+            iconColor = if (isPinned) colors.primary else colors.textPrimary.copy(alpha = 0.6f),
             onClick = { onDismiss(); onTogglePin() }
         )
         SheetOption(
-            icon = if (isMuted) Icons.Rounded.NotificationsActive else Icons.Rounded.NotificationsOff,
+            icon = if (isMuted) Icons.Rounded.NotificationsOff else Icons.Rounded.NotificationsActive,
             text = if (isMuted) stringResource(R.string.action_unmute) else stringResource(R.string.action_mute),
             onClick = { onDismiss(); onToggleMute() }
         )
@@ -114,17 +97,20 @@ fun ChatOptionsMenuSheet(
             onClick = { onDismiss(); onStarredMessages() }
         )
 
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp), color = colors.separator.copy(alpha = 0.5f))
+        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp), color = colors.separator.copy(alpha = 0.5f))
 
         SheetOption(
             icon = Icons.Rounded.DeleteSweep,
             text = stringResource(R.string.action_clear_chat),
+            iconColor = iOSRed.copy(alpha = 0.8f),
+            textColor = iOSRed,
             onClick = { onDismiss(); onClearChat() }
         )
         SheetOption(
             icon = if (isBlocked) Icons.Rounded.LockOpen else Icons.Rounded.Block,
             text = if (isBlocked) stringResource(R.string.action_unblock) else stringResource(R.string.action_block),
-            contentColor = iOSRed,
+            iconColor = if (isBlocked) null else iOSRed.copy(alpha = 0.8f),
+            textColor = if (isBlocked) null else iOSRed,
             onClick = { onDismiss(); onBlockToggle() }
         )
     }
@@ -135,36 +121,50 @@ private fun SheetOption(
     icon: ImageVector,
     text: String,
     trailingText: String? = null,
-    contentColor: Color = LocalChatColors.current.textPrimary,
+    textColor: Color? = null,
+    iconColor: Color? = null,
     onClick: () -> Unit
 ) {
+    val colors = LocalChatColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        horizontalArrangement = Arrangement.Start
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = text,
-            tint = contentColor.copy(alpha = 0.8f),
-            modifier = Modifier.size(24.dp)
-        )
+        Surface(
+            modifier = Modifier.size(32.dp),
+            color = (iconColor ?: colors.textPrimary).copy(alpha = 0.1f),
+            shape = RoundedCornerShape(10.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = text,
+                    tint = iconColor ?: colors.textPrimary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+        Spacer(Modifier.width(16.dp))
         Text(
             text = text,
-            color = contentColor,
-            fontWeight = FontWeight.Medium,
-            fontSize = 16.sp,
+            color = textColor ?: colors.textPrimary,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
             modifier = Modifier.weight(1f)
         )
         if (trailingText != null) {
             Text(
                 text = trailingText,
-                color = LocalChatColors.current.primary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
+                color = colors.primary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier
+                    .background(colors.primary.copy(0.1f), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
             )
         }
     }
