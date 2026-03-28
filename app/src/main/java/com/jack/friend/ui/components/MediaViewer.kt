@@ -226,32 +226,14 @@ fun ZoomableImage(url: String) {
     )
 }
 
-@OptIn(UnstableApi::class)
 @Composable
 fun VideoPlayerView(url: String) {
-    val context = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(context).build().apply {
-            setMediaItem(MediaItem.fromUri(url))
-            prepare()
-            playWhenReady = true
-        }
-    }
-
-    DisposableEffect(Unit) {
-        onDispose { exoPlayer.release() }
-    }
-
-    AndroidView(
-        factory = {
-            PlayerView(context).apply {
-                player = exoPlayer
-                useController = true
-                setShowNextButton(false)
-                setShowPreviousButton(false)
-                setBackgroundColor(android.graphics.Color.BLACK)
-            }
-        },
-        modifier = Modifier.fillMaxSize()
+    ModernVideoPlayer(
+        videoUrl = url,
+        modifier = Modifier.fillMaxSize(),
+        autoPlay = true,
+        loop = true,
+        showControls = true,
+        useFullPreview = true
     )
 }

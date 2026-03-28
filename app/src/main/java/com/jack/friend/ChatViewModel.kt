@@ -14,10 +14,9 @@ import android.util.Patterns
 import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.cloudinary.android.MediaManager
-import com.cloudinary.android.callback.ErrorInfo
-import com.cloudinary.android.callback.UploadCallback
-import com.google.android.play.core.integrity.t
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageMetadata
+import com.google.firebase.storage.StorageReference
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthInvalidUserException
@@ -25,11 +24,15 @@ import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.database.*
 import com.google.firebase.messaging.FirebaseMessaging
-import com.google.firebase.storage.FirebaseStorage
+import com.cloudinary.android.MediaManager
+import com.cloudinary.android.callback.ErrorInfo
+import com.cloudinary.android.callback.UploadCallback
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -206,8 +209,14 @@ class ChatViewModel : ViewModel() {
     private val _isVerified = MutableStateFlow(false)
     val isVerified: StateFlow<Boolean> = _isVerified
 
-    private val _messages = MutableStateFlow<List<Message>>(emptyList())
-    val messages: StateFlow<List<Message>> = _messages
+    private val _messagesFromFirebase = MutableStateFlow<List<Message>>(emptyList())
+    private val _pendingMessages = MutableStateFlow<List<Message>>(emptyList())
+    val messages: StateFlow<List<Message>> = combine(
+        _messagesFromFirebase,
+        _pendingMessages
+    ) { fb, pending ->
+        (fb + pending).sortedBy { it.timestamp }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _activeChats = MutableStateFlow<List<ChatSummary>>(emptyList())
     val activeChats: StateFlow<List<ChatSummary>> = _activeChats
@@ -237,7 +246,7 @@ class ChatViewModel : ViewModel() {
     val blockedProfiles: StateFlow<List<UserProfile>> = _blockedProfiles
 
     private val _rawStatuses = MutableStateFlow<List<UserStatus>>(emptyList())
-    val statuses: StateFlow<List<UserStatus>> = kotlinx.coroutines.flow.combine(
+    val statuses: StateFlow<List<UserStatus>> = combine(
         _rawStatuses,
         _contacts,
         _blockedUsers,
@@ -250,7 +259,7 @@ class ChatViewModel : ViewModel() {
         raw.filter { now - it.timestamp < STATUS_TTL_MS && !blocked.contains(it.userId) }
             .filter { it.userId == me || contactIds.contains(it.userId) }
             .sortedByDescending { it.timestamp }
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _localMedia = MutableStateFlow<List<LocalMedia>>(emptyList())
     val localMedia: StateFlow<List<LocalMedia>> = _localMedia
@@ -259,7 +268,7 @@ class ChatViewModel : ViewModel() {
     val mutualContactIds: StateFlow<Set<String>> = _mutualContactIds
 
     private val _rawFeedPosts = MutableStateFlow<List<FeedPost>>(emptyList())
-    val feedPosts: StateFlow<List<FeedPost>> = kotlinx.coroutines.flow.combine(
+    val feedPosts: StateFlow<List<FeedPost>> = combine(
         _rawFeedPosts,
         _mutualContactIds,
         _blockedUsers,
@@ -276,7 +285,7 @@ class ChatViewModel : ViewModel() {
 
             !isBlocked && if (post.isPublic) canSeePublic else canSeePrivate
         }.sortedByDescending { it.timestamp }
-    }.stateIn(viewModelScope, kotlinx.coroutines.flow.SharingStarted.WhileSubscribed(5000), emptyList())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _feedNotifications = MutableStateFlow<List<FeedNotification>>(emptyList())
     val feedNotifications: StateFlow<List<FeedNotification>> = _feedNotifications
@@ -594,7 +603,7 @@ class ChatViewModel : ViewModel() {
         _isUserLoggedIn.value = false
         _myUsername.value = ""
         _activeChats.value = emptyList()
-        _messages.value = emptyList()
+        _messagesFromFirebase.value = emptyList()
         _targetId.value = ""
         _targetProfile.value = null
         _pinnedMessage.value = null
@@ -732,7 +741,7 @@ class ChatViewModel : ViewModel() {
 
         if (id.isBlank()) {
             _targetProfile.value = null
-            _messages.value = emptyList()
+            _messagesFromFirebase.value = emptyList()
             _isTargetTyping.value = false
             _pinnedMessage.value = null
             _isScreenshotDisabled.value = false
@@ -1107,55 +1116,75 @@ class ChatViewModel : ViewModel() {
         audioFile?.let { uploadAudio(it, tempDurationMillis) }
     }
 
-    private suspend fun uploadToCloudinary(uri: Uri, folder: String, resourceType: String = "auto"): String? =
-        suspendCoroutine { continuation ->
+    private suspend fun uploadToCloudinary(uri: Uri, folder: String): String? = suspendCancellableCoroutine { continuation ->
+        try {
             MediaManager.get().upload(uri)
                 .option("folder", folder)
-                .option("resource_type", resourceType)
+                .option("resource_type", "auto")
                 .callback(object : UploadCallback {
                     override fun onStart(requestId: String) {}
                     override fun onProgress(requestId: String, bytes: Long, totalBytes: Long) {}
                     override fun onSuccess(requestId: String, resultData: Map<*, *>) {
-                        continuation.resume(resultData["secure_url"] as? String)
+                        val url = resultData["secure_url"] as? String ?: resultData["url"] as? String
+                        if (continuation.isActive) continuation.resume(url)
                     }
                     override fun onError(requestId: String, error: ErrorInfo) {
                         logE("Cloudinary upload error: ${error.description}")
-                        continuation.resume(null)
+                        if (continuation.isActive) continuation.resume(null)
                     }
                     override fun onReschedule(requestId: String, error: ErrorInfo) {
-                        continuation.resume(null)
+                        if (continuation.isActive) continuation.resume(null)
                     }
                 }).dispatch()
+        } catch (e: Exception) {
+            logE("Cloudinary upload exception: ${e.message}", e)
+            if (continuation.isActive) continuation.resume(null)
         }
+    }
 
     private fun uploadAudio(file: File, tempDurationMillis: Long) {
         val me = safeMe()
         val target = safeTarget()
         if (me.isEmpty() || target.isEmpty()) return
 
+        val tempId = "temp_audio_${UUID.randomUUID()}"
+        val tempMsg = Message(
+            id = tempId,
+            senderId = me,
+            receiverId = target,
+            timestamp = System.currentTimeMillis(),
+            isUploading = true,
+            localUri = Uri.fromFile(file).toString(),
+            localAudioPath = file.absolutePath,
+            audioDurationSeconds = getAudioDuration(file) / 1000,
+            senderName = _myName.value.takeIf { !it.isNullOrBlank() } ?: me
+        )
+        _pendingMessages.value = _pendingMessages.value + tempMsg
+
         viewModelScope.launch(errorHandler) {
             try {
                 val durationMs = getAudioDuration(file)
-                val audioRef = storage.child("audios/${UUID.randomUUID()}.m4a")
-                audioRef.putFile(Uri.fromFile(file)).await()
-                val url = audioRef.downloadUrl.await().toString()
+                val url = uploadToCloudinary(Uri.fromFile(file), "audios")
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
 
-                val msgId = db.push().key ?: return@launch
-                val msg = Message(
-                    id = msgId,
-                    senderId = me,
-                    receiverId = target,
-                    audioUrl = url,
-                    audioDurationSeconds = durationMs / 1000,
-                    timestamp = System.currentTimeMillis(),
-
-                    senderName = _myName.value,
-                    tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
-                )
-                msg.localAudioPath = file.absolutePath
-                sendMessageObject(msg)
+                if (url != null) {
+                    val msgId = db.push().key ?: return@launch
+                    sendMessageObject(
+                        Message(
+                            id = msgId,
+                            senderId = me,
+                            receiverId = target,
+                            audioUrl = url,
+                            audioDurationSeconds = durationMs / 1000,
+                            timestamp = System.currentTimeMillis(),
+                            senderName = _myName.value,
+                            tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
+                        )
+                    )
+                }
             } catch (e: Exception) {
-                logE("Upload áudio Firebase falhou: ${e.message}", e)
+                logE("Upload áudio Cloudinary falhou: ${e.message}", e)
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
             }
         }
     }
@@ -1171,15 +1200,37 @@ class ChatViewModel : ViewModel() {
             retriever.release()
         }
     }
+    fun uploadMedia(uri: Uri, tempDurationMillis: Long = 0) {
+        val mime = FriendApplication.instance.contentResolver.getType(uri)
+        if (mime?.startsWith("video") == true) {
+            uploadVideo(uri, tempDurationMillis)
+        } else {
+            uploadImage(uri, tempDurationMillis)
+        }
+    }
 
     fun uploadImage(uri: Uri, tempDurationMillis: Long = 0) {
         val me = safeMe()
         val target = safeTarget()
         if (me.isEmpty() || target.isEmpty()) return
 
+        val tempId = "temp_img_${UUID.randomUUID()}"
+        val tempMsg = Message(
+            id = tempId,
+            senderId = me,
+            receiverId = target,
+            timestamp = System.currentTimeMillis(),
+            isUploading = true,
+            localUri = uri.toString(),
+            senderName = _myName.value.takeIf { !it.isNullOrBlank() } ?: me
+        )
+        _pendingMessages.value = _pendingMessages.value + tempMsg
+
         viewModelScope.launch(errorHandler) {
             try {
-                val url = uploadToCloudinary(uri, FOLDER_CHAT_IMAGES, "image")
+                val url = uploadToCloudinary(uri, FOLDER_CHAT_IMAGES)
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
+                
                 if (url != null) {
                     val msgId = db.push().key ?: return@launch
                     sendMessageObject(
@@ -1189,7 +1240,6 @@ class ChatViewModel : ViewModel() {
                             receiverId = target,
                             imageUrl = url,
                             timestamp = System.currentTimeMillis(),
-
                             senderName = _myName.value,
                             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                         )
@@ -1197,6 +1247,7 @@ class ChatViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 logE("uploadImage error: ${e.message}", e)
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
             }
         }
     }
@@ -1206,9 +1257,23 @@ class ChatViewModel : ViewModel() {
         val target = safeTarget()
         if (me.isEmpty() || target.isEmpty()) return
 
+        val tempId = "temp_vid_${UUID.randomUUID()}"
+        val tempMsg = Message(
+            id = tempId,
+            senderId = me,
+            receiverId = target,
+            timestamp = System.currentTimeMillis(),
+            isUploading = true,
+            localUri = uri.toString(),
+            senderName = _myName.value.takeIf { !it.isNullOrBlank() } ?: me
+        )
+        _pendingMessages.value = _pendingMessages.value + tempMsg
+
         viewModelScope.launch(errorHandler) {
             try {
-                val url = uploadToCloudinary(uri, FOLDER_CHAT_VIDEOS, "video")
+                val url = uploadToCloudinary(uri, FOLDER_CHAT_VIDEOS)
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
+
                 if (url != null) {
                     val msgId = db.push().key ?: return@launch
                     sendMessageObject(
@@ -1218,7 +1283,6 @@ class ChatViewModel : ViewModel() {
                             receiverId = target,
                             videoUrl = url,
                             timestamp = System.currentTimeMillis(),
-
                             senderName = _myName.value,
                             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                         )
@@ -1226,6 +1290,7 @@ class ChatViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 logE("uploadVideo error: ${e.message}", e)
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
             }
         }
     }
@@ -1235,10 +1300,24 @@ class ChatViewModel : ViewModel() {
         val target = safeTarget()
         if (me.isEmpty() || target.isEmpty()) return
 
+        val tempId = "temp_file_${UUID.randomUUID()}"
+        val tempMsg = Message(
+            id = tempId,
+            senderId = me,
+            receiverId = target,
+            timestamp = System.currentTimeMillis(),
+            isUploading = true,
+            fileName = fileName,
+            fileSize = fileSize,
+            senderName = _myName.value.takeIf { !it.isNullOrBlank() } ?: me
+        )
+        _pendingMessages.value = _pendingMessages.value + tempMsg
+
         viewModelScope.launch(errorHandler) {
             try {
-                // Cloudinary para arquivos genéricos
-                val url = uploadToCloudinary(uri, "chat_files", "raw")
+                val url = uploadToCloudinary(uri, "chat_files")
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
+
                 if (url != null) {
                     val msgId = db.push().key ?: return@launch
                     sendMessageObject(
@@ -1250,7 +1329,6 @@ class ChatViewModel : ViewModel() {
                             fileName = fileName,
                             fileSize = fileSize,
                             timestamp = System.currentTimeMillis(),
-
                             senderName = _myName.value,
                             tempDurationMillis = if (tempDurationMillis > 0) tempDurationMillis else null
                         )
@@ -1258,6 +1336,7 @@ class ChatViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 logE("uploadFile error: ${e.message}", e)
+                _pendingMessages.value = _pendingMessages.value.filter { it.id != tempId }
             }
         }
     }
@@ -1659,7 +1738,7 @@ class ChatViewModel : ViewModel() {
                 }
 
                 filtered.forEach { if (it.audioUrl != null) downloadAudioIfNeeded(it) }
-                _messages.value = filtered
+                _messagesFromFirebase.value = filtered
 
                 // Atualizar resumo local da conversa para que a lista reflita o último recebido
                 filtered.lastOrNull()?.let { lastMsg ->
@@ -1687,12 +1766,12 @@ class ChatViewModel : ViewModel() {
             while (isActive) {
                 delay(1000)
                 val now = System.currentTimeMillis()
-                val currentMsgs = _messages.value
+                val currentMsgs = _messagesFromFirebase.value
                 val hasExpired = currentMsgs.any { it.expiryTime != null && it.expiryTime!! < now }
 
                 if (hasExpired) {
                     val filtered = currentMsgs.filter { it.expiryTime == null || it.expiryTime!! > now }
-                    _messages.value = filtered
+                    _messagesFromFirebase.value = filtered
 
                     // Cleanup DB
                     currentMsgs.forEach {
@@ -1722,7 +1801,7 @@ class ChatViewModel : ViewModel() {
         }
 
         val me = _myUsername.value
-        val isSystemDeletion = lastMsgText == getString(R.string.chat_summary_deleted) || 
+        val isSystemDeletion = lastMsgText == getString(R.string.chat_summary_deleted) ||
                                lastMsgText == getString(R.string.chat_status_history_deleted)
 
         if (isSystemDeletion && msg.senderId == me) {
@@ -1794,7 +1873,7 @@ class ChatViewModel : ViewModel() {
                 }
                 withContext(Dispatchers.Main) {
                     msg.localAudioPath = cacheFile.absolutePath
-                    _messages.value = _messages.value.toList()
+                    _messagesFromFirebase.value = _messagesFromFirebase.value.toList()
                 }
             } catch (e: Exception) {
                 logE("Download audio failed: ${e.message}", e)
@@ -2069,7 +2148,7 @@ class ChatViewModel : ViewModel() {
 
                 Log.d(TAG, "Iniciando upload de status: isVideo=$isVideo, folder=$folder")
 
-                val url = uploadToCloudinary(uri, folder, resourceType)
+                val url = uploadToCloudinary(uri, folder)
                 if (url != null) {
                     val statusId = db.push().key ?: return@launch
                     val status = UserStatus(
@@ -2159,10 +2238,13 @@ class ChatViewModel : ViewModel() {
 
         viewModelScope.launch(errorHandler) {
             try {
-                val imageUrls = mutableListOf<String>()
+                val mediaUrls = mutableListOf<String>()
+                var hasVideo = false
                 imageUris.forEach { uri ->
+                    val isVideo = FriendApplication.instance.contentResolver.getType(uri)?.startsWith("video") == true
+                    if (isVideo) hasVideo = true
                     val url = uploadToCloudinary(uri, FOLDER_FEEDS)
-                    if (url != null) imageUrls.add(url)
+                    if (url != null) mediaUrls.add(url)
                 }
 
                 val postId = db.push().key ?: return@launch
@@ -2172,13 +2254,13 @@ class ChatViewModel : ViewModel() {
                     authorName = _myName.value.ifBlank { username },
                     authorPhotoUrl = _myPhotoUrl.value,
                     text = text,
-                    photoUrl = imageUrls.firstOrNull(),
-                    photoUrls = imageUrls, // ✅ Nova lista de fotos
-                    mediaType = if (imageUrls.isNotEmpty()) "IMAGE_FEED" else null,
+                    photoUrl = mediaUrls.firstOrNull(),
+                    photoUrls = mediaUrls,
+                    mediaType = if (hasVideo) "VIDEO_FEED" else if (mediaUrls.isNotEmpty()) "IMAGE_FEED" else null,
                     animatedEmoji = animatedEmoji,
                     timestamp = System.currentTimeMillis(),
                     isPublic = isPublic,
-                    mentions = allMentions, // Mantemos todas no texto para clique, mas só notificamos amigos
+                    mentions = allMentions,
                     privateAudience = if (isPublic) emptyList() else friends.toList()
                 )
                 db.child("feeds").child(postId).setValue(post).await()
@@ -2195,7 +2277,7 @@ class ChatViewModel : ViewModel() {
                         postId = postId,
                         postPreviewText = text.take(50),
                         timestamp = System.currentTimeMillis(),
-                        postPhotoUrl = imageUrls.firstOrNull()
+                        postPhotoUrl = mediaUrls.firstOrNull()
                     )
                     db.child("notifications").child(mentionedUser).child(notificationId).setValue(notification)
                 }

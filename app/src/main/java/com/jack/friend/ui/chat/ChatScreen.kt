@@ -671,11 +671,11 @@ fun ChatScreen(
                             Manifest.permission.ACCESS_COARSE_LOCATION
                         ))
                     },
-                    onMediaSelected = { uris -> uris.forEach { viewModel.uploadImage(it, tempMessageDuration) } }
+                    onMediaSelected = { uris -> uris.forEach { viewModel.uploadMedia(it, tempMessageDuration) } }
                 )
             }
             if (showInAppCamera) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { InAppCameraView(onDismiss = { showInAppCamera = false }, onPhotoCaptured = { uri -> viewModel.uploadImage(uri, tempMessageDuration) }, onVideoCaptured = { uri -> viewModel.uploadVideo(uri, tempMessageDuration) }) }
-            if (showModernGallery) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { ModernGalleryPicker(viewModel = viewModel, onDismiss = { showModernGallery = false }, onSend = { uris -> uris.forEach { u -> viewModel.uploadImage(u, tempMessageDuration) } }) }
+            if (showModernGallery) Box(modifier = Modifier.fillMaxSize().zIndex(10f)) { ModernGalleryPicker(viewModel = viewModel, onDismiss = { showModernGallery = false }, onSend = { uris -> uris.forEach { u -> viewModel.uploadMedia(u, tempMessageDuration) } }) }
 
             if (showStatusAttachmentMenu) {
                 MediaAttachmentSheet(
@@ -1871,49 +1871,15 @@ fun StatusViewer(
 @androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 fun VideoStatusPlayer(url: String, onComplete: () -> Unit, isPaused: Boolean, onProgress: (Float) -> Unit = {}) {
-    val currentContext = LocalContext.current
-    val exoPlayer = remember {
-        ExoPlayer.Builder(currentContext).build().apply {
-            setMediaItem(MediaItem.fromUri(Uri.parse(url)))
-            prepare()
-            playWhenReady = true
-        }
-    }
-
-    LaunchedEffect(exoPlayer) {
-        while (true) {
-            kotlinx.coroutines.delay(50)
-            if (exoPlayer.duration > 0) {
-                onProgress(exoPlayer.currentPosition.toFloat() / exoPlayer.duration.toFloat())
-            }
-        }
-    }
-
-    LaunchedEffect(isPaused) {
-        if (isPaused) exoPlayer.pause() else exoPlayer.play()
-    }
-
-    DisposableEffect(Unit) {
-        val listener = object : androidx.media3.common.Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == androidx.media3.common.Player.STATE_ENDED) onComplete()
-            }
-        }
-        exoPlayer.addListener(listener)
-        onDispose {
-            exoPlayer.release()
-        }
-    }
-
-    AndroidView(
-        factory = {
-            PlayerView(currentContext).apply {
-                player = exoPlayer
-                useController = false
-                resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-            }
-        },
-        modifier = Modifier.fillMaxSize()
+    ModernVideoPlayer(
+        videoUrl = url,
+        modifier = Modifier.fillMaxSize(),
+        autoPlay = !isPaused,
+        loop = false,
+        showControls = false, // Story has its own progress bars
+        onVideoComplete = onComplete,
+        onProgress = onProgress,
+        useFullPreview = true
     )
 }
 

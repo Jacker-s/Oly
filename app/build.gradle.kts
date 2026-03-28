@@ -93,10 +93,12 @@ dependencies {
     implementation(libs.firebase.database)
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
+
+    // Firebase Storage
     implementation(libs.firebase.storage)
     implementation(libs.firebase.messaging)
 
-    // Cloudinary
+    // Cloudinary for Media
     implementation(libs.cloudinary.android)
 
     // Image Loading

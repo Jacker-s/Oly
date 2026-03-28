@@ -118,7 +118,23 @@ data class Message(
     // =========================
     @get:Exclude
     @set:Exclude
-    var localAudioPath: String? = null
+    var localAudioPath: String? = null,
+
+    @get:Exclude
+    @set:Exclude
+    var isUploading: Boolean = false,
+
+    @get:Exclude
+    @set:Exclude
+    var uploadProgress: Float = 0f,
+
+    @get:Exclude
+    @set:Exclude
+    var isDownloading: Boolean = false,
+
+    @get:Exclude
+    @set:Exclude
+    var localUri: String? = null
 
 ) : Serializable {
 
@@ -128,15 +144,15 @@ data class Message(
 
     @get:Exclude
     val isImage: Boolean
-        get() = !imageUrl.isNullOrEmpty()
+        get() = !imageUrl.isNullOrEmpty() || (isUploading && localUri != null && !isVideo && !isAudio && !isFile)
 
     @get:Exclude
     val isVideo: Boolean
-        get() = !videoUrl.isNullOrEmpty()
+        get() = !videoUrl.isNullOrEmpty() || (isUploading && localUri != null && localUri?.contains("video") == true)
 
     @get:Exclude
     val isAudio: Boolean
-        get() = !audioUrl.isNullOrEmpty()
+        get() = !audioUrl.isNullOrEmpty() || (isUploading && localUri != null && localUri?.contains("audio") == true)
 
     @get:Exclude
     val isText: Boolean

@@ -2,28 +2,19 @@ package com.jack.friend.ui.chat
 
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.BrokenImage
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
 import coil.compose.SubcomposeAsyncImage
 import com.jack.friend.R
 import androidx.compose.ui.res.stringResource
@@ -43,83 +35,95 @@ import java.util.concurrent.TimeUnit
 fun MessageVideoItem(
     videoUrl: String,
     onVideoClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isUploading: Boolean = false
 ) {
     val context = LocalContext.current
     var videoDuration by remember { mutableLongStateOf(0L) }
+    var isVideoPlaying by remember { mutableStateOf(false) }
 
     LaunchedEffect(videoUrl) {
-        val retriever = MediaMetadataRetriever()
-        try {
-            retriever.setDataSource(videoUrl, HashMap<String, String>())
-            val time = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-            videoDuration = time?.toLongOrNull() ?: 0L
-        } catch (e: Exception) {
-            e.printStackTrace()
-        } finally {
-            retriever.release()
+        if (!isUploading) {
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(videoUrl, HashMap<String, String>())
+                val time = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                videoDuration = time?.toLongOrNull() ?: 0L
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                retriever.release()
+            }
         }
     }
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 100.dp, max = 300.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(LocalChatColors.current.separator)
-            .clickable { onVideoClick(videoUrl) }
+            .heightIn(min = 150.dp, max = 320.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(LocalChatColors.current.separator.copy(alpha = 0.1f))
+            // Removed outer clickable to allow ModernVideoPlayer gestures to work
     ) {
-        SubcomposeAsyncImage(
-            model = videoUrl, // Coil video extension handles this if present
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
-            loading = {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.primary)
-                }
-            },
-            error = {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        if (!isUploading) {
+            com.jack.friend.ui.components.ModernVideoPlayer(
+                videoUrl = videoUrl,
+                modifier = Modifier.fillMaxSize(),
+                autoPlay = false,
+                loop = true,
+                showControls = false, // Simplified controls for chat bubble
+                onSingleTap = { 
+                    isVideoPlaying = !isVideoPlaying
+                },
+                onDoubleTap = { onVideoClick(videoUrl) } // Open full screen on double tap
+            )
+            
+            // Premium Play Button Overlay (if not playing yet)
+            AnimatedVisibility(
+                visible = !isVideoPlaying,
+                enter = fadeIn(),
+                exit = fadeOut(),
+                modifier = Modifier.align(Alignment.Center)
+            ) {
+                Surface(
+                    color = Color.Black.copy(alpha = 0.3f),
+                    shape = CircleShape,
+                    modifier = Modifier.size(54.dp)
+                ) {
                     Icon(
-                        imageVector = Icons.Rounded.BrokenImage,
-                        contentDescription = stringResource(R.string.error_load_image),
-                        tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
-                        modifier = Modifier.size(48.dp)
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.White,
+                        modifier = Modifier.size(34.dp).padding(start = 4.dp)
                     )
                 }
             }
-        )
-
-        // Play icon
-        Box(
-            modifier = Modifier
-                .align(Alignment.Center)
-                .size(50.dp)
-                .clip(RoundedCornerShape(25.dp))
-                .background(Color.Black.copy(alpha = 0.5f)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.PlayArrow,
-                contentDescription = stringResource(R.string.action_play),
-                tint = Color.White,
-                modifier = Modifier.size(32.dp)
-            )
+        } else {
+             Box(
+                modifier = Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = Color.White, modifier = Modifier.size(30.dp))
+            }
         }
 
-        // Video duration
-        if (videoDuration > 0) {
-            Text(
-                text = formatDuration(videoDuration),
-                color = Color.White,
-                fontSize = 11.sp,
+        // Duration Label (Premium Style)
+        if (videoDuration > 0 && !isUploading) {
+            Surface(
+                color = Color.Black.copy(alpha = 0.6f),
+                shape = RoundedCornerShape(8.dp),
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(4.dp))
-                    .padding(horizontal = 6.dp, vertical = 2.dp)
-            )
+                    .padding(12.dp)
+            ) {
+                Text(
+                    text = formatDuration(videoDuration),
+                    color = Color.White,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                )
+            }
         }
     }
 }

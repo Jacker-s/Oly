@@ -22,13 +22,15 @@ import androidx.compose.ui.unit.dp
 import coil.compose.SubcomposeAsyncImage
 import com.jack.friend.R
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.graphics.Color
 import com.jack.friend.ui.theme.LocalChatColors
 
 @Composable
 fun MessageImageItem(
     imageUrl: String,
     onImageClick: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isUploading: Boolean = false
 ) {
     Box(
         modifier = modifier
@@ -69,5 +71,20 @@ fun MessageImageItem(
                 }
             }
         )
+
+        if (isUploading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.3f)),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(32.dp),
+                    color = Color.White,
+                    strokeWidth = 3.dp
+                )
+            }
+        }
     }
 }

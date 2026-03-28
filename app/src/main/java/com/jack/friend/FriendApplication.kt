@@ -6,7 +6,6 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
-import com.cloudinary.android.MediaManager
 import coil.ImageLoader
 import coil.ImageLoaderFactory
 import coil.decode.GifDecoder
@@ -14,12 +13,12 @@ import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import com.google.android.gms.ads.MobileAds
 import com.google.firebase.database.FirebaseDatabase
+import com.cloudinary.android.MediaManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.io.File
 
 class FriendApplication : Application(), Application.ActivityLifecycleCallbacks, ImageLoaderFactory {
 
@@ -45,19 +44,24 @@ class FriendApplication : Application(), Application.ActivityLifecycleCallbacks,
             MobileAds.initialize(this@FriendApplication) {}
         }
 
+        // Inicializar Cloudinary
+        try {
+            val config = mapOf(
+                "cloud_name" to CloudinaryConfig.CLOUD_NAME,
+                "api_key" to CloudinaryConfig.API_KEY,
+                "api_secret" to CloudinaryConfig.API_SECRET
+            )
+            MediaManager.init(this, config)
+        } catch (e: Exception) {
+            // Se já foi inicializado
+        }
+
         // Ativa persistência offline do Firebase
         try {
             FirebaseDatabase.getInstance().setPersistenceEnabled(true)
         } catch (e: Exception) {
             // Pode falhar se já tiver sido chamado
         }
-
-        val config = mapOf(
-            "cloud_name" to "dagdvifyz",
-            "api_key" to "515648516698279",
-            "api_secret" to "CKubGcQuYFyGat2n5I0Q0eZi-QQ"
-        )
-        MediaManager.init(this, config)
 
         // INICIAR O SERVIÇO DE MENSAGENS/CHAMADAS COMO BACKGROUND SERVICE
         // Removemos o startForegroundService para não exibir a notificação fixa

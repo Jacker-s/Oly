@@ -284,15 +284,27 @@ fun MetaMessageBubble(
                                 }
                             }
 
-                            if (message.imageUrl != null) {
+                            if (message.imageUrl != null || (message.isUploading && message.localUri != null && !message.isVideo && !message.isAudio)) {
+                                val imageToDisplay = message.imageUrl ?: message.localUri!!
                                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                                    MessageImageItem(imageUrl = message.imageUrl!!, onImageClick = onImageClick, modifier = Modifier.fillMaxWidth())
+                                    MessageImageItem(
+                                        imageUrl = imageToDisplay,
+                                        onImageClick = onImageClick,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        isUploading = message.isUploading
+                                    )
                                 }
                             }
 
-                            if (message.videoUrl != null) {
+                            if (message.videoUrl != null || (message.isUploading && message.localUri != null && message.isVideo)) {
+                                val videoToDisplay = message.videoUrl ?: message.localUri!!
                                 Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                                    MessageVideoItem(videoUrl = message.videoUrl!!, onVideoClick = onVideoClick, modifier = Modifier.fillMaxWidth())
+                                    MessageVideoItem(
+                                        videoUrl = videoToDisplay,
+                                        onVideoClick = onVideoClick,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        isUploading = message.isUploading
+                                    )
                                 }
                             }
 
@@ -304,14 +316,17 @@ fun MetaMessageBubble(
                                 LocationBubble(message = message, isMe = isMe)
                             }
 
-                            if (message.audioUrl != null) AudioPlayerBubble(
-                                url = message.audioUrl!!,
-                                localPath = message.localAudioPath,
-                                isMe = isMe,
-                                isPlayed = message.audioPlayed,
-                                durationSeconds = message.audioDurationSeconds,
-                                onPlay = { if (!isMe && !message.audioPlayed) onAudioPlayed() }
-                            )
+                            if (message.audioUrl != null || (message.isUploading && message.isAudio)) {
+                                AudioPlayerBubble(
+                                    url = message.audioUrl,
+                                    localPath = message.localAudioPath ?: message.localUri,
+                                    isMe = isMe,
+                                    isPlayed = message.audioPlayed,
+                                    durationSeconds = message.audioDurationSeconds,
+                                    onPlay = { if (!isMe && !message.audioPlayed) onAudioPlayed() },
+                                    isUploading = message.isUploading
+                                )
+                            }
 
                             if (message.linkPreview != null) {
                                 LinkPreviewCard(preview = message.linkPreview!!, isMe = isMe)
@@ -835,12 +850,13 @@ fun SwiftUIDivider() {
 
 @Composable
 fun AudioPlayerBubble(
-    url: String,
+    url: String?,
     localPath: String?,
     isMe: Boolean,
     isPlayed: Boolean,
     durationSeconds: Long?,
-    onPlay: () -> Unit
+    onPlay: () -> Unit,
+    isUploading: Boolean = false
 ) {
     var isPlaying by remember { mutableStateOf(false) }
     var progress by remember { mutableFloatStateOf(0f) }
@@ -882,37 +898,43 @@ fun AudioPlayerBubble(
     }
 
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 4.dp).width(220.dp)) {
-        IconButton(
-            onClick = {
-                if (isPlaying) {
-                    mediaPlayer.pause()
-                    isPlaying = false
-                } else {
-                    onPlay()
-                    try {
-                        if (progress > 0f && progress < 0.99f) {
-                            mediaPlayer.start()
-                            isPlaying = true
-                        } else {
-                            mediaPlayer.reset()
-                            mediaPlayer.setDataSource(localPath ?: url)
-                            mediaPlayer.prepareAsync()
-                            mediaPlayer.setOnPreparedListener { it.start(); isPlaying = true }
+        if (isUploading) {
+            Box(modifier = Modifier.size(42.dp), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp), color = textColor, strokeWidth = 2.dp)
+            }
+        } else {
+            IconButton(
+                onClick = {
+                    if (isPlaying) {
+                        mediaPlayer.pause()
+                        isPlaying = false
+                    } else {
+                        onPlay()
+                        try {
+                            if (progress > 0f && progress < 0.99f) {
+                                mediaPlayer.start()
+                                isPlaying = true
+                            } else {
+                                mediaPlayer.reset()
+                                mediaPlayer.setDataSource(localPath ?: url ?: "")
+                                mediaPlayer.prepareAsync()
+                                mediaPlayer.setOnPreparedListener { it.start(); isPlaying = true }
+                            }
+                            mediaPlayer.setOnCompletionListener { isPlaying = false; progress = 0f }
+                        } catch (e: Exception) {
+                            Log.e("AudioPlayer", "Error: ${e.message}")
                         }
-                        mediaPlayer.setOnCompletionListener { isPlaying = false; progress = 0f }
-                    } catch (e: Exception) {
-                        Log.e("AudioPlayer", "Error: ${e.message}")
                     }
-                }
-            },
-            modifier = Modifier.size(42.dp)
-        ) {
-            Icon(
-                imageVector = if (isPlaying) Icons.Rounded.PauseCircleFilled else Icons.Rounded.PlayCircleFilled,
-                contentDescription = null,
-                tint = if (isPlayed && !isMe) playedColor else textColor,
-                modifier = Modifier.size(38.dp)
-            )
+                },
+                modifier = Modifier.size(42.dp)
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Rounded.PauseCircleFilled else Icons.Rounded.PlayCircleFilled,
+                    contentDescription = null,
+                    tint = if (isPlayed && !isMe) playedColor else textColor,
+                    modifier = Modifier.size(38.dp)
+                )
+            }
         }
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {

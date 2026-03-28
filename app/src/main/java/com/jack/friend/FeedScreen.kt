@@ -79,6 +79,7 @@ import com.jack.friend.ui.components.AdMobBanner
 import com.jack.friend.ui.components.MediaAttachmentSheet
 import com.jack.friend.ui.components.InAppCameraView
 import com.jack.friend.ui.components.ModernGalleryPicker
+import com.jack.friend.ui.components.ModernVideoPlayer
 import com.jack.friend.ui.components.WappiLikeIcon
 import com.jack.friend.ui.components.WappiCommentIcon
 import com.jack.friend.ui.components.WappiShareIcon
@@ -1126,7 +1127,7 @@ fun FeedPostCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(top = 8.dp)
+                        .padding(top = 10.dp)
                         .heightIn(max = 520.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -1203,6 +1204,39 @@ fun FeedPostCard(
 
                     if (heartPulseScale > 1f) {
                         Box(modifier = Modifier.graphicsLayer(scaleX = animatedHeartScale, scaleY = animatedHeartScale)) {
+                            WappiLikeIcon(filled = true, tint = Color.White.copy(alpha = 0.95f), size = 110.dp)
+                        }
+                    }
+                }
+            } else if (post.mediaType == "VIDEO_FEED" && images.isNotEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 10.dp, start = 12.dp, end = 12.dp)
+                        .height(380.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                ) {
+                    ModernVideoPlayer(
+                        videoUrl = images[0],
+                        modifier = Modifier.fillMaxSize(),
+                        autoPlay = false,
+                        loop = true,
+                        showControls = true,
+                        onDoubleTap = {
+                            if (!hasLiked) {
+                                viewModel.toggleFeedLike(post.id, true)
+                                heartPulseScale = 1.6f
+                                haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+                            }
+                        }
+                    )
+                    
+                    if (heartPulseScale > 1f) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.Center)
+                                .graphicsLayer(scaleX = animatedHeartScale, scaleY = animatedHeartScale)
+                        ) {
                             WappiLikeIcon(filled = true, tint = Color.White.copy(alpha = 0.95f), size = 110.dp)
                         }
                     }
