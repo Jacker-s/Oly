@@ -1,0 +1,132 @@
+﻿Band, https://vipwaytvcdn.multtv.tv.br:5444/TVThathi_Band/index.m3u8
+Record, https://rdcstream.life/live/record/index.m3u8
+RedeTV!, https://rdcstream.life/live/redetv/index.m3u8
+SBT, https://d1jvs4svzaqp8n.cloudfront.net/indexMobile.m3u8
+Sabor e Arte, https://cdnvipwaytv.multtv.tv.br:5443/-ZRqUHjlpeqgNq7T1DcK3w/1786766867/SaborArte/video.m3u8
+TV Aparecida, https://cdn-sp2.satlabscloud.com.br/TV_APARECIDA_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+TV Brasil, https://cdnvipwaytv.multtv.tv.br:5443/XmuSKO-Bo4YAv2tw2U-5Ng/1786766877/TVBRASIL/video.m3u8
+TV Cultura, https://cdn-sp2.satlabscloud.com.br/TV_CULTURA_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Animal Planet, https://rdcstream.life/live/animalplanet/index.m3u8
+Discovery Channel, https://rdcstream.life/live/discoverychannel/index.m3u8
+Discovery Science, https://rdcstream.life/live/discoveryscience/index.m3u8
+Discovery Theater, https://rdcstream.life/live/discoverytheater/index.m3u8
+Discovery Turbo, https://rdcstream.life/live/discoveryturbo/index.m3u8
+Discovery World, https://rdcstream.life/live/discoveryworld/index.m3u8
+Futura, https://rdcstream.life/live/futura/index.m3u8
+Futura, https://a36aivottepl-a.akamaihd.net/gru-nitro/live/clients/dash/enc/swkktyrevj/out/v1/bd2d93c0932344b6bd3599cd3edef60a/cenc.mpd
+History, https://rdcstream.life/live/history/index.m3u8
+History 2, https://rdcstream.life/live/history2/index.m3u8
+AE, https://rdcstream.life/live/aee/index.m3u8
+Adult Swim, https://cdn-sp2.satlabscloud.com.br/TRUTV_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Arte1, https://cdnvipwaytv.multtv.tv.br:4443/szBkNzWvQ3ZjwolvkKnklA/1786766832/bpk-tv/ARTE1/default/index.m3u8
+BIS, https://rdcstream.life/live/bis/index.m3u8
+BIS, https://a173aivottepl-a.akamaihd.net/gru-nitro/live/clients/dash/enc/lx6lpj1gcu/out/v1/465b1cc0873f484baf978967b58f0828/cenc.mpd
+Canal OFF, https://otte.live.fly.ww.aiv-cdn.net/gru-nitro/live/clients/dash/enc/r0gyywkof7/out/v1/3ce56dd956ae4fcb80123b970084351e/cenc.mpd
+Canal OFF, https://rdcstream.life/live/off/index.m3u8
+Curta!, https://rdcstream.life/live/curta/index.m3u8
+Discovery Home e Health, https://rdcstream.life/live/discoveryhh/index.m3u8
+E!, https://rdcstream.life/live/entertainment/index.m3u8
+Fashion TV, https://rdcstream.life/live/fashiontv/index.m3u8
+Fish TV, https://rdcstream.life/live/fishtv/index.m3u8
+Food Network, https://rdcstream.life/live/foodnetwork/index.m3u8
+GNT, https://rdcstream.life/live/gnt/index.m3u8
+GNT, https://live-pv-ta.amazon.fastly-edge.com/gru-nitro/live/clients/dash/enc/h9c8z9m1dq/out/v1/9b1b1aa15b4f471ea19674290554499e/cenc.mpd
+Globoplay Novelas, https://a128aivottepl-a.akamaihd.net/gru-nitro/live/clients/dash/enc/ds9ertnhrl/out/v1/cb791b7362754ba1b87d9474ccd95fa3/cenc.mpd
+Globoplay Novelas, https://rdcstream.life/live/globoplaynovelas/index.m3u8
+HGTV, https://cdn-3.nxplay.com.br/HGTV_BR_NX/index.m3u8
+Modo Viagem, https://rdcstream.life/live/modoviagem/index.m3u8
+Modo Viagem, https://a137aivottepl-a.akamaihd.net/gru-nitro/live/clients/dash/enc/di8gz3gds1/out/v1/a655796e8c964ea6962bb01ecf124e60/cenc.mpd
+Multishow, https://otte.live.fly.ww.aiv-cdn.net/gru-nitro/live/clients/dash/enc/x7aaupxajb/out/v1/49d602c6294147a18d798ce6abbb6957/cenc.mpd
+Multishow, https://rdcstream.life/live/multishow/index.m3u8
+TLC, https://rdcstream.life/live/tlc/index.m3u8
+WooHoo, https://cdn-3.nxplay.com.br/WOOHOO_TK/index.m3u8
+Caze TV, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/4g7jp4flh5/out/v1/2fbb11cb471247ce8d33212a0d2ca3b6/cenc.mpd
+Caze TV 2, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/mhtoezwtr5/out/v1/bc4e3d26a68140e2bd257f843f40d885/cenc.mpd
+Caze TV 3, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/ese3ubkczc/out/v1/643cc7391b5c48af826b42ec34d7fdeb/cenc.mpd
+Combate, https://rdcstream.life/live/combate/index.m3u8
+ESPN, https://rdcstream.life/live/espn/index.m3u8
+ESPN, https://disney.fastcdn404.workers.dev/dvt2=exp=1786680242~url=%2Fgru1%2Fva01%2Fdisneyplus%2Fchannel%2Fef857a31-bd76-436b-b327-8889d90e6e5c-1781857684883%2F~psid=00000000-0000-0000-0000-000000000000~aid=2a054be4-f498-4c10-b138-a8e521dc0363~did=3ed2ee0a-795b-4bd0-93ed-e75e5d6ee34b~country=BR~kid=k02~hmac=df9cf8745af56d543848b7e03305a4d7c229cdbd7fe361f277a21402b22f2970/gru1/va01/disneyplus/channel/ef857a31-bd76-436b-b327-8889d90e6e5c-1781857684883/ctr-all-sliding.m3u8?fr=30&r=1080&v=1&hash=cf047ff1beb500e648587b114ab47e3742f8f3d8
+ESPN 2, https://disney.cdnspeed505.workers.dev/dvt2=exp=1786680342~url=%2Fgru1%2Fva01%2Fdisneyplus%2Fchannel%2Fab853641-69f3-4e7f-8b56-6c06719d7734-1783702963345%2F~psid=00000000-0000-0000-0000-000000000000~aid=2a054be4-f498-4c10-b138-a8e521dc0363~did=3ed2ee0a-795b-4bd0-93ed-e75e5d6ee34b~country=BR~kid=k02~hmac=39c96659fee693e14f0bf28b22d6ccd2c321c4183050e9a7285645214bcb3c12/gru1/va01/disneyplus/channel/ab853641-69f3-4e7f-8b56-6c06719d7734-1783702963345/ctr-all-sliding.m3u8?fr=30&r=1080&v=1&hash=b1791718d4b0b66f31b57713fdb1c55c335e6f08
+ESPN 2, https://rdcstream.life/live/espn2/index.m3u8
+ESPN 3, https://disney.fastcdn404.workers.dev/dvt2=exp=1786680317~url=%2Fgru1%2Fva01%2Fdisneyplus%2Fchannel%2Faa536155-4878-4b15-be18-011382749efc-1783701605782%2F~psid=00000000-0000-0000-0000-000000000000~aid=2a054be4-f498-4c10-b138-a8e521dc0363~did=3ed2ee0a-795b-4bd0-93ed-e75e5d6ee34b~country=BR~kid=k02~hmac=fb9c92592c062408f5683f3a5b019a55a862207d33c4b6cea84f4dbfad07e581/gru1/va01/disneyplus/channel/aa536155-4878-4b15-be18-011382749efc-1783701605782/ctr-all-sliding.m3u8?fr=30&r=1080&v=1&hash=26416f6333f6471cfcf08d91772d4e79db0fb69a
+ESPN 3, https://rdcstream.life/live/espn3/index.m3u8
+ESPN 4, https://rdcstream.life/live/espn4/index.m3u8
+ESPN 5, https://rdcstream.life/live/espn5/index.m3u8
+ESPN 6, https://rdcstream.life/live/espn6/index.m3u8
+NSports, https://origin-fast.b-cdn.net/NSPORTS/index.m3u8
+Paramount+, https://dai.google.com/linear/hls/event/tuve-Kt1QK2H44cBU2444A/master.m3u8
+Paramount+ 2, https://dai.google.com/linear/hls/event/tuve-Kt1QK2H44cBU2444A/master.m3u8
+Paramount+ 3, https://dai.google.com/linear/hls/event/iSVetUfzToamQRrjYkTuBg/master.m3u8
+Paramount+ 4, https://dai.google.com/linear/hls/event/mQVErr3RRaeYvZxMdsCuBA/master.m3u8
+Premiere, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/nelfyucw9a/out/v1/6ffb2c365ad14f88b154591beb43d1f6/cenc.mpd
+Premiere, https://rdcstream.life/live/premiereclubes/index.m3u8
+Premiere 2, https://rdcstream.life/live/premiere2/index.m3u8
+Premiere 2, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/oy6rp0jwmf/out/v1/580ecf12bad24979baf8dd993dce053e/cenc.mpd
+Premiere 3, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/6onrfniyry/out/v1/f23069c61dbf4e00890a40b705a84079/cenc.mpd
+Premiere 3, https://rdcstream.life/live/premiere3/index.m3u8
+Premiere 4, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/tirjor64kh/out/v1/fd2ed9916d994f09a3bd62b64141b9cb/cenc.mpd
+Premiere 5, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/1obktrybht/out/v1/08265453c8f64d9fbeb3cf43764403a8/cenc.mpd
+Premiere 6, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/0bmtb2fxcj/out/v1/b5f50c3632264d32bf857652f631b0fb/cenc.mpd
+Premiere 7, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash-sd/enc/kqftwsvdgz/out/v1/9f866bc326d241aa9d470c52654a7bf9/cenc-sd.mpd
+Premiere 8, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash-sd/enc/ln7isfb6fz/out/v1/34c85840b67d46b990cf4e01fb16d24d/cenc-sd.mpd
+Sportv, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/w8kwdfmlgs/out/v1/3aa321e477504937a439b602e078eb18/cenc.mpd
+Sportv, https://rdcstream.life/live/sportv/index.m3u8
+Sportv 2, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/dsa3hwuhd1/out/v1/631b48c8d9ea437e8309d1a4b55acef5/cenc.mpd
+Sportv 2, https://rdcstream.life/live/sportv2/index.m3u8
+Sportv 3, https://qw.live.pv-cdn.net/OTTB/gru-nitro/live/clients/dash/enc/6otiglnptp/out/v1/add7499679b0422cb6791f7701f95ecc/cenc.mpd
+Sportv 3, https://rdcstream.life/live/sportv3/index.m3u8
+SportyNet, https://rdcstream.life/live/sportynet/index.m3u8
+SportyNet+ 1, https://rdcstream.life/live/sportynetplus/index.m3u8
+SportyNet+ 2, https://rdcstream.life/live/sportynetplus2/index.m3u8
+SportyNet+ 3, https://rdcstream.life/live/sportynetplus3/index.m3u8
+XSports, https://rdcstream.life/live/xsports/index.m3u8
+AMC, https://rdcstream.life/live/amc/index.m3u8
+AXN, https://rdcstream.life/live/axn/index.m3u8
+Canal Brasil, https://a92aivottepl-a.akamaihd.net/gru-nitro/live/clients/dash/enc/2glwrcj9am/out/v1/d1edbefeaf7b4a89940e300bda5ecb5a/cenc.mpd
+Canal Brasil, https://rdcstream.life/live/canalbrasil/index.m3u8
+Cinemax, https://cdn-sp2.satlabscloud.com.br/CINEMAX/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Discovery ID, https://rdcstream.life/live/discoveryid/index.m3u8
+HBO, https://cdn-sp2.satlabscloud.com.br/HBO/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+HBO 2, https://cdn-sp2.satlabscloud.com.br/HBO2/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+HBO Family, https://cdn-sp2.satlabscloud.com.br/HBO_FAMILY/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+HBO Pop, https://cdn-sp2.satlabscloud.com.br/HBO_POP_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+HBO Signature, https://cdn-sp2.satlabscloud.com.br/HBO_SIGNATURE/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+HBO Xtreme, https://cdn-sp2.satlabscloud.com.br/HBO_EXTREME_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+HBO+, https://cdn-sp2.satlabscloud.com.br/HBO_PLUS/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Lifetime, https://cdn-3.nxplay.com.br/LIFE_TIME_TK/index.m3u8
+Megapix, https://live-pv-ta.amazon.fastly-edge.com/gru-nitro/live/clients/dash/enc/21ilsertww/out/v1/124c84cbafc745b6b2c47fc9be606727/cenc.mpd
+Megapix, https://rdcstream.life/live/megapix/index.m3u8
+Sony Channel, https://cdn-sp2.satlabscloud.com.br/SONY_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Sony Movies, https://cdn-sp2.satlabscloud.com.br/SONY_MOVIES/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Space, https://rdcstream.life/live/space/index.m3u8
+Studio Universal, https://live-pv-ta.amazon.fastly-edge.com/gru-nitro/live/clients/dash/enc/vwlmqnjqyw/out/v1/5ea5d61e169f415886ade0288243bd91/cenc.mpd
+Studio Universal, https://rdcstream.life/live/studiouniversal/index.m3u8
+TNT, https://rdcstream.life/live/tnt/index.m3u8
+TNT Novelas, https://rdcstream.life/live/tntnovelas/index.m3u8
+TNT Séries, https://rdcstream.life/live/tntseries/index.m3u8
+Telecine Action, https://rdcstream.life/live/telecineaction/index.m3u8
+Telecine Cult, https://rdcstream.life/live/telecinecult/index.m3u8
+Telecine Fun, https://rdcstream.life/live/telecinefun/index.m3u8
+Telecine Pipoca, https://rdcstream.life/live/telecinepipoca/index.m3u8
+Telecine Premium, https://rdcstream.life/live/telecinepremium/index.m3u8
+Telecine Touch, https://rdcstream.life/live/telecinetouch/index.m3u8
+USA, https://live-pv-ta.amazon.fastly-edge.com/gru-nitro/live/clients/dash/enc/hb7z5gcmqa/out/v1/73ea2601a707404e832489bb0e960813/cenc.mpd
+USA, https://rdcstream.life/live/usa/index.m3u8
+Universal TV, https://a105live-pv-ta-amazon.akamaized.net/gru-nitro/live/clients/dash/enc/rjvrhjt8td/out/v1/42dd3f040e154f878ef62c3dfd90d03f/cenc.mpd
+Universal TV, https://rdcstream.life/live/universaltv/index.m3u8
+Warner TV, https://cdn-sp2.satlabscloud.com.br/WARNER_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Cartoon Network, https://rdcstream.life/live/cartoonnetwork/index.m3u8
+Cartoonito, https://cdn-sp2.satlabscloud.com.br/BOOMERANG_HD/index.m3u8?token=ulDZjn1kAAan1kzoXmUL1B84gijOI6v7
+Discovery Kids, https://rdcstream.life/live/discoverykids/index.m3u8
+Gloob, https://otte.live.fly.ww.aiv-cdn.net/gru-nitro/live/clients/dash/enc/sjbrjzcmin/out/v1/17ffd96f922c4370977c4780c31b4558/cenc.mpd
+Gloob, https://rdcstream.life/live/gloob/index.m3u8
+Gloobinho, https://rdcstream.life/live/gloobinho/index.m3u8
+Gloobinho, https://live-pv-ta.amazon.fastly-edge.com/gru-nitro/live/clients/dash/enc/gndmtl8lkm/out/v1/7543a7700b96455c8e66a65e89ea4ead/cenc.mpd
+Tooncast, https://rdcstream.life/live/tooncast/index.m3u8
+Agro+, https://cdnvipwaytv.multtv.tv.br:5443/szBkNzWvQ3ZjwolvkKnklA/1786766832/Agromais/video.m3u8
+Band News, https://cdnvipwaytv.multtv.tv.br:4443/z01JO0qGqYQl01wsLpCFlA/1786766758/bpk-tv/BANDNEWS/default/index.m3u8
+CNN Brasil, https://abgqheyaaaaaaaamhe245wvx4hfc6.ta.bia-cf.live.pv-cdn.net/iad-nitro/live/clients/dash/enc/zmpncidiwv/out/v1/56b839863a7642e2a99a8b5144341aea/cenc.mpd
+CNN Brasil, https://origin-fast.b-cdn.net/CNN_BRASIL/index.m3u8
+Globo News, https://rdcstream.life/live/globonews/index.m3u8
+JP News, https://rdcstream.life/live/jpnews/index.m3u8
+Record News, https://rnw-rn-soultv.otteravision.com/rnw/rn/rnw_rn.m3u8
